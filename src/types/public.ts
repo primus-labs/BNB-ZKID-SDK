@@ -1,13 +1,3 @@
-export interface GatewayConfig {
-  apiKey?: string;
-  baseUrl?: string;
-  timeoutMs?: number;
-}
-
-export interface ClientConfig {
-  gateway?: GatewayConfig;
-}
-
 export interface BnbZkIdError {
   code: string;
   message: string;

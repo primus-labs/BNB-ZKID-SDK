@@ -42,16 +42,6 @@ SDK 第一版应优先优化一条真实的端到端主路径：
 具体形状应尽量接近下面这个版本：
 
 ```ts
-export interface GatewayConfig {
-  apiKey?: string;
-  baseUrl?: string;
-  timeoutMs?: number;
-}
-
-export interface ClientConfig {
-  gateway?: GatewayConfig;
-}
-
 export interface BnbZkIdError {
   code: string;
   message: string;
@@ -121,7 +111,7 @@ export interface BnbZkIdClientMethods {
 }
 
 export declare class BnbZkIdClient implements BnbZkIdClientMethods {
-  constructor(config?: ClientConfig);
+  constructor();
   init(input: InitInput): Promise<InitResult>;
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveResult>;
 }
@@ -174,13 +164,9 @@ export interface ProofRequestStatusResponse {
 
 ## 配置规则
 
-第一版 `ClientConfig` 当前只先承载 Gateway 调用需要的最小配置：
+第一版 public API 暂不通过构造函数暴露配置对象。
 
-- `baseUrl`
-- `apiKey` 或等价的鉴权令牌
-- `timeoutMs`
-
-在出现真实需求之前，不要把高级重试、日志等选项提前放入 public API。
+与 Gateway、鉴权、运行时环境相关的接入参数，后续应在真实实现阶段重新评估放置位置，再决定是否进入 public contract。
 
 ## 错误模型
 
@@ -213,12 +199,7 @@ README 和 examples 中的示例，复杂度应尽量保持在这个级别：
 ```ts
 import { BnbZkIdClient } from "bnb-zkid-sdk";
 
-const client = new BnbZkIdClient({
-  gateway: {
-    apiKey: process.env.BNB_ZKID_API_KEY,
-    baseUrl: "https://api.example.com",
-  },
-});
+const client = new BnbZkIdClient();
 
 const initResult = await client.init({
   appId: "listdao",

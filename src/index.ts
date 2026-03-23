@@ -2,8 +2,6 @@ export { BnbZkIdClient } from "./client/client.js";
 export type {
   BnbZkIdClientMethods,
   BnbZkIdError,
-  ClientConfig,
-  GatewayConfig,
   InitInput,
   InitFailureResult,
   InitResult,

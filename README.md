@@ -40,12 +40,7 @@ npm test
 ```ts
 import { BnbZkIdClient } from "bnb-zkid-sdk";
 
-const client = new BnbZkIdClient({
-  gateway: {
-    apiKey: "gateway-api-key",
-    baseUrl: "https://api.example.com",
-  },
-});
+const client = new BnbZkIdClient();
 
 const initResult = await client.init({
   appId: "listdao",

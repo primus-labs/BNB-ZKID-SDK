@@ -1,7 +1,6 @@
 import { NotImplementedError } from "../errors/sdk-error.js";
 import type {
   BnbZkIdClientMethods,
-  ClientConfig,
   InitInput,
   InitResult,
   ProveInput,
@@ -10,11 +9,7 @@ import type {
 } from "../types/public.js";
 
 export class BnbZkIdClient implements BnbZkIdClientMethods {
-  readonly config: ClientConfig;
-
-  constructor(config: ClientConfig = {}) {
-    this.config = config;
-  }
+  constructor() {}
 
   async init(input: InitInput): Promise<InitResult> {
     void input;
