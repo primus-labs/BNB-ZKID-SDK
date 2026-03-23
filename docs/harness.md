@@ -6,6 +6,8 @@
 
 当前仓库处于接口冻结阶段，因此本文档描述的是“下一阶段”的 harness 目标，而不是当前仓库已经提供的能力。
 
+补充说明：仓库现在已经加入一个仅供仓库内部使用的 deterministic harness，用于验证文档、fixture、example 和测试之间是否一致。它不代表真实生产实现已经开始。
+
 ## 第一个 Harness 的定义
 
 第一个 harness 应验证一条完整的 Gateway happy path：
@@ -37,6 +39,8 @@ fixtures/
   create-proof-request.json
   get-proof-request-status.json
 ```
+
+当前仓库已落地对应目录，并将 internal harness 实现放在 `src/harness/` 下，避免污染 package public surface。
 
 ## 执行策略
 

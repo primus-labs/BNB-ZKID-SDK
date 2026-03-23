@@ -16,9 +16,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json",
+    "build": "rm -rf dist && tsc -p tsconfig.json && cp -R fixtures dist/fixtures",
+    "example:minimal": "npm run build && node dist/examples/minimal.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run typecheck"
+    "test": "npm run build && node --test dist/tests/harness/minimal-sdk.test.js"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

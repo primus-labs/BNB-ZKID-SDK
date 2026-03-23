@@ -18,6 +18,7 @@ BNB ZKID TypeScript SDK 设计工作区。
 - [总体架构设计](./docs/architecture.md)
 - [SDK 规范](./docs/sdk-spec.md)
 - [Harness 说明](./docs/harness.md)
+- [文档索引](./docs/index.md)
 
 其中 `docs/architecture.md` 是当前阶段的最高优先级文档。实现工作应先遵循它，再进入 `sdk-spec` 和具体代码。
 
@@ -33,6 +34,12 @@ npm install
 
 ```bash
 npm test
+```
+
+执行最小 example：
+
+```bash
+npm run example:minimal
 ```
 
 ## 当前接口草案
@@ -64,3 +71,5 @@ await client.prove(
 ```
 
 当前这些方法只定义接口，不提供可运行实现。
+
+仓库内提供了一个仅用于验证设计的 deterministic harness，用于驱动 `examples/` 和 `tests/harness/`，但它不会作为 package public API 导出。
