@@ -22,10 +22,6 @@
 
 接受zkvm证明请求，返回zkvm证明结果。
 
-### BNB ZK ID On-chain Identify Registry
-
-钱包地址对应的链上相关属性。
-
 ## 主要流程
 
 ![bnb-zkid-client](./images/bnb-zkid-client.png)
@@ -50,10 +46,6 @@
   * provingDataId（string）：对应要证明的数据源和字段内容。
   * provingParams（可选，object）：需要传递的额外字段（比如：余额大于x，这里传x）
 * 返回一个object，可以用来去合约查询具体的分数情况。错误的情况下，返回对应的错误码。
-
-### query？
-
-用prove返回去合约查询对应的BNB ZK ID On-chain Identify Registry结果。
 
 ## 数据源变化处理
 

@@ -18,25 +18,25 @@
         </mxCell>
         <mxCell id="I58kuUp2LP2TptFJ70iA-6" value="" style="endArrow=none;dashed=1;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="I58kuUp2LP2TptFJ70iA-1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="214" y="740" as="sourcePoint" />
+            <mxPoint x="214" y="560" as="sourcePoint" />
             <mxPoint x="234" y="210" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="I58kuUp2LP2TptFJ70iA-7" value="" style="endArrow=none;dashed=1;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="I58kuUp2LP2TptFJ70iA-3">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="470" y="750" as="sourcePoint" />
+            <mxPoint x="470" y="560" as="sourcePoint" />
             <mxPoint x="480" y="140" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="I58kuUp2LP2TptFJ70iA-8" value="" style="endArrow=none;dashed=1;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="I58kuUp2LP2TptFJ70iA-4">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="740" y="750" as="sourcePoint" />
+            <mxPoint x="740" y="560" as="sourcePoint" />
             <mxPoint x="770" y="240" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="I58kuUp2LP2TptFJ70iA-9" value="" style="endArrow=none;dashed=1;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="I58kuUp2LP2TptFJ70iA-5">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="990" y="750" as="sourcePoint" />
+            <mxPoint x="990" y="560" as="sourcePoint" />
             <mxPoint x="1040" y="280" as="targetPoint" />
           </mxGeometry>
         </mxCell>
@@ -129,59 +129,6 @@
         <mxCell id="I58kuUp2LP2TptFJ70iA-29" value="返回证明结果" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="I58kuUp2LP2TptFJ70iA-28">
           <mxGeometry x="0.416" y="-2" relative="1" as="geometry">
             <mxPoint x="17" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-30" value="BNB ZK ID&amp;nbsp;&lt;div&gt;On-chain Identify Registry&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="1150" y="70" width="130" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-31" value="" style="endArrow=none;dashed=1;html=1;rounded=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" target="I58kuUp2LP2TptFJ70iA-30">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="1220" y="750" as="sourcePoint" />
-            <mxPoint x="1050" y="290" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-32" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="220" y="570" as="sourcePoint" />
-            <mxPoint x="470" y="570" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-33" value="调用quey查询链上信息" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="I58kuUp2LP2TptFJ70iA-32">
-          <mxGeometry x="-0.4538" y="1" relative="1" as="geometry">
-            <mxPoint x="12" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-34" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="480" y="600" as="sourcePoint" />
-            <mxPoint x="1210" y="600" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-35" value="查询链上信息" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="I58kuUp2LP2TptFJ70iA-34">
-          <mxGeometry x="-0.8055" relative="1" as="geometry">
-            <mxPoint x="19" as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-36" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="1210" y="640" as="sourcePoint" />
-            <mxPoint x="480" y="640" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-37" value="返回链上信息" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="I58kuUp2LP2TptFJ70iA-36">
-          <mxGeometry x="0.8082" y="-1" relative="1" as="geometry">
-            <mxPoint as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-38" value="" style="endArrow=classic;html=1;rounded=0;" edge="1" parent="1">
-          <mxGeometry width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="470" y="680" as="sourcePoint" />
-            <mxPoint x="220" y="680" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="I58kuUp2LP2TptFJ70iA-39" value="返回链上信息" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="I58kuUp2LP2TptFJ70iA-38">
-          <mxGeometry x="0.48" relative="1" as="geometry">
-            <mxPoint x="25" as="offset" />
           </mxGeometry>
         </mxCell>
       </root>
