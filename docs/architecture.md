@@ -8,7 +8,7 @@
 
 - SDK 到底解决什么问题
 - SDK 与 Primus `zktls-js-sdk`、BNB ZK ID Gateway、后端 proving system 的关系
-- 对外 facade API 和底层 Gateway API 应该分别长什么样
+- 对外 facade API 应该长什么样，以及它未来如何落到内部 Gateway 集成层
 - 模块边界、依赖方向和职责分工
 - 数据流、状态流和错误流
 - 实施顺序和每个阶段的退出标准
@@ -38,11 +38,10 @@
 
 结合手写架构说明，SDK 的最终目标不是只暴露 Gateway 原子接口，而是对业务应用提供一个更高层的 facade：
 
-- `init()`
+- `init({ appId })`
 - `prove(...)`
-- `query(...)`
 
-同时，在 facade 之下，保留一个更贴近 OpenAPI 的 `GatewayClient` 作为内部底层集成层：
+同时，在 facade 之下，保留一个更贴近 OpenAPI 的 `GatewayClient` 作为未来内部底层集成层：
 
 - `getConfig()`
 - `createProofRequest(...)`
@@ -54,7 +53,7 @@
 2. 调用 Primus `zktls-js-sdk` 获取 zkTLS attestation。
 3. 将 attestation、private data、public data 等内容组装为 Gateway 认可的 `ProofRequest`。
 4. 提交 `POST /v1/proof-requests`。
-5. 根据 `proofRequestId` 轮询状态，直到 `on_chain_attested` 或 `failed`。
+5. 在 `prove(...)` 执行过程中通过进度回调向调用方返回状态，直到 `on_chain_attested` 或 `failed`。
 
 因此，这个 SDK 的本质是一个“客户端集成编排 SDK”。
 
@@ -84,8 +83,8 @@
 
 `On-chain Identity Registry`
 
-- 用于查询钱包地址关联的链上身份属性结果。
-- 从产品体验看，可能会成为 facade `query(...)` 的依赖对象之一。
+- 用于记录或承载最终上链结果。
+- 当前不作为 public API 的直接查询对象。
 - 其具体接入方式当前未冻结。
 
 ### 系统边界
@@ -93,7 +92,7 @@
 本 SDK 直接负责的边界有三层：
 
 1. 应用代码与 facade `BnbZkIdClient` 之间的产品 API 边界
-2. facade 与底层 `GatewayClient` / `zkTLS Adapter` 之间的编排边界
+2. facade 与未来底层 `GatewayClient` / `zkTLS Adapter` 之间的编排边界
 3. SDK 与 Gateway / Primus / Registry 之间的集成边界
 
 本 SDK 不直接承担：
@@ -108,7 +107,7 @@
 ### 必须满足
 
 - 为业务应用暴露稳定的 facade `BnbZkIdClient`
-- 在内部保留稳定的 `GatewayClient`
+- 在内部保留稳定的 `GatewayClient` 设计空间
 - 为 Primus 集成定义单独的适配抽象
 - 明确 `zkTls result -> ProofRequest` 的映射边界
 - 让状态流转和错误模型可预测
@@ -132,7 +131,7 @@ Facade API (BnbZkIdClient)
   ->
 Workflow Layer
   ->
-Gateway Client Layer / zkTLS Adapter Layer / Registry Query Layer
+Gateway Client Layer / zkTLS Adapter Layer
   ->
 Implementation Layer (deferred)
 ```
@@ -143,7 +142,7 @@ Implementation Layer (deferred)
 
 - 面向应用开发者的稳定入口
 - 暴露 `BnbZkIdClient` 类
-- 暴露高层产品方法：`init / prove / query`
+- 暴露高层产品方法：`init / prove`
 
 `Gateway Client Layer`
 
@@ -154,7 +153,7 @@ Implementation Layer (deferred)
 `Workflow Layer`
 
 - 负责定义跨组件的编排接口
-- 例如：先初始化，再走 Primus，再提交 proof request，再查询状态或链上结果
+- 例如：先初始化，再走 Primus，再提交 proof request，再跟踪状态直到完成
 - 当前阶段只冻结函数签名，不写具体运行逻辑
 
 `Gateway Contract Layer`
@@ -168,12 +167,6 @@ Implementation Layer (deferred)
 - 定义 `collectAttestationBundle(...)` 的输入输出
 - 不在当前阶段承诺具体序列化实现
 
-`Registry Query Layer`
-
-- 定义 facade `query(...)` 最终依赖的数据来源抽象
-- 当前只冻结能力存在，不冻结数据获取方式
-- 可以是链上直查、后续网关代理查询、或独立 registry client
-
 `Implementation Layer`
 
 - 包括 HTTP transport、response parsing、runtime validation、Primus adapter 实现
@@ -185,7 +178,7 @@ Implementation Layer (deferred)
 
 职责：
 
-- 定义 facade 与 Gateway 两层 public types
+- 定义 facade `BnbZkIdClient` 的 public types
 - 定义 client 的方法签名
 - 定义稳定的输入输出结构
 
@@ -196,24 +189,8 @@ Implementation Layer (deferred)
 职责：
 
 - 承载 `BnbZkIdClient` 的默认形状
-- 承载内部 `GatewayClient` 的默认形状
 - 当前阶段仅保留未实现 stub，避免提前锁定 transport 方案
-
-### `src/zktls/primus.ts`
-
-职责：
-
-- 定义 Primus 集成抽象
-- 定义 attestation bundle 的 contract
-- 定义 adapter factory 的签名
-
-### `src/workflows/`
-
-职责：
-
-- 定义跨 Gateway 与 Primus 的组合流程
-- 当前阶段保留 workflow contract
-- 具体调用顺序和异常处理实现后置
+- 未来内部 `GatewayClient` 不进入当前 public surface
 
 ### `docs/`
 
@@ -229,15 +206,14 @@ Implementation Layer (deferred)
 
 SDK 对业务应用暴露的第一层能力应固定为：
 
-- `init()`
-- `prove(input)`
-- `query(input)`
+- `init({ appId })`
+- `prove(input, options?)`
 
 其中：
 
-- `init()` 代表 SDK 级初始化
-- `prove(...)` 代表从“业务证明意图”到“提交 proof request”这一整段编排
-- `query(...)` 代表查询证明结果或链上身份结果
+- `init({ appId })` 代表 SDK 级初始化，其中 `appId` 表示注册到 BNB ZK ID framework 的应用标识，并在失败时返回结构化错误信息
+- `prove(...)` 代表从“业务证明意图”到“最终证明完成”这一整段编排
+- `options.onProgress` 用于在长任务执行过程中向调用方返回状态变化
 
 ### Gateway Client
 
@@ -292,7 +268,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 1. 应用创建 `client`
 2. SDK 内部通过 `GatewayClient.getConfig()` 获取配置
 3. SDK 拿到 `GatewayConfig`
-4. 后续 `prove(...)` 或其他流程根据配置决定 provider、property 和输入收集方式
+4. 后续 `prove(...)` 根据配置决定 provider、property 和输入收集方式
 
 ### 流程 B：Gateway 原子调用
 
@@ -312,32 +288,28 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 ### 流程 D：Facade 视角的产品流程
 
 1. 应用创建 `client`
-2. 调用 `client.init()`
-3. 调用 `client.prove(...)`
+2. 调用 `client.init({ appId })`
+3. 调用 `client.prove(input, { onProgress })`
 4. SDK 内部触发 Primus 和 Gateway 编排
-5. 应用通过 `client.query(...)` 查询最终结果
+5. SDK 在执行过程中通过 `onProgress` 向应用回传状态
+6. `client.prove(...)` 最终返回 `on_chain_attested` 或 `failed`
+7. 成功态结果必须包含 `walletAddress`、`providerId`、`identityPropertyId`
 
 ## 状态模型
 
-`ProofRequestStatus`
+`ProveStatus`
 
 - `initialized`
-- `generating`
-- `submitting`
+- `data_verifying`
+- `proof_generating`
 - `on_chain_attested`
 - `failed`
 
-`ProofRequestUiStatus`
-
-- `Processing`
-- `Completed`
-- `Failed`
-
 设计原则：
 
-- 详细状态以 Gateway 为准
-- UI 状态是派生视图，不替代底层状态
-- SDK 不应在第一版随意发明新的生命周期枚举
+- 对外只暴露业务上能理解的少量状态
+- `onProgress` 与最终 `ProveResult` 共享同一套核心状态语义
+- SDK 不应在第一版向调用方暴露过多内部生命周期细节
 
 ## 错误模型
 
@@ -346,9 +318,6 @@ SDK 的错误分为两类：
 ### 设计期保留的 SDK 错误
 
 - `ConfigurationError`
-- `ValidationError`
-- `TransportError`
-- `ProtocolError`
 - `NotImplementedError`
 
 ### 运行期透传的 Gateway 错误
@@ -360,7 +329,6 @@ SDK 的错误分为两类：
 - `PROVING_LIMIT_EXCEEDED`
 - `INVALID_ZK_TLS_PROOF`
 - `BINDING_CONFLICT`
-- `PROOF_REQUEST_NOT_FOUND`
 
 设计原则：
 
@@ -421,7 +389,7 @@ SDK 的错误分为两类：
 
 - `src/types/public.ts` 稳定
 - `sdk-spec.md` 与 types 对齐
-- 状态枚举、错误结构、请求结构冻结
+- 状态枚举、进度事件结构、请求结构冻结
 
 ### Phase 2：实现 Gateway client
 
@@ -453,12 +421,12 @@ SDK 的错误分为两类：
 以下内容现在应视为已冻结：
 
 - facade `BnbZkIdClient` 是当前唯一对外类入口
-- facade `BnbZkIdClient` 与底层 `GatewayClient` 的双层结构
-- Gateway 三个核心 method 的名字和职责
-- facade 三个核心 method 的名字和职责
+- facade 对外只暴露 `init({ appId })` 和 `prove(...)`
+- `prove(...)` 支持 `onProgress`
+- `ProveInput.clientRequestId` 作为长任务和并发任务的本地标识
+- 未来内部存在 `GatewayClient` 与 Primus adapter 两层设计空间
 - `CreateProofRequestInput` 的顶层字段结构
-- `ProofRequestStatus` 和 `ProofRequestUiStatus`
-- Primus adapter 的返回对象基本形状
+- `ProveStatus` 的枚举集合
 
 以下内容当前不冻结：
 
@@ -474,7 +442,7 @@ SDK 的错误分为两类：
 - `zkTlsProof.proof` 的最终编码格式是否已经由 Gateway 明确固定？
 - `zkTlsProof.transcript` 是否真的是长期稳定字段？
 - `privateData` 是否需要按 provider/property 收敛成更细的 typed schema？
-- `query(...)` 最终返回链上原始属性、聚合视图，还是两者兼有？
+- `clientRequestId` 是否保持必填，还是允许 SDK 自动生成？
 - 第一版是否需要支持自定义 transport 注入？
 
 ## 实施要求

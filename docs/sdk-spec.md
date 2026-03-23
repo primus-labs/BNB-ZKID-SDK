@@ -28,7 +28,7 @@ SDK 第一版应优先优化一条真实的端到端主路径：
 如果开发者能够以如下方式完成主工作流，就说明 SDK 设计是成功的：
 
 - 只用较少代码即可接入
-- Gateway 的请求和响应对象有明确类型
+- Gateway 的请求和响应对象有明确映射规范
 - zkTLS 结果与 Gateway 输入的拼装方式清晰
 - 运行时错误清晰可理解
 - 不需要直接操作底层 HTTP 细节
@@ -42,16 +42,96 @@ SDK 第一版应优先优化一条真实的端到端主路径：
 具体形状应尽量接近下面这个版本：
 
 ```ts
-export interface GatewayClientConfig {
+export interface GatewayConfig {
   apiKey?: string;
   baseUrl?: string;
   timeoutMs?: number;
 }
 
 export interface ClientConfig {
-  gateway?: GatewayClientConfig;
+  gateway?: GatewayConfig;
 }
 
+export interface BnbZkIdError {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface InitInput {
+  appId: string;
+}
+
+export interface InitSuccessResult {
+  success: true;
+}
+
+export interface InitFailureResult {
+  success: false;
+  error?: BnbZkIdError;
+}
+
+export type InitResult = InitSuccessResult | InitFailureResult;
+
+export type ProveStatus =
+  | "initialized"
+  | "data_verifying"
+  | "proof_generating"
+  | "on_chain_attested"
+  | "failed";
+
+export interface ProveInput {
+  clientRequestId: string;
+  userAddress: string;
+  provingDataId: string;
+  provingParams?: Record<string, unknown>;
+}
+
+export interface ProveProgressEvent {
+  status: ProveStatus;
+  clientRequestId: string;
+  proofRequestId?: string;
+}
+
+export interface ProveOptions {
+  onProgress?: (event: ProveProgressEvent) => void;
+}
+
+export interface ProveSuccessResult {
+  status: "on_chain_attested";
+  clientRequestId: string;
+  walletAddress: string;
+  providerId: string;
+  identityPropertyId: string;
+  proofRequestId?: string;
+}
+
+export interface ProveFailureResult {
+  status: "failed";
+  clientRequestId: string;
+  proofRequestId?: string;
+  error?: BnbZkIdError;
+}
+
+export type ProveResult = ProveSuccessResult | ProveFailureResult;
+
+export interface BnbZkIdClientMethods {
+  init(input: InitInput): Promise<InitResult>;
+  prove(input: ProveInput, options?: ProveOptions): Promise<ProveResult>;
+}
+
+export declare class BnbZkIdClient implements BnbZkIdClientMethods {
+  constructor(config?: ClientConfig);
+  init(input: InitInput): Promise<InitResult>;
+  prove(input: ProveInput, options?: ProveOptions): Promise<ProveResult>;
+}
+```
+
+## 内部参考 Contract
+
+下面这些结构不是当前 public surface 的组成部分，但它们描述了 SDK 未来内部需要对齐的 Gateway 协议对象：
+
+```ts
 export interface ZkTlsProof {
   proof: string;
   transcript?: string;
@@ -80,31 +160,6 @@ export interface ProofRequestStatusResponse {
   proofRequestId: string;
   status: "initialized" | "generating" | "submitting" | "on_chain_attested" | "failed";
   uiStatus?: "Processing" | "Completed" | "Failed";
-}
-
-export interface ProveInput {
-  userAddress: string;
-  provingDataId: string;
-  provingParams?: Record<string, unknown>;
-}
-
-export interface QueryInput {
-  proofRequestId?: string;
-  queryKey?: string;
-  userAddress?: string;
-}
-
-export interface BnbZkIdClientMethods {
-  init(): Promise<boolean>;
-  prove(input: ProveInput): Promise<ProveResult>;
-  query(input: QueryInput): Promise<QueryResult>;
-}
-
-export declare class BnbZkIdClient implements BnbZkIdClientMethods {
-  constructor(config?: ClientConfig);
-  init(): Promise<boolean>;
-  prove(input: ProveInput): Promise<ProveResult>;
-  query(input: QueryInput): Promise<QueryResult>;
 }
 ```
 
@@ -165,26 +220,43 @@ const client = new BnbZkIdClient({
   },
 });
 
-await client.init();
-const proveResult = await client.prove({
-  userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-  provingDataId: "github_account_age",
+const initResult = await client.init({
+  appId: "listdao",
 });
+if (!initResult.success) {
+  console.error(initResult.error);
+}
 
-const queryResult = await client.query({
-  proofRequestId: proveResult.proofRequestId,
-});
+const proveResult = await client.prove(
+  {
+    clientRequestId: "prove-task-001",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    provingDataId: "github_account_age",
+  },
+  {
+    onProgress(event) {
+      console.log(event.status, event.proofRequestId);
+    },
+  }
+);
 
-console.log(queryResult.status);
+console.log(proveResult.status);
+if (proveResult.status === "on_chain_attested") {
+  console.log(
+    proveResult.walletAddress,
+    proveResult.providerId,
+    proveResult.identityPropertyId
+  );
+}
 ```
 
 ## 延后决策
 
 在产品契约更清晰之前，以下问题先保持开放：
 
-- facade `prove(...)` 是否直接内部依赖 Primus adapter，还是允许调用方手动注入结果
+- `prove(...)` 是否直接内部依赖 Primus adapter，还是允许调用方手动注入结果
+- `clientRequestId` 是否保持必填，还是允许 SDK 自动生成
 - 高层 helper 是否应直接内置 Primus `zktls-js-sdk` 的默认 proof 序列化规则
-- 事件驱动回调还是轮询辅助接口
 - 多链或多网络抽象
 - transport 或 signer 的插件体系
 - 批量操作

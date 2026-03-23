@@ -14,7 +14,7 @@
 2. client 获取 Gateway 配置。
 3. client 提交一个包含 `zkTlsProof` 和 `privateData` 的 `ProofRequest`。
 4. client 查询 `proofRequestId` 的状态。
-5. 应用拿到类型明确的 `on_chain_attested` 状态结果。
+5. 应用拿到类型明确的成功结果，包含 `status = on_chain_attested`、`walletAddress`、`providerId`、`identityPropertyId`。
 
 ## Harness 必须证明什么
 

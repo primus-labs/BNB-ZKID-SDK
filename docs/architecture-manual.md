@@ -20,7 +20,7 @@
 
 ### BNB ZK ID Gateway
 
-接受zkvm证明请求，返回zkvm证明结果。
+负责接收 Proof Request，并返回 Proof Request 生命周期状态。
 
 ## 主要流程
 
@@ -34,18 +34,36 @@
 
 初始化sdk。
 
-* 参数：无
-* 返回：true或者false。
+* 参数：`appId`，注册到 BNB ZK ID framework 的 `appId`。
+* 成功返回：`success = true`。
+* 失败返回：`success = false`，并包含可选的错误信息。
 
 ### prove
 
 请求证明。
 
 * 参数：
+  * clientRequestId（string）：调用方传入的本地任务ID，用于长任务和并发任务跟踪。
+  
   * userAddress（string）：用户地址。
+  
   * provingDataId（string）：对应要证明的数据源和字段内容。
-  * provingParams（可选，object）：需要传递的额外字段（比如：余额大于x，这里传x）
-* 返回一个object，可以用来去合约查询具体的分数情况。错误的情况下，返回对应的错误码。
+  
+  * provingParams（可选，object）：需要传递的额外字段（比如：余额大于x，这里传x）。
+  
+  * options.onProgress（可选，function）：证明过程中的进度回调。
+  
+    `options.onProgress` 回调状态：
+  
+    * `initialized`：数据项证明请求成功。
+    * `data_verifying`：数据源页面已打开，zkTLS 证明中。
+    * `proof_generating`：zkTLS 证明已完成，zkVM 证明进行中。
+    * `on_chain_attested`：证明成功并已上链。
+    * `failed`：证明失败。
+  
+* 成功返回：`status = on_chain_attested`，并包含 `clientRequestId`、`walletAddress`、`providerId`、`identityPropertyId` 以及 `proofRequestId`。
+
+* 失败返回：`status = failed`，并包含 `clientRequestId`、可选的 `proofRequestId` 以及错误信息。
 
 ## 数据源变化处理
 
@@ -54,4 +72,3 @@
 ## 性能
 
 ## 稳定性
-

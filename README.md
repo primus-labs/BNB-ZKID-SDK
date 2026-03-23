@@ -8,7 +8,7 @@ BNB ZKID TypeScript SDK 设计工作区。
 
 当前重点：
 
-- 定义 facade `BnbZkIdClient(init/prove/query)`
+- 定义 facade `BnbZkIdClient(init/prove)`
 - 定义 Primus `zktls-js-sdk` 接入抽象
 - 定义 `zktls -> Gateway` 的输入映射接口
 - 明确状态流转、请求结构和错误模型
@@ -47,14 +47,25 @@ const client = new BnbZkIdClient({
   },
 });
 
-await client.init();
-await client.prove({
-  userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-  provingDataId: "github_account_age",
+const initResult = await client.init({
+  appId: "listdao",
 });
-await client.query({
-  proofRequestId: "prq_xxx",
-});
+if (!initResult.success) {
+  console.error(initResult.error);
+}
+
+await client.prove(
+  {
+    clientRequestId: "prove-task-001",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    provingDataId: "github_account_age",
+  },
+  {
+    onProgress(event) {
+      console.log(event.status, event.proofRequestId);
+    },
+  }
+);
 ```
 
 当前这些方法只定义接口，不提供可运行实现。
