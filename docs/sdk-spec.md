@@ -1,0 +1,191 @@
+# SDK 规范
+
+## 目标
+
+定义这个 TypeScript SDK 的第一版公开契约。
+
+这份规范会刻意保持收敛。它的作用是为实现和评审建立锚点，而不是提前预测所有未来功能。
+
+当前阶段以 contract-first 为准：先冻结方法签名、输入输出类型和状态模型，再进入具体实现。
+
+本文档从属于 `docs/architecture.md`。如果两者发生冲突，应以总架构文档为准。
+
+## 目标用户
+
+目标用户是需要集成 BNB ZKID、但不希望了解过多底层协议细节的 TypeScript 应用开发者。
+
+## 主工作流
+
+SDK 第一版应优先优化一条真实的端到端主路径：
+
+1. 调用 `GET /v1/config` 拉取支持的 provider、identityProperty 和 schema。
+2. 通过 Primus `zktls-js-sdk` 生成 zkTLS attestation 结果。
+3. 组装 `POST /v1/proof-requests` 请求体并提交。
+4. 通过 `GET /v1/proof-requests/{proofRequestId}` 轮询状态，直到 `on_chain_attested` 或 `failed`。
+
+## 成功标准
+
+如果开发者能够以如下方式完成主工作流，就说明 SDK 设计是成功的：
+
+- 只用较少代码即可接入
+- Gateway 的请求和响应对象有明确类型
+- zkTLS 结果与 Gateway 输入的拼装方式清晰
+- 运行时错误清晰可理解
+- 不需要直接操作底层 HTTP 细节
+
+## Public API
+
+对外只暴露 `BnbZkIdClient` 类，以及该类相关输入输出类型。
+
+`GatewayClient`、Primus adapter、workflow helper 都属于内部架构概念，不作为当前对外 public surface。
+
+具体形状应尽量接近下面这个版本：
+
+```ts
+export interface GatewayClientConfig {
+  apiKey?: string;
+  baseUrl?: string;
+  timeoutMs?: number;
+}
+
+export interface ClientConfig {
+  gateway?: GatewayClientConfig;
+}
+
+export interface ZkTlsProof {
+  proof: string;
+  transcript?: string;
+  format?: string;
+}
+
+export interface CreateProofRequestInput {
+  appId?: string;
+  user?: string;
+  providerId: string;
+  identityProperty: string;
+  schemaVersion?: string;
+  zkTlsProof: ZkTlsProof;
+  privateData: Record<string, unknown>;
+  publicData?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CreateProofRequestResponse {
+  proofRequestId: string;
+  status: "initialized" | "generating" | "submitting" | "on_chain_attested" | "failed";
+  createdAt?: string;
+}
+
+export interface ProofRequestStatusResponse {
+  proofRequestId: string;
+  status: "initialized" | "generating" | "submitting" | "on_chain_attested" | "failed";
+  uiStatus?: "Processing" | "Completed" | "Failed";
+}
+
+export interface ProveInput {
+  userAddress: string;
+  provingDataId: string;
+  provingParams?: Record<string, unknown>;
+}
+
+export interface QueryInput {
+  proofRequestId?: string;
+  queryKey?: string;
+  userAddress?: string;
+}
+
+export interface BnbZkIdClientMethods {
+  init(): Promise<boolean>;
+  prove(input: ProveInput): Promise<ProveResult>;
+  query(input: QueryInput): Promise<QueryResult>;
+}
+
+export declare class BnbZkIdClient implements BnbZkIdClientMethods {
+  constructor(config?: ClientConfig);
+  init(): Promise<boolean>;
+  prove(input: ProveInput): Promise<ProveResult>;
+  query(input: QueryInput): Promise<QueryResult>;
+}
+```
+
+## API 设计原则
+
+- 对外只暴露一个稳定入口类，不把底层 Gateway 集成细节泄漏给业务应用。
+- 优先使用产品领域名词，而不是后端实现细节命名。
+- 第一版的方法数量要尽量少。
+- 可选字段必须是真正可选，并明确说明出现条件。
+- 避免在 public contract 中出现泛化的 `any` 或不透明的 `object`。
+- Primus 集成层与 Gateway 层要解耦，避免把第三方 SDK 细节直接暴露进 public API。
+
+## 配置规则
+
+第一版 `ClientConfig` 当前只先承载 Gateway 调用需要的最小配置：
+
+- `baseUrl`
+- `apiKey` 或等价的鉴权令牌
+- `timeoutMs`
+
+在出现真实需求之前，不要把高级重试、日志等选项提前放入 public API。
+
+## 错误模型
+
+第一版应提供可预测的错误表面：
+
+- 配置错误：client 配置不合法
+- 校验错误：输入或输出结构不合法
+- transport 错误：网络失败或非成功响应
+- 协议错误：远端状态违反预期
+
+每个错误至少应包含：
+
+- 稳定的错误名称
+- 简短的用户可读信息
+- 可选的机器可读元数据
+
+## 运行时支持
+
+第一版运行时目标需要明确：
+
+- 面向现代 TypeScript 使用者
+- 优先支持 ESM
+- 在确定构建工具前，先决定是否需要支持 CJS
+- 在共享逻辑中避免依赖 Node 专属全局对象
+
+## 使用示例
+
+README 和 examples 中的示例，复杂度应尽量保持在这个级别：
+
+```ts
+import { BnbZkIdClient } from "bnb-zkid-sdk";
+
+const client = new BnbZkIdClient({
+  gateway: {
+    apiKey: process.env.BNB_ZKID_API_KEY,
+    baseUrl: "https://api.example.com",
+  },
+});
+
+await client.init();
+const proveResult = await client.prove({
+  userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+  provingDataId: "github_account_age",
+});
+
+const queryResult = await client.query({
+  proofRequestId: proveResult.proofRequestId,
+});
+
+console.log(queryResult.status);
+```
+
+## 延后决策
+
+在产品契约更清晰之前，以下问题先保持开放：
+
+- facade `prove(...)` 是否直接内部依赖 Primus adapter，还是允许调用方手动注入结果
+- 高层 helper 是否应直接内置 Primus `zktls-js-sdk` 的默认 proof 序列化规则
+- 事件驱动回调还是轮询辅助接口
+- 多链或多网络抽象
+- transport 或 signer 的插件体系
+- 批量操作
+- 除首个必要流程外的本地密码学辅助能力
