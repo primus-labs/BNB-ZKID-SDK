@@ -17,3 +17,7 @@ pnpm-debug.log*
 
 .idea/
 .vscode/
+
+~$*
+._*
+*.swp
