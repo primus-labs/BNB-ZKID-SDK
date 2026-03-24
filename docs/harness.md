@@ -4,9 +4,9 @@
 
 定义 SDK 进入实现阶段后的第一个可执行 harness。
 
-当前仓库处于接口冻结阶段，因此本文档描述的是“下一阶段”的 harness 目标，而不是当前仓库已经提供的能力。
+当前仓库已经进入 harness 驱动实现阶段，因此本文档既描述目标，也描述仓库里已经落地的 harness 分层。
 
-补充说明：仓库现在已经加入一个仅供仓库内部使用的 deterministic harness，用于验证文档、fixture、example 和测试之间是否一致。它不代表真实生产实现已经开始。
+补充说明：仓库现在已经加入 deterministic harness 和 browser harness，用于验证文档、fixture、example 和 public workflow 之间是否一致。它们不代表生产环境联调已经完成。
 
 ## 第一个 Harness 的定义
 
@@ -44,7 +44,7 @@ fixtures/
 
 随着 Primus 集成实现展开，仓库也可以增加面向 `src/primus/` 和 `src/workflow/` 的 deterministic tests，但仍应优先使用 fake runtime 和 injected signer，而不是直接依赖浏览器扩展或真实 appSecret。
 
-同理，在进入真实 public facade 实现前，可以先用 internal configured client 把 `init -> Primus -> Gateway -> status` 串起来，作为下一阶段的实现验收骨架。
+同理，当前仓库已经用 internal configured client 把 `init -> Primus -> Gateway -> status` 串起来，作为 public facade 的实现验收骨架。
 
 如果正式 zkTLS 运行必须在浏览器中验证，则应单独保留一层 browser harness。它与当前默认的 deterministic harness 分工不同：
 
@@ -55,6 +55,12 @@ fixtures/
 
 - `fixture + fixture`：验证页面加载、浏览器配置读取和 public client 主流程
 - `gateway fixture + primus sdk`：验证浏览器里真实 zkTLS SDK 初始化和 attestation 主链路，同时保持 Gateway 为 deterministic fixture
+
+推荐启动方式：
+
+```bash
+npm run dev:browser-harness -- --host 127.0.0.1 --port 4177
+```
 
 ## 执行策略
 

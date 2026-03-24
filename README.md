@@ -4,13 +4,14 @@ BNB ZKID TypeScript SDK 设计工作区。
 
 ## 当前状态
 
-当前仓库处于接口设计阶段，目标是先冻结对外契约，而不是提前写死运行时实现。
+当前仓库已经从纯接口设计阶段进入“contract-first + harness-driven implementation”阶段。
 
 当前重点：
 
 - 定义 facade `BnbZkIdClient(init/prove)`
 - 定义 Primus `zktls-js-sdk` 接入抽象
 - 定义 `zktls -> Gateway` 的输入映射接口
+- 通过 deterministic harness 和 browser harness 验证主流程
 - 明确状态流转、请求结构和错误模型
 
 ## 文档
@@ -52,15 +53,13 @@ npm run example:minimal
 浏览器环境下运行 browser harness：
 
 ```bash
-npm run build
-cd dist/examples/browser
-python3 -m http.server 4173
+npm run dev:browser-harness -- --host 127.0.0.1 --port 4177
 ```
 
-然后打开 <http://127.0.0.1:4173>。
+然后打开 <http://127.0.0.1:4177>。
 
 - `Fixture Gateway + Fixture Primus`：默认回归模式，不依赖真实 zkTLS
-- `Fixture Gateway + Primus SDK`：浏览器 live skeleton，页面里临时输入 `zktlsAppId` 和本地 `appSecret`，Gateway 仍走 fixture
+- `Fixture Gateway + Primus SDK`：浏览器 live skeleton，页面里临时输入 `zktlsAppId` 和本地 `appSecret`，Gateway 仍走 fixture；这一步还要求本机浏览器里存在 Primus 扩展环境
 
 ## 当前接口草案
 
@@ -131,4 +130,4 @@ await client.prove(
 当前 browser harness 支持两层验证：
 
 - `fixture + fixture`：默认回归，不依赖真实 Gateway 或真实 zkTLS
-- `fixture + primus sdk`：浏览器里验证真实 zkTLS SDK 初始化和 attestation 流程，但 Gateway 仍保持 fixture
+- `fixture + primus sdk`：浏览器里验证真实 zkTLS SDK 初始化和 attestation 流程，但 Gateway 仍保持 fixture；推荐通过 Vite dev server 启动，而不是静态 `python http.server`

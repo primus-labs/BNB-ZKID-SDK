@@ -155,7 +155,7 @@ Implementation Layer (deferred)
 
 - 负责定义跨组件的编排接口
 - 例如：先初始化，再走 Primus，再提交 proof request，再跟踪状态直到完成
-- 当前阶段只冻结函数签名，不写具体运行逻辑
+- 当前仓库已经落地最小可运行 workflow，用于串起 Primus、Gateway 和 progress callback
 
 `Gateway Contract Layer`
 
@@ -191,9 +191,9 @@ Implementation Layer (deferred)
 职责：
 
 - 承载 `BnbZkIdClient` 的默认形状
-- 当前阶段仅保留未实现 stub，避免提前锁定 transport 方案
+- 当前仓库里的 `BnbZkIdClient` 已经接入 runtime-configured workflow
 - 未来内部 `GatewayClient` 不进入当前 public surface
-- 内部可以存在不导出的 configured client，用于把 Primus adapter、Gateway client 和 workflow 串起来做实现验证
+- 内部保留不导出的 configured client，用于把 Primus adapter、Gateway client 和 workflow 串起来做实现验证
 
 ### `docs/`
 
@@ -201,7 +201,7 @@ Implementation Layer (deferred)
 
 - `architecture.md`：总架构和实现顺序
 - `sdk-spec.md`：public contract 明细
-- `harness.md`：实现阶段再启用的验收计划
+- `harness.md`：当前 harness 分层、执行策略和验收计划
 
 ## 对外接口设计
 
@@ -241,7 +241,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 - `collectAttestationBundle(input)`
 - `resolvePrimusCollectInputForProve(registry, proveInput)`
 
-当前仓库已经开始落这一层内部骨架，用于承接 Primus 官方文档中的 `init -> generateRequestParams -> sign -> startAttestation -> verifyAttestation` 主流程，但仍未把它接入 public facade。
+当前仓库已经把这一层接入 public facade，但浏览器 live 模式仍依赖 Primus 扩展环境。
 
 返回值至少应包含：
 
