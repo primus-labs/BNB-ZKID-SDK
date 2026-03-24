@@ -55,29 +55,12 @@
   
       ```json
       // 完成高级 KYC 认证（Level 2）且历史交易超过 50 笔
-      { 
-        passKycLevel: {op: "=", value: "ADVANCED | ADBANCED_PRO"}, 
-        data: {op: ">", value: "50" }
-      }
-      
       // 完成基础 KYC 认证（Level 1）或历史交易达 10～49 笔
-      { 
-        passKycLevel: {op: "=", value: "INTERMEDIATE | ADVANCED | ADBANCED_PRO"}, 
-      }
-      { 
-        data: {op: ">=", value: "10" }
-      }
-      
       //已绑定账号且有任意交易记录
-      { 
-        data: {op: ">", value: "0" }
-      }
-      
       // 未绑定
       
       {
-        passKycLevel: [INTERMEDIATE, ADVANCED, ADBANCED_PRO],
-        data: [0, 10, 50]
+        data: [1, 11, 51]
       }
       ```
   
@@ -85,29 +68,12 @@
   
       ```json
       // 完成高级 KYC 认证（Level 2）且历史交易超过 50 笔
-      { 
-        passKycLevel: {op: ">=", value: "2"},
-        data: {op: ">", value: "50" }
-      }
-      
       // 完成基础 KYC 认证（Level 1）或历史交易达 10～49 笔
-      { 
-        passKycLevel: {op: ">=", value: "1"}
-      }
-      {
-        data: {op: ">=", value: "10" }
-      }
-      
-      //已绑定账号且有任意交易记录
-      { 
-        data: {op: ">", value: "0" }
-      }
-      
+      // 已绑定账号且有任意交易记录
       // 未绑定
       
       {
-        passKycLevel: [1, 2],
-        data: [0, 10, 50]
+        data: [1, 11, 51]
       }
       ```
   
@@ -115,27 +81,12 @@
   
       ```json
       // 账号使用超过 1 年，且过去一年贡献超过 50 次
-      {
-        years: {op: "<=", value: "2024"},
-        contribution: {op: ">", value: "50"}
-      }
-      
       // 账号使用超过 6 个月，或过去一年贡献达 20～49 次
-      {
-        years: {op: "<=", value: "2025"}
-      }
-      {
-        contribution: {op: ">", value: "20"}
-      }
-      
-      // 已绑定账号
-      已绑定账号的情况，不需要传递，只要证明有账号就可以了。
-      
+      // 已绑定账号      
       // 未绑定
       
       {
-        years: [2025],
-        contribution: [20, 50]
+        contribution: [21, 51]
       }
       ```
   
@@ -147,9 +98,8 @@
       // 受限账号，或不满足以上条件
       
       {
-        limitedAccount:
-        registrationTime: [6, 12], //按月
-        gameLibraryValue: [50]
+        limitedAccount: [5], // 所有交易总额
+        gameLibraryValue: [51]
       }
       ```
   
@@ -162,9 +112,7 @@
       // 未绑定
       
       {
-        prime_plan:
-        years: [2024, 2025],
-        ordersVolume: [0, 20]
+        ordersVolume: [1, 21]
       }
       ```
   
