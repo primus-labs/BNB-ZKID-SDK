@@ -51,6 +51,125 @@
   
   * provingParams（可选，object）：需要传递的额外字段（比如：余额大于x，这里传x）。
   
+    * binance
+  
+      ```json
+      // 完成高级 KYC 认证（Level 2）且历史交易超过 50 笔
+      { 
+        passKycLevel: {op: "=", value: "ADVANCED | ADBANCED_PRO"}, 
+        data: {op: ">", value: "50" }
+      }
+      
+      // 完成基础 KYC 认证（Level 1）或历史交易达 10～49 笔
+      { 
+        passKycLevel: {op: "=", value: "INTERMEDIATE | ADVANCED | ADBANCED_PRO"}, 
+      }
+      { 
+        data: {op: ">=", value: "10" }
+      }
+      
+      //已绑定账号且有任意交易记录
+      { 
+        data: {op: ">", value: "0" }
+      }
+      
+      // 未绑定
+      
+      {
+        passKycLevel: [INTERMEDIATE, ADVANCED, ADBANCED_PRO],
+        data: [0, 10, 50]
+      }
+      ```
+  
+    * okx
+  
+      ```json
+      // 完成高级 KYC 认证（Level 2）且历史交易超过 50 笔
+      { 
+        passKycLevel: {op: ">=", value: "2"},
+        data: {op: ">", value: "50" }
+      }
+      
+      // 完成基础 KYC 认证（Level 1）或历史交易达 10～49 笔
+      { 
+        passKycLevel: {op: ">=", value: "1"}
+      }
+      {
+        data: {op: ">=", value: "10" }
+      }
+      
+      //已绑定账号且有任意交易记录
+      { 
+        data: {op: ">", value: "0" }
+      }
+      
+      // 未绑定
+      
+      {
+        passKycLevel: [1, 2],
+        data: [0, 10, 50]
+      }
+      ```
+  
+    * github
+  
+      ```json
+      // 账号使用超过 1 年，且过去一年贡献超过 50 次
+      {
+        years: {op: "<=", value: "2024"},
+        contribution: {op: ">", value: "50"}
+      }
+      
+      // 账号使用超过 6 个月，或过去一年贡献达 20～49 次
+      {
+        years: {op: "<=", value: "2025"}
+      }
+      {
+        contribution: {op: ">", value: "20"}
+      }
+      
+      // 已绑定账号
+      已绑定账号的情况，不需要传递，只要证明有账号就可以了。
+      
+      // 未绑定
+      
+      {
+        years: [2025],
+        contribution: [20, 50]
+      }
+      ```
+  
+    * steam
+  
+      ```json
+      // 非受限账号，使用超过 1 年，游戏库价值超过 $50
+      // 非受限账号，使用超过 6 个月
+      // 受限账号，或不满足以上条件
+      
+      {
+        limitedAccount:
+        registrationTime: [6, 12], //按月
+        gameLibraryValue: [50]
+      }
+      ```
+  
+    * amazon
+  
+      ```json
+      // Prime 会员且账号使用超过 2 年
+      // 账号使用超过 1 年，或过去一年购买超过 20 单
+      // 已绑定账号且有历史购买记录
+      // 未绑定
+      
+      {
+        prime_plan:
+        years: [2024, 2025],
+        ordersVolume: [0, 20]
+      }
+      ```
+  
+      
+  
   * options.onProgress（可选，function）：证明过程中的进度回调。
   
     `options.onProgress` 回调状态：
