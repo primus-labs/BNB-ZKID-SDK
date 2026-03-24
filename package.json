@@ -17,15 +17,19 @@
   ],
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && cp -R fixtures dist/fixtures && mkdir -p dist/examples/browser && cp -R examples/browser/* dist/examples/browser/",
+    "build:browser-harness": "vite build --config vite.browser-harness.config.ts",
+    "dev:browser-harness": "vite --config vite.browser-harness.config.ts",
     "example:minimal": "npm run build && node dist/examples/minimal.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test dist/tests/config/load-config.test.js dist/tests/harness/minimal-sdk.test.js dist/tests/primus/adapter.test.js dist/tests/primus/request-resolver.test.js dist/tests/workflow/collect-primus-attestation.test.js dist/tests/workflow/collect-primus-attestation-from-registry.test.js dist/tests/client/configured-client.test.js dist/tests/client/public-client.test.js"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^5.4.19"
   },
   "dependencies": {
-    "@primuslabs/zktls-js-sdk": "^0.3.10"
+    "@primuslabs/zktls-js-sdk": "^0.3.10",
+    "buffer": "^6.0.3"
   }
 }

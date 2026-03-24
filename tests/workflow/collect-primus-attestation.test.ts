@@ -40,7 +40,7 @@ test("workflow forwards prove input into primus additionParams", async () => {
     templateId: "github-template",
     proveInput: {
       clientRequestId: "prove-task-001",
-      provingDataId: "github_account_age",
+      identityPropertyId: "github_account_age",
       provingParams: {
         contribution: [21, 51]
       },
@@ -74,7 +74,7 @@ test("workflow forwards prove input into primus additionParams", async () => {
     ],
     additionParams: {
       clientRequestId: "prove-task-001",
-      provingDataId: "github_account_age",
+      identityPropertyId: "github_account_age",
       provingParams: {
         contribution: [21, 51]
       },

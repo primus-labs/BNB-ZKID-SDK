@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
+import { emitGatewayCreateProofRequestDebug } from "./debug.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -33,6 +34,12 @@ class FixtureGatewayClient implements GatewayClient {
   async createProofRequest(
     input: GatewayCreateProofRequestInput
   ): Promise<GatewayCreateProofRequestResult> {
+    emitGatewayCreateProofRequestDebug({
+      channel: "createProofRequest",
+      transport: "fixture",
+      input
+    });
+
     const fixtures = await this.getFixtures();
     const provider = fixtures.config.providers.find((candidate) =>
       candidate.identityProperties.some(

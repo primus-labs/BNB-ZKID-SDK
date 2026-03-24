@@ -52,7 +52,7 @@ test("resolvePrimusCollectInputForProve resolves github_account_age into templat
     {
       proveInput: {
         clientRequestId: "prove-task-001",
-        provingDataId: "github_account_age",
+        identityPropertyId: "github_account_age",
         provingParams: {
           contribution: [21, 51]
         },
@@ -82,7 +82,7 @@ test("resolvePrimusCollectInputForProve resolves github_account_age into templat
     ],
     additionParams: {
       clientRequestId: "prove-task-001",
-      provingDataId: "github_account_age",
+      identityPropertyId: "github_account_age",
       provingParams: {
         contribution: [21, 51]
       }
@@ -90,7 +90,7 @@ test("resolvePrimusCollectInputForProve resolves github_account_age into templat
   });
 });
 
-test("resolvePrimusCollectInputForProve fails for unmapped provingDataId", () => {
+test("resolvePrimusCollectInputForProve fails for unmapped identityPropertyId", () => {
   assert.throws(
     () =>
       resolvePrimusCollectInputForProve(
@@ -98,11 +98,11 @@ test("resolvePrimusCollectInputForProve fails for unmapped provingDataId", () =>
         {
           proveInput: {
             clientRequestId: "prove-task-001",
-            provingDataId: "unknown_data_id",
+            identityPropertyId: "unknown_data_id",
             userAddress: "0x1234567890abcdef1234567890abcdef12345678"
           }
         }
       ),
-    /No Primus proving-data mapping found/
+    /No Primus identity-property mapping found/
   );
 });

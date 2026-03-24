@@ -47,7 +47,7 @@
   
   * userAddress（string）：用户地址。
   
-  * provingDataId（string）：对应要证明的数据源和字段内容。
+  * identityPropertyId（string）：对应要证明的 identity property。
   
   * provingParams（可选，object）：需要传递的额外字段（比如：余额大于x，这里传x）。
   

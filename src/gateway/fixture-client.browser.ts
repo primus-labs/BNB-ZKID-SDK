@@ -1,4 +1,5 @@
 import { SdkError } from "../errors/sdk-error.js";
+import { emitGatewayCreateProofRequestDebug } from "./debug.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -31,7 +32,12 @@ class BrowserFixtureGatewayClient implements GatewayClient {
   async createProofRequest(
     input: GatewayCreateProofRequestInput
   ): Promise<GatewayCreateProofRequestResult> {
-    void input;
+    emitGatewayCreateProofRequestDebug({
+      channel: "createProofRequest",
+      transport: "fixture",
+      input
+    });
+
     return (await this.getFixtures()).createProofRequest;
   }
 

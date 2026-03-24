@@ -51,7 +51,7 @@
 
 1. 知道 Gateway 当前支持哪些 `provider`、`identityProperty`、schema 和业务约束。
 2. 调用 Primus `zktls-js-sdk` 获取 zkTLS attestation。
-3. 根据 `provingDataId` 和 provider 规则准备 `provingParams` 这类阈值输入。
+3. 根据 `identityPropertyId` 和 provider 规则准备 `provingParams` 这类阈值输入。
 4. 将 attestation、private data、public data 等内容组装为 Gateway 认可的 `ProofRequest`。
 5. 提交 `POST /v1/proof-requests`。
 6. 在 `prove(...)` 执行过程中通过进度回调向调用方返回状态，直到 `on_chain_attested` 或 `failed`。
@@ -166,7 +166,7 @@ Implementation Layer (deferred)
 
 - 定义 SDK 如何看待 Primus attestation 结果
 - 定义 `collectAttestationBundle(...)` 的输入输出
-- 定义 `provingDataId / provingParams -> templateId / attConditions` 的解析层
+- 定义 `identityPropertyId / provingParams -> templateId / attConditions` 的解析层
 - 不在当前阶段承诺具体序列化实现
 
 `Implementation Layer`
@@ -295,7 +295,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 
 1. 应用创建 `client`
 2. 调用 `client.init({ appId })`
-3. 应用按 `provingDataId` 组装可选的 `provingParams`
+3. 应用按 `identityPropertyId` 组装可选的 `provingParams`
 4. 调用 `client.prove(input, { onProgress })`
 5. SDK 内部触发 Primus 和 Gateway 编排
 6. SDK 在执行过程中通过 `onProgress` 向应用回传状态

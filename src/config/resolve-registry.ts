@@ -5,8 +5,8 @@ export function resolvePrimusRegistry(
   registryConfig: Record<string, BnbZkIdPrimusRegistryRuleConfig>
 ): PrimusProvingDataRegistry {
   return Object.fromEntries(
-    Object.entries(registryConfig).map(([provingDataId, rule]) => [
-      provingDataId,
+    Object.entries(registryConfig).map(([identityPropertyId, rule]) => [
+      identityPropertyId,
       {
         templateId: rule.templateId,
         ...(rule.timeoutMs === undefined ? {} : { timeoutMs: rule.timeoutMs }),

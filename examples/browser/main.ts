@@ -1,8 +1,16 @@
+import { Buffer } from "buffer";
 import { BnbZkIdClient } from "../../src/client/client.js";
+import type { GatewayCreateProofRequestDebugEvent } from "../../src/gateway/debug.js";
 
 type GlobalWithConfig = typeof globalThis & {
   __BNB_ZKID_CONFIG_URL__?: string;
+  __BNB_ZKID_GATEWAY_DEBUG__?: (event: GatewayCreateProofRequestDebugEvent) => void;
+  Buffer?: typeof Buffer;
 };
+
+if (!(globalThis as GlobalWithConfig).Buffer) {
+  (globalThis as GlobalWithConfig).Buffer = Buffer;
+}
 
 interface BrowserHarnessConfigFile {
   gateway:
@@ -73,11 +81,31 @@ function writeLog(line: string): void {
   logElement.textContent = `${logElement.textContent ?? ""}${line}\n`;
 }
 
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+
+  if (typeof error === "object" && error !== null) {
+    try {
+      return JSON.stringify(error, null, 2);
+    } catch {
+      return Object.prototype.toString.call(error);
+    }
+  }
+
+  return String(error);
+}
+
 function updateModeUi(): void {
   const isPrimusSdkMode = modeSelectElement.value === "primus-sdk";
   primusSdkFieldsElement.hidden = !isPrimusSdkMode;
   zktlsAppIdInputElement.disabled = !isPrimusSdkMode;
   appSecretInputElement.disabled = !isPrimusSdkMode;
+}
+
+function resolveFixtureUrl(pathname: string): string {
+  return new URL(pathname, window.location.href).toString();
 }
 
 function buildLiveSdkConfig(): BrowserHarnessConfigFile {
@@ -94,9 +122,9 @@ function buildLiveSdkConfig(): BrowserHarnessConfigFile {
   return {
     gateway: {
       mode: "fixture",
-      configPath: "./fixtures/gateway-config.json",
-      createProofRequestPath: "./fixtures/gateway-create-proof-request.json",
-      proofRequestStatusPath: "./fixtures/gateway-proof-request-status.json"
+      configPath: resolveFixtureUrl("./fixtures/gateway-config.json"),
+      createProofRequestPath: resolveFixtureUrl("./fixtures/gateway-create-proof-request.json"),
+      proofRequestStatusPath: resolveFixtureUrl("./fixtures/gateway-proof-request-status.json")
     },
     primus: {
       mode: "sdk",
@@ -105,7 +133,7 @@ function buildLiveSdkConfig(): BrowserHarnessConfigFile {
     },
     provingDataRegistry: {
       github_account_age: {
-        templateId: "github-template",
+        templateId: "2e3160ae-8b1e-45e3-8c59-426366278b9d",
         algorithmType: "proxytls",
         fieldRules: {
           contribution: {
@@ -135,6 +163,13 @@ function prepareConfigUrl(): string {
   return currentBlobUrl;
 }
 
+(globalThis as GlobalWithConfig).__BNB_ZKID_GATEWAY_DEBUG__ = (
+  event: GatewayCreateProofRequestDebugEvent
+) => {
+  writeLog(`gateway ${event.transport} createProofRequest:`);
+  writeLog(JSON.stringify(event.input, null, 2));
+};
+
 updateModeUi();
 modeSelectElement.addEventListener("change", updateModeUi);
 
@@ -162,7 +197,7 @@ runButton.addEventListener("click", async () => {
       {
         clientRequestId: "browser-harness-001",
         userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-        provingDataId: "github_account_age",
+        identityPropertyId: "github_account_age",
         provingParams: {
           contribution: [21, 51]
         }
@@ -176,9 +211,7 @@ runButton.addEventListener("click", async () => {
 
     writeLog(`prove: ${JSON.stringify(proveResult, null, 2)}`);
   } catch (error) {
-    writeLog(
-      `error: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`
-    );
+    writeLog(`error: ${describeError(error)}`);
   } finally {
     runButton.disabled = false;
     modeSelectElement.disabled = false;

@@ -18,7 +18,7 @@ test("deterministic harness returns a typed happy path", async () => {
     {
       clientRequestId: "prove-task-001",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-      provingDataId: "github_account_age",
+      identityPropertyId: "github_account_age",
       provingParams: {
         contribution: [21, 51]
       }

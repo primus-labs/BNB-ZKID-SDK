@@ -56,7 +56,7 @@ class HarnessGatewayTransport {
   async createProofRequest(input: {
     clientRequestId: string;
     userAddress: string;
-    provingDataId: string;
+    identityPropertyId: string;
     provingParams?: ProvingParams;
   }): Promise<CreateProofRequestFixture> {
     void input.clientRequestId;
@@ -65,20 +65,20 @@ class HarnessGatewayTransport {
 
     const provider = this.fixtures.config.providers.find((candidate) =>
       candidate.identityProperties.some(
-        (property) => property.identityPropertyId === input.provingDataId
+        (property) => property.identityPropertyId === input.identityPropertyId
       )
     );
 
     if (!provider) {
-      throw new ConfigurationError("Unsupported provingDataId for deterministic harness.", {
-        provingDataId: input.provingDataId
+      throw new ConfigurationError("Unsupported identityPropertyId for deterministic harness.", {
+        identityPropertyId: input.identityPropertyId
       });
     }
 
     return {
       ...this.fixtures.createProofRequest,
       providerId: provider.providerId,
-      identityPropertyId: input.provingDataId
+      identityPropertyId: input.identityPropertyId
     };
   }
 

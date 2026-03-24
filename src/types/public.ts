@@ -31,7 +31,7 @@ export type ProveStatus =
 export interface ProveInput {
   clientRequestId: string;
   userAddress: string;
-  provingDataId: string;
+  identityPropertyId: string;
   provingParams?: ProvingParams;
 }
 

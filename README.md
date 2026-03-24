@@ -80,7 +80,7 @@ await client.prove(
   {
     clientRequestId: "prove-task-001",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    provingDataId: "github_account_age",
+    identityPropertyId: "github_account_age",
     provingParams: {
       contribution: [21, 51],
     },
@@ -114,7 +114,7 @@ await client.prove(
 - Gateway 地址或 fixture 文件
 - zkTLS 的 `zktlsAppId`
 - Primus 签名来源：本地 `appSecret`、页面输入或后端 signer
-- `provingDataId -> templateId` 映射规则
+- `identityPropertyId -> templateId` 映射规则
 
 ## Browser Harness
 

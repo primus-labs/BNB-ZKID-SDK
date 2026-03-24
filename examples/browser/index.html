@@ -141,8 +141,9 @@
               <input id="app-secret" type="password" placeholder="仅用于本地浏览器验证" />
             </div>
             <p class="hint">
-              这个 live skeleton 仍然使用 Gateway fixture，只把 Primus 切到真实 SDK。不要把生产
-              `appSecret` 固定写进仓库文件。
+              这个 live skeleton 仍然使用 Gateway fixture，只把 Primus 切到真实 SDK。浏览器里本地
+              `appSecret` 只用于签名；真实初始化仍依赖 Primus 浏览器扩展环境。不要把生产 `appSecret`
+              固定写进仓库文件。
             </p>
           </div>
         </div>
@@ -153,6 +154,6 @@
         <pre id="log"></pre>
       </div>
     </main>
-    <script type="module" src="./main.js"></script>
+    <script type="module" src="./main.ts"></script>
   </body>
 </html>

@@ -133,7 +133,7 @@ test("configured client runs init and prove through primus and gateway workflow"
     {
       clientRequestId: "prove-task-001",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-      provingDataId: "github_account_age",
+      identityPropertyId: "github_account_age",
       provingParams: {
         contribution: [21, 51]
       }
@@ -202,7 +202,7 @@ test("configured client returns failure when prove runs before init", async () =
   const result = await client.prove({
     clientRequestId: "prove-task-001",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    provingDataId: "github_account_age"
+    identityPropertyId: "github_account_age"
   });
 
   assert.deepEqual(result, {
@@ -241,7 +241,7 @@ test("configured client returns failed result when gateway status fails", async 
   const result = await client.prove({
     clientRequestId: "prove-task-001",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    provingDataId: "github_account_age"
+    identityPropertyId: "github_account_age"
   });
 
   assert.deepEqual(result, {

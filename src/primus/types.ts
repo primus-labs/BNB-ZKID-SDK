@@ -99,7 +99,10 @@ export interface PrimusZkTlsAdapter {
 
 export interface CollectPrimusBundleForProveInput {
   templateId: string;
-  proveInput: Pick<ProveInput, "clientRequestId" | "provingDataId" | "provingParams" | "userAddress">;
+  proveInput: Pick<
+    ProveInput,
+    "clientRequestId" | "identityPropertyId" | "provingParams" | "userAddress"
+  >;
   timeoutMs?: number;
   algorithmType?: PrimusAlgorithmType;
   resultType?: string;

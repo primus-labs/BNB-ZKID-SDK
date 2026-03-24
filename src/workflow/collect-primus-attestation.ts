@@ -16,7 +16,7 @@ export async function collectPrimusAttestationForProveInput(
     ...(input.attConditions === undefined ? {} : { attConditions: input.attConditions }),
     additionParams: {
       clientRequestId: proveInput.clientRequestId,
-      provingDataId: proveInput.provingDataId,
+      identityPropertyId: proveInput.identityPropertyId,
       ...(proveInput.provingParams ? { provingParams: proveInput.provingParams } : {}),
       ...(input.additionParams ?? {})
     }

@@ -1,4 +1,5 @@
 import { SdkError } from "../errors/sdk-error.js";
+import { emitGatewayCreateProofRequestDebug } from "./debug.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -19,6 +20,12 @@ class HttpGatewayClient implements GatewayClient {
   async createProofRequest(
     input: GatewayCreateProofRequestInput
   ): Promise<GatewayCreateProofRequestResult> {
+    emitGatewayCreateProofRequestDebug({
+      channel: "createProofRequest",
+      transport: "http",
+      input
+    });
+
     return this.requestJson<GatewayCreateProofRequestResult>("/v1/proof-requests", {
       method: "POST",
       headers: {

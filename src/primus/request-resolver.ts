@@ -13,7 +13,10 @@ export interface PrimusThresholdFieldRule {
 }
 
 export interface PrimusProvingDataResolverContext {
-  proveInput: Pick<ProveInput, "clientRequestId" | "provingDataId" | "provingParams" | "userAddress">;
+  proveInput: Pick<
+    ProveInput,
+    "clientRequestId" | "identityPropertyId" | "provingParams" | "userAddress"
+  >;
 }
 
 export interface PrimusResolvedRequestConfig {
@@ -87,10 +90,10 @@ export function resolvePrimusCollectInputForProve(
   registry: PrimusProvingDataRegistry,
   context: PrimusProvingDataResolverContext
 ): CollectPrimusAttestationInput {
-  const rule = registry[context.proveInput.provingDataId];
+  const rule = registry[context.proveInput.identityPropertyId];
   if (!rule) {
-    throw new ConfigurationError("No Primus proving-data mapping found.", {
-      provingDataId: context.proveInput.provingDataId
+    throw new ConfigurationError("No Primus identity-property mapping found.", {
+      identityPropertyId: context.proveInput.identityPropertyId
     });
   }
 
@@ -100,7 +103,7 @@ export function resolvePrimusCollectInputForProve(
 
   const additionParams = {
     clientRequestId: context.proveInput.clientRequestId,
-    provingDataId: context.proveInput.provingDataId,
+    identityPropertyId: context.proveInput.identityPropertyId,
     ...(context.proveInput.provingParams ? { provingParams: context.proveInput.provingParams } : {}),
     ...(rule.resolveAdditionParams?.(context) ?? {})
   };

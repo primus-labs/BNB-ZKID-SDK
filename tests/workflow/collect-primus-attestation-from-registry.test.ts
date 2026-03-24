@@ -52,7 +52,7 @@ test("registry-based workflow resolves template and attestation conditions", asy
     {
       proveInput: {
         clientRequestId: "prove-task-001",
-        provingDataId: "github_account_age",
+        identityPropertyId: "github_account_age",
         provingParams: {
           contribution: [21, 51]
         },
@@ -85,7 +85,7 @@ test("registry-based workflow resolves template and attestation conditions", asy
     ],
     additionParams: {
       clientRequestId: "prove-task-001",
-      provingDataId: "github_account_age",
+      identityPropertyId: "github_account_age",
       provingParams: {
         contribution: [21, 51]
       },

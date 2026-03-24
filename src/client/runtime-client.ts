@@ -6,6 +6,8 @@ import { createHttpGatewayClient } from "../gateway/http-client.js";
 import { createPrimusZkTlsAdapter } from "../primus/adapter.js";
 import { isNodeRuntime } from "../runtime/environment.js";
 import type { BnbZkIdClientMethods } from "../types/public.js";
+import type { GatewayClient } from "../gateway/types.js";
+import type { PrimusZkTlsAdapter } from "../primus/types.js";
 
 export async function createRuntimeConfiguredClient(): Promise<BnbZkIdClientMethods> {
   const loadedConfig = await loadBnbZkIdConfig();
@@ -51,7 +53,13 @@ async function createRuntimeFixtureGatewayClient(
   }
 
   if (isNodeRuntime()) {
-    const { createFixtureGatewayClient } = await import("../gateway/fixture-client.js");
+    const { createFixtureGatewayClient } = await importRuntimeModule<{
+      createFixtureGatewayClient: (input: {
+        configPath: string;
+        createProofRequestPath: string;
+        proofRequestStatusPath: string;
+      }) => GatewayClient;
+    }>("../gateway/fixture-client.js");
     return createFixtureGatewayClient({
       configPath: await resolveConfigResourcePath(loadedConfig, gateway.configPath),
       createProofRequestPath: await resolveConfigResourcePath(
@@ -88,7 +96,9 @@ async function createRuntimeFixturePrimusAdapter(
   }
 
   if (isNodeRuntime()) {
-    const { createFixturePrimusZkTlsAdapter } = await import("../primus/fixture-adapter.js");
+    const { createFixturePrimusZkTlsAdapter } = await importRuntimeModule<{
+      createFixturePrimusZkTlsAdapter: (bundlePath: string) => PrimusZkTlsAdapter;
+    }>("../primus/fixture-adapter.js");
     return createFixturePrimusZkTlsAdapter(
       await resolveConfigResourcePath(loadedConfig, primus.bundlePath)
     );
@@ -100,4 +110,11 @@ async function createRuntimeFixturePrimusAdapter(
   return createBrowserFixturePrimusZkTlsAdapter(
     await resolveConfigResourcePath(loadedConfig, primus.bundlePath)
   );
+}
+
+async function importRuntimeModule<T>(specifier: string): Promise<T> {
+  return (import(
+    /* @vite-ignore */
+    specifier
+  ) as unknown) as Promise<T>;
 }

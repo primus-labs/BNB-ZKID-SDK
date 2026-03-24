@@ -75,7 +75,7 @@ export type ProveStatus =
 export interface ProveInput {
   clientRequestId: string;
   userAddress: string;
-  provingDataId: string;
+  identityPropertyId: string;
   provingParams?: ProvingParams;
 }
 
@@ -121,7 +121,7 @@ export declare class BnbZkIdClient implements BnbZkIdClientMethods {
 
 ## `provingParams` 规则
 
-`provingParams` 用于传递与 `provingDataId` 对应的数据源分档阈值。
+`provingParams` 用于传递与 `identityPropertyId` 对应的数据源分档阈值。
 
 - 它的当前设计类型应收敛为 `Record<string, number[]>`
 - key 表示 provider-specific 的判定字段，例如 `contribution`、`ordersVolume`
@@ -134,7 +134,7 @@ export declare class BnbZkIdClient implements BnbZkIdClientMethods {
 const input: ProveInput = {
   clientRequestId: "prove-task-001",
   userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-  provingDataId: "github_account_age",
+  identityPropertyId: "github_account_age",
   provingParams: {
     contribution: [21, 51]
   }
@@ -143,7 +143,7 @@ const input: ProveInput = {
 
 在 Primus 集成层，`provingParams` 不应直接暴露为第三方 SDK 原始配置。SDK 内部应增加一层解析，把：
 
-- `provingDataId`
+- `identityPropertyId`
 - `provingParams`
 
 映射为：
@@ -252,7 +252,7 @@ const proveResult = await client.prove(
   {
     clientRequestId: "prove-task-001",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    provingDataId: "github_account_age",
+    identityPropertyId: "github_account_age",
     provingParams: {
       contribution: [21, 51],
     },

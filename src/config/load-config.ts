@@ -21,8 +21,8 @@ export async function loadBnbZkIdConfig(): Promise<LoadedBnbZkIdConfig> {
 async function loadConfigFromFile(configPath: string): Promise<LoadedBnbZkIdConfig> {
   try {
     const [{ readFile }, path] = await Promise.all([
-      import("node:fs/promises"),
-      import("node:path")
+      importRuntimeModule<typeof import("node:fs/promises")>("node:fs/promises"),
+      importRuntimeModule<typeof import("node:path")>("node:path")
     ]);
     const resolvedPath = path.resolve(configPath);
     const content = await readFile(resolvedPath, "utf8");
@@ -42,18 +42,19 @@ async function loadConfigFromFile(configPath: string): Promise<LoadedBnbZkIdConf
 }
 
 async function loadConfigFromUrl(configUrl: string): Promise<LoadedBnbZkIdConfig> {
-  const response = await fetch(configUrl);
+  const resolvedConfigUrl = new URL(configUrl, globalThis.location?.href).toString();
+  const response = await fetch(resolvedConfigUrl);
   if (!response.ok) {
     throw new ConfigurationError("Unable to fetch bnb-zkid config file.", {
-      configUrl,
+      configUrl: resolvedConfigUrl,
       status: response.status
     });
   }
 
   const file = (await response.json()) as BnbZkIdConfigFile;
   return {
-    configPath: configUrl,
-    configDir: configUrl,
+    configPath: response.url || resolvedConfigUrl,
+    configDir: response.url || resolvedConfigUrl,
     sourceKind: "url",
     file
   };
@@ -82,10 +83,17 @@ export async function resolveConfigResourcePath(
     });
   }
 
-  const path = await import("node:path");
+  const path = await importRuntimeModule<typeof import("node:path")>("node:path");
   if (path.isAbsolute(relativeOrAbsolutePath)) {
     return relativeOrAbsolutePath;
   }
 
   return path.resolve(loadedConfig.configDir, relativeOrAbsolutePath);
+}
+
+async function importRuntimeModule<T>(specifier: string): Promise<T> {
+  return (import(
+    /* @vite-ignore */
+    specifier
+  ) as unknown) as Promise<T>;
 }

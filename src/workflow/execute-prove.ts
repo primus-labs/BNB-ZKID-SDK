@@ -30,7 +30,7 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
     });
   }
 
-  resolveProviderMapping(input.gatewayConfig, input.proveInput.provingDataId);
+  resolveProviderMapping(input.gatewayConfig, input.proveInput.identityPropertyId);
   await emitProgress(input.options, {
     status: "initialized",
     clientRequestId: input.proveInput.clientRequestId
@@ -53,7 +53,7 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
 
   const created = await input.gatewayClient.createProofRequest({
     appId: input.appId,
-    identityPropertyId: input.proveInput.provingDataId,
+    identityPropertyId: input.proveInput.identityPropertyId,
     zkTlsProof: bundle.zkTlsProof,
     ...(input.proveInput.provingParams === undefined
       ? {}
@@ -106,19 +106,19 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
 
 function resolveProviderMapping(
   gatewayConfig: GatewayConfig,
-  provingDataId: string
+  identityPropertyId: string
 ): void {
   for (const provider of gatewayConfig.providers) {
     const matched = provider.identityProperties.some(
-      (identityProperty) => identityProperty.identityPropertyId === provingDataId
+      (identityProperty) => identityProperty.identityPropertyId === identityPropertyId
     );
     if (matched) {
       return;
     }
   }
 
-  throw new ConfigurationError("Gateway config does not support provingDataId.", {
-    provingDataId
+  throw new ConfigurationError("Gateway config does not support identityPropertyId.", {
+    identityPropertyId
   });
 }
 

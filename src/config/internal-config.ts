@@ -10,7 +10,7 @@ export const INTERNAL_BNB_ZKID_CONFIG: BnbZkIdConfigFile = {
   },
   primus: {
     mode: "sdk",
-    zktlsAppId: INTERNAL_ZKTLS_APP_ID
+    zktlsAppId: "0x3d5593083e9c7055de9760c80eebf156e39ba3e8"
   },
   provingDataRegistry: {}
 };
