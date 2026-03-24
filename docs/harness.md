@@ -14,7 +14,7 @@
 
 1. 开发者创建一个 client。
 2. client 获取 Gateway 配置。
-3. client 提交一个包含 `zkTlsProof` 和 `privateData` 的 `ProofRequest`。
+3. client 提交一个包含 `zkTlsProof` 的 `ProofRequest`，其中 `public_data` 是 Primus attestation，`private_data` 是 `getPrivateData` 结果。
 4. client 查询 `proofRequestId` 的状态。
 5. 应用拿到类型明确的成功结果，包含 `status = on_chain_attested`、`walletAddress`、`providerId`、`identityPropertyId`。
 
@@ -41,6 +41,20 @@ fixtures/
 ```
 
 当前仓库已落地对应目录，并将 internal harness 实现放在 `src/harness/` 下，避免污染 package public surface。
+
+随着 Primus 集成实现展开，仓库也可以增加面向 `src/primus/` 和 `src/workflow/` 的 deterministic tests，但仍应优先使用 fake runtime 和 injected signer，而不是直接依赖浏览器扩展或真实 appSecret。
+
+同理，在进入真实 public facade 实现前，可以先用 internal configured client 把 `init -> Primus -> Gateway -> status` 串起来，作为下一阶段的实现验收骨架。
+
+如果正式 zkTLS 运行必须在浏览器中验证，则应单独保留一层 browser harness。它与当前默认的 deterministic harness 分工不同：
+
+- deterministic harness：默认回归、快速反馈、无浏览器依赖
+- browser harness：验证浏览器运行时、配置加载和真实页面上下文
+
+当前仓库里的 browser harness 已经支持两种模式：
+
+- `fixture + fixture`：验证页面加载、浏览器配置读取和 public client 主流程
+- `gateway fixture + primus sdk`：验证浏览器里真实 zkTLS SDK 初始化和 attestation 主链路，同时保持 Gateway 为 deterministic fixture
 
 ## 执行策略
 

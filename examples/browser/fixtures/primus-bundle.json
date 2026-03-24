@@ -1,0 +1,25 @@
+{
+  "requestId": "primus-browser-request-001",
+  "zkTlsProof": {
+    "public_data": {
+      "requestid": "primus-browser-request-001"
+    },
+    "private_data": [
+      {
+        "id": "contribution",
+        "salt": "salt-browser-001",
+        "content": ["88"]
+      }
+    ]
+  },
+  "attestation": {
+    "requestid": "primus-browser-request-001"
+  },
+  "privateData": [
+    {
+      "id": "contribution",
+      "salt": "salt-browser-001",
+      "content": ["88"]
+    }
+  ]
+}

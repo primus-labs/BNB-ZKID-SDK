@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BNB ZKID Browser Harness</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f4ed;
+        --panel: #fffdf7;
+        --ink: #1f1a14;
+        --muted: #756a5f;
+        --accent: #0a7a5a;
+        --border: #ded6c7;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Iowan Old Style", "Palatino Linotype", serif;
+        background:
+          radial-gradient(circle at top left, rgba(10, 122, 90, 0.08), transparent 28rem),
+          linear-gradient(180deg, #fbfaf5, var(--bg));
+        color: var(--ink);
+      }
+
+      main {
+        max-width: 56rem;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 4rem;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: 1.25rem;
+        box-shadow: 0 14px 40px rgba(31, 26, 20, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 0.75rem;
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        line-height: 0.95;
+      }
+
+      p {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .row {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin: 1rem 0 1.25rem;
+      }
+
+      .controls {
+        display: grid;
+        gap: 0.9rem;
+        margin: 1.25rem 0;
+      }
+
+      .field {
+        display: grid;
+        gap: 0.35rem;
+      }
+
+      .field label {
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      select,
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 0.8rem;
+        padding: 0.75rem 0.9rem;
+        background: #fff;
+        color: var(--ink);
+        font: inherit;
+      }
+
+      .hint {
+        margin-top: -0.35rem;
+        font-size: 0.88rem;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 0.8rem 1.2rem;
+        background: var(--ink);
+        color: white;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--border);
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 0.9rem;
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="panel">
+        <h1>Browser Harness</h1>
+        <p>
+          这个页面用于浏览器环境下验证 <code>BnbZkIdClient</code> 的加载、配置读取和
+          <code>prove</code> 主流程。现在支持两种模式：默认的 <code>fixture + fixture</code>
+          回归模式，以及 <code>Gateway fixture + Primus sdk</code> 的浏览器 live skeleton。
+        </p>
+        <div class="controls">
+          <div class="field">
+            <label for="mode">Harness mode</label>
+            <select id="mode">
+              <option value="fixture">Fixture Gateway + Fixture Primus</option>
+              <option value="primus-sdk">Fixture Gateway + Primus SDK</option>
+            </select>
+          </div>
+          <div id="primus-sdk-fields" hidden>
+            <div class="field">
+              <label for="zktls-app-id">zkTLS appId</label>
+              <input id="zktls-app-id" type="text" placeholder="填入 Primus zktlsAppId" />
+            </div>
+            <div class="field">
+              <label for="app-secret">Local appSecret</label>
+              <input id="app-secret" type="password" placeholder="仅用于本地浏览器验证" />
+            </div>
+            <p class="hint">
+              这个 live skeleton 仍然使用 Gateway fixture，只把 Primus 切到真实 SDK。不要把生产
+              `appSecret` 固定写进仓库文件。
+            </p>
+          </div>
+        </div>
+        <div class="row">
+          <button id="run-harness">Run Harness</button>
+          <button id="clear-log" class="secondary">Clear</button>
+        </div>
+        <pre id="log"></pre>
+      </div>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

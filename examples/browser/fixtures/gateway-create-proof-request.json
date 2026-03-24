@@ -1,0 +1,6 @@
+{
+  "proofRequestId": "proof-request-browser-001",
+  "status": "initialized",
+  "providerId": "github",
+  "identityPropertyId": "github_account_age"
+}

@@ -1,0 +1,14 @@
+{
+  "appIds": ["listdao"],
+  "providers": [
+    {
+      "providerId": "github",
+      "identityProperties": [
+        {
+          "identityPropertyId": "github_account_age",
+          "schemaVersion": "1.0.0"
+        }
+      ]
+    }
+  ]
+}

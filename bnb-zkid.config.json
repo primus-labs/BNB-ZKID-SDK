@@ -1,0 +1,11 @@
+{
+  "gateway": {
+    "mode": "http",
+    "baseUrl": "https://your-gateway-host.example.com"
+  },
+  "primus": {
+    "mode": "sdk",
+    "zktlsAppId": "YOUR_ZKTLS_APP_ID"
+  },
+  "provingDataRegistry": {}
+}

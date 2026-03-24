@@ -1,0 +1,24 @@
+{
+  "gateway": {
+    "mode": "fixture",
+    "configPath": "./fixtures/gateway-config.json",
+    "createProofRequestPath": "./fixtures/gateway-create-proof-request.json",
+    "proofRequestStatusPath": "./fixtures/gateway-proof-request-status.json"
+  },
+  "primus": {
+    "mode": "fixture",
+    "bundlePath": "./fixtures/primus-bundle.json"
+  },
+  "provingDataRegistry": {
+    "github_account_age": {
+      "templateId": "github-template",
+      "algorithmType": "proxytls",
+      "fieldRules": {
+        "contribution": {
+          "op": ">",
+          "valueOffset": -1
+        }
+      }
+    }
+  }
+}

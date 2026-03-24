@@ -1,0 +1,7 @@
+{
+  "proofRequestId": "proof-request-browser-001",
+  "status": "on_chain_attested",
+  "walletAddress": "0x1234567890abcdef1234567890abcdef12345678",
+  "providerId": "github",
+  "identityPropertyId": "github_account_age"
+}

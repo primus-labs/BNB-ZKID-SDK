@@ -16,10 +16,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json && cp -R fixtures dist/fixtures",
+    "build": "rm -rf dist && tsc -p tsconfig.json && cp -R fixtures dist/fixtures && mkdir -p dist/examples/browser && cp -R examples/browser/* dist/examples/browser/",
     "example:minimal": "npm run build && node dist/examples/minimal.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/tests/harness/minimal-sdk.test.js"
+    "test": "npm run build && node --test dist/tests/config/load-config.test.js dist/tests/harness/minimal-sdk.test.js dist/tests/primus/adapter.test.js dist/tests/primus/request-resolver.test.js dist/tests/workflow/collect-primus-attestation.test.js dist/tests/workflow/collect-primus-attestation-from-registry.test.js dist/tests/client/configured-client.test.js dist/tests/client/public-client.test.js"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",

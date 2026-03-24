@@ -10,6 +10,7 @@ export type {
   ProveOptions,
   ProveProgressEvent,
   ProveResult,
-  ProveStatus
+  ProveStatus,
+  ProvingParams
 } from "./types/public.js";
 export { SdkError, ConfigurationError, NotImplementedError } from "./errors/sdk-error.js";

@@ -4,6 +4,8 @@ export interface BnbZkIdError {
   details?: Record<string, unknown>;
 }
 
+export type ProvingParams = Record<string, number[]>;
+
 export interface InitInput {
   appId: string;
 }
@@ -30,7 +32,7 @@ export interface ProveInput {
   clientRequestId: string;
   userAddress: string;
   provingDataId: string;
-  provingParams?: Record<string, unknown>;
+  provingParams?: ProvingParams;
 }
 
 export interface ProveProgressEvent {

@@ -17,7 +17,10 @@ if (!initResult.success) {
     {
       clientRequestId: "prove-task-001",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-      provingDataId: "github_account_age"
+      provingDataId: "github_account_age",
+      provingParams: {
+        contribution: [21, 51]
+      }
     },
     {
       onProgress(event) {

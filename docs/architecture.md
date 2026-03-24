@@ -51,9 +51,10 @@
 
 1. 知道 Gateway 当前支持哪些 `provider`、`identityProperty`、schema 和业务约束。
 2. 调用 Primus `zktls-js-sdk` 获取 zkTLS attestation。
-3. 将 attestation、private data、public data 等内容组装为 Gateway 认可的 `ProofRequest`。
-4. 提交 `POST /v1/proof-requests`。
-5. 在 `prove(...)` 执行过程中通过进度回调向调用方返回状态，直到 `on_chain_attested` 或 `failed`。
+3. 根据 `provingDataId` 和 provider 规则准备 `provingParams` 这类阈值输入。
+4. 将 attestation、private data、public data 等内容组装为 Gateway 认可的 `ProofRequest`。
+5. 提交 `POST /v1/proof-requests`。
+6. 在 `prove(...)` 执行过程中通过进度回调向调用方返回状态，直到 `on_chain_attested` 或 `failed`。
 
 因此，这个 SDK 的本质是一个“客户端集成编排 SDK”。
 
@@ -165,6 +166,7 @@ Implementation Layer (deferred)
 
 - 定义 SDK 如何看待 Primus attestation 结果
 - 定义 `collectAttestationBundle(...)` 的输入输出
+- 定义 `provingDataId / provingParams -> templateId / attConditions` 的解析层
 - 不在当前阶段承诺具体序列化实现
 
 `Implementation Layer`
@@ -191,6 +193,7 @@ Implementation Layer (deferred)
 - 承载 `BnbZkIdClient` 的默认形状
 - 当前阶段仅保留未实现 stub，避免提前锁定 transport 方案
 - 未来内部 `GatewayClient` 不进入当前 public surface
+- 内部可以存在不导出的 configured client，用于把 Primus adapter、Gateway client 和 workflow 串起来做实现验证
 
 ### `docs/`
 
@@ -213,6 +216,7 @@ SDK 对业务应用暴露的第一层能力应固定为：
 
 - `init({ appId })` 代表 SDK 级初始化，其中 `appId` 表示注册到 BNB ZK ID framework 的应用标识，并在失败时返回结构化错误信息
 - `prove(...)` 代表从“业务证明意图”到“最终证明完成”这一整段编排
+- `prove(...)` 的输入可包含 `provingParams`，用于传递 provider-specific 的数值分档阈值
 - `options.onProgress` 用于在长任务执行过程中向调用方返回状态变化
 
 ### Gateway Client
@@ -235,6 +239,9 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 
 - `createPrimusZkTlsAdapter(config)`
 - `collectAttestationBundle(input)`
+- `resolvePrimusCollectInputForProve(registry, proveInput)`
+
+当前仓库已经开始落这一层内部骨架，用于承接 Primus 官方文档中的 `init -> generateRequestParams -> sign -> startAttestation -> verifyAttestation` 主流程，但仍未把它接入 public facade。
 
 返回值至少应包含：
 
@@ -242,7 +249,6 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 - `attestation`
 - `requestId`
 - `privateData`
-- `publicData`
 
 这里最关键的是：SDK 先定义“它期望从 Primus 得到什么”，而不是先定义“Primus 内部到底怎么工作”。
 
@@ -272,7 +278,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 
 ### 流程 B：Gateway 原子调用
 
-1. 应用已有 `zkTlsProof`、`privateData` 等内容
+1. 应用已有 `zkTlsProof`，其中 `public_data` 是 attestation，`private_data` 是 `getPrivateData` 返回
 2. 调用 `gatewayClient.createProofRequest(input)`
 3. Gateway 返回 `proofRequestId`
 4. 应用开始跟踪状态
@@ -289,11 +295,12 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 
 1. 应用创建 `client`
 2. 调用 `client.init({ appId })`
-3. 调用 `client.prove(input, { onProgress })`
-4. SDK 内部触发 Primus 和 Gateway 编排
-5. SDK 在执行过程中通过 `onProgress` 向应用回传状态
-6. `client.prove(...)` 最终返回 `on_chain_attested` 或 `failed`
-7. 成功态结果必须包含 `walletAddress`、`providerId`、`identityPropertyId`
+3. 应用按 `provingDataId` 组装可选的 `provingParams`
+4. 调用 `client.prove(input, { onProgress })`
+5. SDK 内部触发 Primus 和 Gateway 编排
+6. SDK 在执行过程中通过 `onProgress` 向应用回传状态
+7. `client.prove(...)` 最终返回 `on_chain_attested` 或 `failed`
+8. 成功态结果必须包含 `walletAddress`、`providerId`、`identityPropertyId`
 
 ## 状态模型
 
@@ -439,9 +446,9 @@ SDK 的错误分为两类：
 ## 待确认问题
 
 - Primus `zktls-js-sdk` 的主运行环境是否只考虑浏览器？
-- `zkTlsProof.proof` 的最终编码格式是否已经由 Gateway 明确固定？
-- `zkTlsProof.transcript` 是否真的是长期稳定字段？
-- `privateData` 是否需要按 provider/property 收敛成更细的 typed schema？
+- `zkTlsProof.public_data` 的最终结构是否会被 Gateway 长期稳定接受？
+- `zkTlsProof.private_data` 是否始终直接采用 `getPrivateData` 的原始返回结果？
+- `businessParams` 是否需要按 provider/property 收敛成更细的 typed schema？
 - `clientRequestId` 是否保持必填，还是允许 SDK 自动生成？
 - 第一版是否需要支持自定义 transport 注入？
 

@@ -48,6 +48,8 @@ export interface BnbZkIdError {
   details?: Record<string, unknown>;
 }
 
+export type ProvingParams = Record<string, number[]>;
+
 export interface InitInput {
   appId: string;
 }
@@ -74,7 +76,7 @@ export interface ProveInput {
   clientRequestId: string;
   userAddress: string;
   provingDataId: string;
-  provingParams?: Record<string, unknown>;
+  provingParams?: ProvingParams;
 }
 
 export interface ProveProgressEvent {
@@ -117,27 +119,54 @@ export declare class BnbZkIdClient implements BnbZkIdClientMethods {
 }
 ```
 
+## `provingParams` 规则
+
+`provingParams` 用于传递与 `provingDataId` 对应的数据源分档阈值。
+
+- 它的当前设计类型应收敛为 `Record<string, number[]>`
+- key 表示 provider-specific 的判定字段，例如 `contribution`、`ordersVolume`
+- value 表示该字段对应的阈值数组，由低到高表达不同分档边界
+- 如果只证明“已绑定”而不需要额外阈值，调用方可以不传 `provingParams`
+
+示例：
+
+```ts
+const input: ProveInput = {
+  clientRequestId: "prove-task-001",
+  userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+  provingDataId: "github_account_age",
+  provingParams: {
+    contribution: [21, 51]
+  }
+};
+```
+
+在 Primus 集成层，`provingParams` 不应直接暴露为第三方 SDK 原始配置。SDK 内部应增加一层解析，把：
+
+- `provingDataId`
+- `provingParams`
+
+映射为：
+
+- `templateId`
+- `attConditions`
+- 可选的 `additionParams`
+
+这样 public contract 继续保持业务领域命名，而 Primus template 和 attestation condition 细节留在内部。
+
 ## 内部参考 Contract
 
 下面这些结构不是当前 public surface 的组成部分，但它们描述了 SDK 未来内部需要对齐的 Gateway 协议对象：
 
 ```ts
-export interface ZkTlsProof {
-  proof: string;
-  transcript?: string;
-  format?: string;
-}
-
 export interface CreateProofRequestInput {
-  appId?: string;
-  user?: string;
-  providerId: string;
-  identityProperty: string;
-  schemaVersion?: string;
-  zkTlsProof: ZkTlsProof;
-  privateData: Record<string, unknown>;
-  publicData?: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
+  appId: string;
+  identityPropertyId: string;
+  zkTlsProof: {
+    public_data: unknown;
+    private_data: unknown;
+  };
+  businessParams?: Record<string, unknown>;
 }
 
 export interface CreateProofRequestResponse {
@@ -167,6 +196,17 @@ export interface ProofRequestStatusResponse {
 第一版 public API 暂不通过构造函数暴露配置对象。
 
 与 Gateway、鉴权、运行时环境相关的接入参数，后续应在真实实现阶段重新评估放置位置，再决定是否进入 public contract。
+
+在当前实现骨架中，为了保持 `new BnbZkIdClient()` 不变，运行时配置默认来自 SDK 内置配置，而不是构造函数参数。
+
+其中 zkTLS SDK 自身使用的 `appId` 通过 SDK 内置配置里的 `primus.zktlsAppId` 提供，而不是取自 `init({ appId })`。
+
+本地测试和 harness 可以通过外部 override 覆盖这套默认配置：
+
+- Node 环境使用 `BNB_ZKID_CONFIG_PATH`
+- 浏览器 harness 使用 `globalThis.__BNB_ZKID_CONFIG_URL__`
+
+但这些 override 机制不应成为发布态 SDK 的主要接入方式。
 
 ## 错误模型
 
@@ -213,6 +253,9 @@ const proveResult = await client.prove(
     clientRequestId: "prove-task-001",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
     provingDataId: "github_account_age",
+    provingParams: {
+      contribution: [21, 51],
+    },
   },
   {
     onProgress(event) {

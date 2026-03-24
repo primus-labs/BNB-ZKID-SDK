@@ -8,7 +8,8 @@ import type {
   ProveInput,
   ProveOptions,
   ProveProgressEvent,
-  ProveResult
+  ProveResult,
+  ProvingParams
 } from "../types/public.js";
 
 interface HarnessGatewayConfig {
@@ -56,7 +57,7 @@ class HarnessGatewayTransport {
     clientRequestId: string;
     userAddress: string;
     provingDataId: string;
-    provingParams?: Record<string, unknown>;
+    provingParams?: ProvingParams;
   }): Promise<CreateProofRequestFixture> {
     void input.clientRequestId;
     void input.userAddress;
@@ -135,6 +136,13 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       });
     }
 
+    if (!this.isValidProvingParams(input.provingParams)) {
+      return this.buildFailureResult(input.clientRequestId, {
+        code: "VALIDATION_ERROR",
+        message: "provingParams must be a record of numeric threshold arrays."
+      });
+    }
+
     const created = await this.transport.createProofRequest(input);
     await this.emitProgress(options, {
       status: "initialized",
@@ -184,6 +192,16 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       identityPropertyId: status.identityPropertyId,
       proofRequestId: created.proofRequestId
     };
+  }
+
+  private isValidProvingParams(provingParams: ProvingParams | undefined): boolean {
+    if (!provingParams) {
+      return true;
+    }
+
+    return Object.values(provingParams).every((values) =>
+      Array.isArray(values) && values.every((value) => Number.isFinite(value))
+    );
   }
 
   private buildFailureResult(

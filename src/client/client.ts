@@ -1,4 +1,4 @@
-import { NotImplementedError } from "../errors/sdk-error.js";
+import { createRuntimeConfiguredClient } from "./runtime-client.js";
 import type {
   BnbZkIdClientMethods,
   InitInput,
@@ -9,16 +9,36 @@ import type {
 } from "../types/public.js";
 
 export class BnbZkIdClient implements BnbZkIdClientMethods {
+  private runtimeClientPromise: Promise<BnbZkIdClientMethods> | undefined;
+
   constructor() {}
 
   async init(input: InitInput): Promise<InitResult> {
-    void input;
-    throw new NotImplementedError("`init` is not implemented yet. Current phase only defines the facade contract.");
+    const runtimeClient = await this.getRuntimeClient();
+    return runtimeClient.init(input);
   }
 
   async prove(input: ProveInput, options?: ProveOptions): Promise<ProveResult> {
-    void input;
-    void options;
-    throw new NotImplementedError("`prove` is not implemented yet. Current phase only defines the facade contract.");
+    if (!this.runtimeClientPromise) {
+      return {
+        status: "failed",
+        clientRequestId: input.clientRequestId,
+        error: {
+          code: "CONFIGURATION_ERROR",
+          message: "init must succeed before prove can run."
+        }
+      };
+    }
+
+    const runtimeClient = await this.runtimeClientPromise;
+    return runtimeClient.prove(input, options);
+  }
+
+  private async getRuntimeClient(): Promise<BnbZkIdClientMethods> {
+    if (!this.runtimeClientPromise) {
+      this.runtimeClientPromise = createRuntimeConfiguredClient();
+    }
+
+    return this.runtimeClientPromise;
   }
 }
