@@ -166,7 +166,7 @@ Implementation Layer (deferred)
 
 - 定义 SDK 如何看待 Primus attestation 结果
 - 定义 `collectAttestationBundle(...)` 的输入输出
-- 定义 `identityPropertyId / provingParams -> templateId / attConditions` 的解析层
+- 定义 `identityPropertyId -> templateId` 的解析层
 - 不在当前阶段承诺具体序列化实现
 
 `Implementation Layer`
@@ -239,7 +239,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 
 - `createPrimusZkTlsAdapter(config)`
 - `collectAttestationBundle(input)`
-- `resolvePrimusCollectInputForProve(registry, proveInput)`
+- `resolveTemplateId({ appId, identityPropertyId })`
 
 当前仓库已经把这一层接入 public facade，但浏览器 live 模式仍依赖 Primus 扩展环境。
 

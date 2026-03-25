@@ -1,9 +1,13 @@
 import { ConfigurationError } from "../errors/sdk-error.js";
 import { createConfiguredBnbZkIdClient } from "./configured-client.js";
 import { loadBnbZkIdConfig, resolveConfigResourcePath } from "../config/load-config.js";
-import { resolvePrimusRegistry } from "../config/resolve-registry.js";
 import { createHttpGatewayClient } from "../gateway/http-client.js";
 import { createPrimusZkTlsAdapter } from "../primus/adapter.js";
+import { createHttpPrimusRequestSigner } from "../primus/request-signer.js";
+import {
+  createHttpPrimusTemplateResolver,
+  createStaticPrimusTemplateResolver
+} from "../primus/template-resolver.js";
 import { isNodeRuntime } from "../runtime/environment.js";
 import type { BnbZkIdClientMethods } from "../types/public.js";
 import type { GatewayClient } from "../gateway/types.js";
@@ -22,14 +26,25 @@ export async function createRuntimeConfiguredClient(): Promise<BnbZkIdClientMeth
     file.primus.mode === "sdk"
       ? createPrimusZkTlsAdapter({
           appId: resolvePrimusAppId(file.primus.zktlsAppId),
-          ...(file.primus.appSecret === undefined ? {} : { appSecret: file.primus.appSecret })
+          ...(file.primus.appSecret === undefined ? {} : { appSecret: file.primus.appSecret }),
+          ...(file.primus.signer === undefined
+            ? {}
+            : {
+                signer: createHttpPrimusRequestSigner({
+                  baseUrl: file.primus.signer.baseUrl,
+                  signPath: file.primus.signer.signPath,
+                  ...(file.primus.signer.apiKey === undefined
+                    ? {}
+                    : { apiKey: file.primus.signer.apiKey })
+                })
+              })
         })
       : await createRuntimeFixturePrimusAdapter(loadedConfig);
 
   const client = createConfiguredBnbZkIdClient({
     gatewayClient,
     primusAdapter,
-    primusRegistry: resolvePrimusRegistry(file.provingDataRegistry)
+    primusTemplateResolver: createRuntimePrimusTemplateResolver(file.primus.templateResolver)
   });
 
   return client;
@@ -110,6 +125,21 @@ async function createRuntimeFixturePrimusAdapter(
   return createBrowserFixturePrimusZkTlsAdapter(
     await resolveConfigResourcePath(loadedConfig, primus.bundlePath)
   );
+}
+
+function createRuntimePrimusTemplateResolver(
+  config: Awaited<ReturnType<typeof loadBnbZkIdConfig>>["file"]["primus"]["templateResolver"]
+) {
+  if (config.mode === "static") {
+    return createStaticPrimusTemplateResolver(config.templateIds);
+  }
+
+  return createHttpPrimusTemplateResolver({
+    baseUrl: config.baseUrl,
+    resolveTemplatePath: config.resolveTemplatePath,
+    ...(config.apiKey === undefined ? {} : { apiKey: config.apiKey }),
+    ...(config.responseKeyMap === undefined ? {} : { responseKeyMap: config.responseKeyMap })
+  });
 }
 
 async function importRuntimeModule<T>(specifier: string): Promise<T> {

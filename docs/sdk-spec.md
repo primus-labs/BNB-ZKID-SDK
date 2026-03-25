@@ -141,18 +141,15 @@ const input: ProveInput = {
 };
 ```
 
-在 Primus 集成层，`provingParams` 不应直接暴露为第三方 SDK 原始配置。SDK 内部应增加一层解析，把：
+在 Primus 集成层，`provingParams` 不应直接暴露为第三方 SDK 原始配置。
 
-- `identityPropertyId`
-- `provingParams`
+当前收敛后的内部规则是：
 
-映射为：
+- SDK 运行时根据 `identityPropertyId` 从 Primus server 解析 `templateId`
+- `provingParams` 继续保留为业务侧输入，并作为 Gateway `businessParams` 的来源
+- `clientRequestId`、`identityPropertyId`、`provingParams` 可以继续透传给 Primus 作为 `additionParams`
 
-- `templateId`
-- `attConditions`
-- 可选的 `additionParams`
-
-这样 public contract 继续保持业务领域命名，而 Primus template 和 attestation condition 细节留在内部。
+这样 public contract 继续保持业务领域命名，而 Primus template 解析细节留在内部。
 
 ## 内部参考 Contract
 
@@ -200,6 +197,22 @@ export interface ProofRequestStatusResponse {
 在当前实现骨架中，为了保持 `new BnbZkIdClient()` 不变，运行时配置默认来自 SDK 内置配置，而不是构造函数参数。
 
 其中 zkTLS SDK 自身使用的 `appId` 通过 SDK 内置配置里的 `primus.zktlsAppId` 提供，而不是取自 `init({ appId })`。
+
+当前内置配置还需要提供 Primus server template resolver，例如：
+
+- `primus.templateResolver.baseUrl`
+- `primus.templateResolver.resolveTemplatePath`
+- `primus.signer.baseUrl`
+- `primus.signer.signPath`
+
+当前实现会请求公开模板接口，并从返回的 `result` 对象里按 provider 前缀读取对应字段，例如：
+
+- `github_account_age -> githubIdentityPropertyId`
+
+如果远端字段名与默认规则不一致，可通过 `primus.templateResolver.responseKeyMap` 覆盖。
+
+对于 zkTLS 请求签名，当前实现支持通过服务端 signer 完成；签名接口接收原始 attestation request 字符串作为
+`text/plain` 请求体，并返回 `result.appSignature`。
 
 本地测试和 harness 可以通过外部 override 覆盖这套默认配置：
 

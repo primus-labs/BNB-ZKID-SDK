@@ -1,8 +1,8 @@
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
 import type { GatewayClient, GatewayConfig } from "../gateway/types.js";
-import type { PrimusProvingDataRegistry } from "../primus/request-resolver.js";
+import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
 import type { PrimusZkTlsAdapter } from "../primus/types.js";
-import { collectPrimusAttestationFromRegistry } from "./collect-primus-attestation-from-registry.js";
+import { collectPrimusAttestationFromTemplateResolver } from "./collect-primus-attestation-from-resolver.js";
 import type {
   ProveFailureResult,
   ProveInput,
@@ -17,7 +17,7 @@ interface ExecuteProveWorkflowInput {
   gatewayConfig: GatewayConfig;
   gatewayClient: GatewayClient;
   primusAdapter: PrimusZkTlsAdapter;
-  primusRegistry: PrimusProvingDataRegistry;
+  primusTemplateResolver: PrimusTemplateResolver;
   proveInput: ProveInput;
   options?: ProveOptions;
 }
@@ -40,10 +40,11 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
     clientRequestId: input.proveInput.clientRequestId
   });
 
-  const bundle = await collectPrimusAttestationFromRegistry(
+  const bundle = await collectPrimusAttestationFromTemplateResolver(
     input.primusAdapter,
-    input.primusRegistry,
+    input.primusTemplateResolver,
     {
+      appId: input.appId,
       proveInput: input.proveInput,
       additionParams: {
         appId: input.appId

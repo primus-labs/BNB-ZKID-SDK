@@ -14,28 +14,38 @@ export type BnbZkIdGatewayRuntimeConfig =
   | BnbZkIdGatewayHttpConfig
   | BnbZkIdGatewayFixtureConfig;
 
-export interface BnbZkIdPrimusFieldRuleConfig {
-  op: string;
-  valueOffset?: number;
+export interface BnbZkIdPrimusStaticTemplateResolverConfig {
+  mode: "static";
+  templateIds: Record<string, string>;
 }
 
-export interface BnbZkIdPrimusRegistryRuleConfig {
-  templateId: string;
-  timeoutMs?: number;
-  algorithmType?: "proxytls" | "mpctls";
-  resultType?: string;
-  fieldRules?: Record<string, BnbZkIdPrimusFieldRuleConfig>;
+export interface BnbZkIdPrimusServerTemplateResolverConfig {
+  mode: "server";
+  baseUrl: string;
+  resolveTemplatePath: string;
+  apiKey?: string;
+  responseKeyMap?: Record<string, string>;
+}
+
+export interface BnbZkIdPrimusServerSignerConfig {
+  mode: "server";
+  baseUrl: string;
+  signPath: string;
+  apiKey?: string;
 }
 
 export interface BnbZkIdPrimusSdkConfig {
   mode: "sdk";
   zktlsAppId: string;
   appSecret?: string;
+  templateResolver: BnbZkIdPrimusStaticTemplateResolverConfig | BnbZkIdPrimusServerTemplateResolverConfig;
+  signer?: BnbZkIdPrimusServerSignerConfig;
 }
 
 export interface BnbZkIdPrimusFixtureConfig {
   mode: "fixture";
   bundlePath: string;
+  templateResolver: BnbZkIdPrimusStaticTemplateResolverConfig | BnbZkIdPrimusServerTemplateResolverConfig;
 }
 
 export type BnbZkIdPrimusRuntimeConfig = BnbZkIdPrimusSdkConfig | BnbZkIdPrimusFixtureConfig;
@@ -43,7 +53,6 @@ export type BnbZkIdPrimusRuntimeConfig = BnbZkIdPrimusSdkConfig | BnbZkIdPrimusF
 export interface BnbZkIdConfigFile {
   gateway: BnbZkIdGatewayRuntimeConfig;
   primus: BnbZkIdPrimusRuntimeConfig;
-  provingDataRegistry: Record<string, BnbZkIdPrimusRegistryRuleConfig>;
 }
 
 export interface LoadedBnbZkIdConfig {

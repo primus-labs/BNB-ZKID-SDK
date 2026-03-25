@@ -8,7 +8,7 @@ import type {
   GatewayCreateProofRequestResult,
   GatewayProofRequestStatusResult
 } from "../../src/gateway/types.js";
-import type { PrimusProvingDataRegistry } from "../../src/primus/request-resolver.js";
+import type { PrimusTemplateResolver, ResolvePrimusTemplateInput } from "../../src/primus/template-resolver.js";
 import type {
   CollectPrimusAttestationInput,
   PrimusAttestationBundle,
@@ -99,25 +99,28 @@ class FakePrimusAdapter implements PrimusZkTlsAdapter {
   }
 }
 
-const registry: PrimusProvingDataRegistry = {
-  github_account_age: {
-    templateId: "github-template",
-    fieldRules: {
-      contribution: {
-        op: ">",
-        encodeValue: (threshold) => String(threshold - 1)
-      }
+class FakePrimusTemplateResolver implements PrimusTemplateResolver {
+  readonly calls: ResolvePrimusTemplateInput[] = [];
+
+  async resolveTemplateId(input: ResolvePrimusTemplateInput): Promise<string> {
+    this.calls.push(input);
+
+    if (input.identityPropertyId === "github_account_age") {
+      return "github-template";
     }
+
+    throw new Error(`unexpected identityPropertyId: ${input.identityPropertyId}`);
   }
-};
+}
 
 test("configured client runs init and prove through primus and gateway workflow", async () => {
   const gatewayClient = new FakeGatewayClient();
   const primusAdapter = new FakePrimusAdapter();
+  const primusTemplateResolver = new FakePrimusTemplateResolver();
   const client = createConfiguredBnbZkIdClient({
     gatewayClient,
     primusAdapter,
-    primusRegistry: registry
+    primusTemplateResolver
   });
   const events: string[] = [];
 
@@ -151,24 +154,14 @@ test("configured client runs init and prove through primus and gateway workflow"
     "proof_generating",
     "on_chain_attested"
   ]);
+  assert.deepEqual(primusTemplateResolver.calls, [
+    {
+      appId: "listdao",
+      identityPropertyId: "github_account_age"
+    }
+  ]);
   assert.equal(primusAdapter.collectedInputs.length, 1);
   assert.equal(primusAdapter.collectedInputs[0]?.templateId, "github-template");
-  assert.deepEqual(primusAdapter.collectedInputs[0]?.attConditions, [
-    [
-      {
-        field: "contribution",
-        op: ">",
-        value: "20"
-      }
-    ],
-    [
-      {
-        field: "contribution",
-        op: ">",
-        value: "50"
-      }
-    ]
-  ]);
   assert.equal(gatewayClient.createdInputs.length, 1);
   assert.deepEqual(gatewayClient.createdInputs[0], {
     appId: "listdao",
@@ -196,7 +189,7 @@ test("configured client returns failure when prove runs before init", async () =
   const client = createConfiguredBnbZkIdClient({
     gatewayClient: new FakeGatewayClient(),
     primusAdapter: new FakePrimusAdapter(),
-    primusRegistry: registry
+    primusTemplateResolver: new FakePrimusTemplateResolver()
   });
 
   const result = await client.prove({
@@ -231,7 +224,7 @@ test("configured client returns failed result when gateway status fails", async 
   const client = createConfiguredBnbZkIdClient({
     gatewayClient,
     primusAdapter: new FakePrimusAdapter(),
-    primusRegistry: registry
+    primusTemplateResolver: new FakePrimusTemplateResolver()
   });
 
   await client.init({

@@ -1,5 +1,6 @@
 import { Buffer } from "buffer";
 import { BnbZkIdClient } from "../../src/client/client.js";
+import { INTERNAL_BNB_ZKID_CONFIG } from "../../src/config/internal-config.js";
 import type { GatewayCreateProofRequestDebugEvent } from "../../src/gateway/debug.js";
 
 type GlobalWithConfig = typeof globalThis & {
@@ -28,26 +29,25 @@ interface BrowserHarnessConfigFile {
     | {
         mode: "fixture";
         bundlePath: string;
+        templateResolver: {
+          mode: "static";
+          templateIds: Record<string, string>;
+        };
       }
     | {
         mode: "sdk";
         zktlsAppId: string;
-        appSecret: string;
+        templateResolver: {
+          mode: "server";
+          baseUrl: string;
+          resolveTemplatePath: string;
+        };
+        signer: {
+          mode: "server";
+          baseUrl: string;
+          signPath: string;
+        };
       };
-  provingDataRegistry: Record<
-    string,
-    {
-      templateId: string;
-      algorithmType: "proxytls" | "mpctls";
-      fieldRules?: Record<
-        string,
-        {
-          op: string;
-          valueOffset?: number;
-        }
-      >;
-    }
-  >;
 }
 
 const runButton = document.querySelector<HTMLButtonElement>("#run-harness");
@@ -55,27 +55,27 @@ const clearButton = document.querySelector<HTMLButtonElement>("#clear-log");
 const logNode = document.querySelector<HTMLElement>("#log");
 const modeSelect = document.querySelector<HTMLSelectElement>("#mode");
 const primusSdkFields = document.querySelector<HTMLElement>("#primus-sdk-fields");
-const zktlsAppIdInput = document.querySelector<HTMLInputElement>("#zktls-app-id");
-const appSecretInput = document.querySelector<HTMLInputElement>("#app-secret");
 
 if (
   !runButton ||
   !clearButton ||
   !logNode ||
   !modeSelect ||
-  !primusSdkFields ||
-  !zktlsAppIdInput ||
-  !appSecretInput
+  !primusSdkFields
 ) {
   throw new Error("Browser harness UI is incomplete.");
 }
 
 const modeSelectElement = modeSelect;
 const primusSdkFieldsElement = primusSdkFields;
-const zktlsAppIdInputElement = zktlsAppIdInput;
-const appSecretInputElement = appSecretInput;
 const logElement = logNode;
 let currentBlobUrl: string | undefined;
+
+function resolveBrowserHarnessIdentityPropertyId(): string {
+  return modeSelectElement.value === "primus-sdk"
+    ? "binanceIdentityPropertyId"
+    : "github_account_age";
+}
 
 function writeLog(line: string): void {
   logElement.textContent = `${logElement.textContent ?? ""}${line}\n`;
@@ -100,8 +100,6 @@ function describeError(error: unknown): string {
 function updateModeUi(): void {
   const isPrimusSdkMode = modeSelectElement.value === "primus-sdk";
   primusSdkFieldsElement.hidden = !isPrimusSdkMode;
-  zktlsAppIdInputElement.disabled = !isPrimusSdkMode;
-  appSecretInputElement.disabled = !isPrimusSdkMode;
 }
 
 function resolveFixtureUrl(pathname: string): string {
@@ -109,14 +107,16 @@ function resolveFixtureUrl(pathname: string): string {
 }
 
 function buildLiveSdkConfig(): BrowserHarnessConfigFile {
-  const zktlsAppId = zktlsAppIdInputElement.value.trim();
-  const appSecret = appSecretInputElement.value.trim();
-  if (zktlsAppId.length === 0) {
-    throw new Error("Live mode requires zktlsAppId.");
+  if (INTERNAL_BNB_ZKID_CONFIG.primus.mode !== "sdk") {
+    throw new Error("Embedded config must provide a sdk primus config for browser live mode.");
   }
 
-  if (appSecret.length === 0) {
-    throw new Error("Live mode requires appSecret.");
+  if (INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.mode !== "server") {
+    throw new Error("Embedded config must provide a server template resolver for browser live mode.");
+  }
+
+  if (INTERNAL_BNB_ZKID_CONFIG.primus.signer?.mode !== "server") {
+    throw new Error("Embedded config must provide a server signer for browser live mode.");
   }
 
   return {
@@ -128,19 +128,16 @@ function buildLiveSdkConfig(): BrowserHarnessConfigFile {
     },
     primus: {
       mode: "sdk",
-      zktlsAppId,
-      appSecret
-    },
-    provingDataRegistry: {
-      github_account_age: {
-        templateId: "2e3160ae-8b1e-45e3-8c59-426366278b9d",
-        algorithmType: "proxytls",
-        fieldRules: {
-          contribution: {
-            op: ">",
-            valueOffset: -1
-          }
-        }
+      zktlsAppId: INTERNAL_BNB_ZKID_CONFIG.primus.zktlsAppId,
+      templateResolver: {
+        mode: "server",
+        baseUrl: INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.baseUrl,
+        resolveTemplatePath: INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.resolveTemplatePath
+      },
+      signer: {
+        mode: "server",
+        baseUrl: INTERNAL_BNB_ZKID_CONFIG.primus.signer.baseUrl,
+        signPath: INTERNAL_BNB_ZKID_CONFIG.primus.signer.signPath
       }
     }
   };
@@ -177,8 +174,6 @@ runButton.addEventListener("click", async () => {
   logNode.textContent = "";
   runButton.disabled = true;
   modeSelectElement.disabled = true;
-  zktlsAppIdInputElement.disabled = true;
-  appSecretInputElement.disabled = true;
 
   try {
     (globalThis as GlobalWithConfig).__BNB_ZKID_CONFIG_URL__ = prepareConfigUrl();
@@ -197,7 +192,7 @@ runButton.addEventListener("click", async () => {
       {
         clientRequestId: "browser-harness-001",
         userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-        identityPropertyId: "github_account_age",
+        identityPropertyId: resolveBrowserHarnessIdentityPropertyId(),
         provingParams: {
           contribution: [21, 51]
         }

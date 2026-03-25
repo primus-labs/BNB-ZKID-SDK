@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collectPrimusAttestationFromRegistry } from "../../src/workflow/collect-primus-attestation-from-registry.js";
+import { collectPrimusAttestationFromTemplateResolver } from "../../src/workflow/collect-primus-attestation-from-resolver.js";
 import type {
   CollectPrimusAttestationInput,
   PrimusAttestationBundle,
   PrimusZkTlsAdapter
 } from "../../src/primus/types.js";
+import type { PrimusTemplateResolver, ResolvePrimusTemplateInput } from "../../src/primus/template-resolver.js";
 
-class FakeRegistryPrimusAdapter implements PrimusZkTlsAdapter {
+class FakeResolverPrimusAdapter implements PrimusZkTlsAdapter {
   lastInput: CollectPrimusAttestationInput | undefined;
 
   async init(): Promise<string | boolean> {
@@ -33,23 +34,24 @@ class FakeRegistryPrimusAdapter implements PrimusZkTlsAdapter {
   }
 }
 
-test("registry-based workflow resolves template and attestation conditions", async () => {
-  const adapter = new FakeRegistryPrimusAdapter();
+class FakeTemplateResolver implements PrimusTemplateResolver {
+  readonly calls: ResolvePrimusTemplateInput[] = [];
 
-  await collectPrimusAttestationFromRegistry(
+  async resolveTemplateId(input: ResolvePrimusTemplateInput): Promise<string> {
+    this.calls.push(input);
+    return "github-template";
+  }
+}
+
+test("resolver-based workflow resolves template id before collecting attestation", async () => {
+  const adapter = new FakeResolverPrimusAdapter();
+  const templateResolver = new FakeTemplateResolver();
+
+  await collectPrimusAttestationFromTemplateResolver(
     adapter,
+    templateResolver,
     {
-      github_account_age: {
-        templateId: "github-template",
-        fieldRules: {
-          contribution: {
-            op: ">",
-            encodeValue: (threshold) => String(threshold - 1)
-          }
-        }
-      }
-    },
-    {
+      appId: "listdao",
       proveInput: {
         clientRequestId: "prove-task-001",
         identityPropertyId: "github_account_age",
@@ -64,25 +66,15 @@ test("registry-based workflow resolves template and attestation conditions", asy
     }
   );
 
+  assert.deepEqual(templateResolver.calls, [
+    {
+      appId: "listdao",
+      identityPropertyId: "github_account_age"
+    }
+  ]);
   assert.deepEqual(adapter.lastInput, {
     templateId: "github-template",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    attConditions: [
-      [
-        {
-          field: "contribution",
-          op: ">",
-          value: "20"
-        }
-      ],
-      [
-        {
-          field: "contribution",
-          op: ">",
-          value: "50"
-        }
-      ]
-    ],
     additionParams: {
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",

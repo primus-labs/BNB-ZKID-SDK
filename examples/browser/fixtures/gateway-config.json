@@ -9,6 +9,15 @@
           "schemaVersion": "1.0.0"
         }
       ]
+    },
+    {
+      "providerId": "binance",
+      "identityProperties": [
+        {
+          "identityPropertyId": "binanceIdentityPropertyId",
+          "schemaVersion": "1.0.0"
+        }
+      ]
     }
   ]
 }

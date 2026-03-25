@@ -1,5 +1,5 @@
 import type { GatewayClient, GatewayConfig } from "../gateway/types.js";
-import type { PrimusProvingDataRegistry } from "../primus/request-resolver.js";
+import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
 import type { PrimusZkTlsAdapter } from "../primus/types.js";
 import { executeProveWorkflow } from "../workflow/execute-prove.js";
 import type {
@@ -14,7 +14,7 @@ import type {
 export interface ConfiguredBnbZkIdClientOptions {
   gatewayClient: GatewayClient;
   primusAdapter: PrimusZkTlsAdapter;
-  primusRegistry: PrimusProvingDataRegistry;
+  primusTemplateResolver: PrimusTemplateResolver;
 }
 
 class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
@@ -74,7 +74,7 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       gatewayConfig: this.gatewayConfig,
       gatewayClient: this.options.gatewayClient,
       primusAdapter: this.options.primusAdapter,
-      primusRegistry: this.options.primusRegistry,
+      primusTemplateResolver: this.options.primusTemplateResolver,
       proveInput: input,
       ...(options === undefined ? {} : { options })
     });

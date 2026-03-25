@@ -22,6 +22,13 @@ class BrowserFixtureGatewayClient implements GatewayClient {
         proofRequestStatus: GatewayProofRequestStatusResult;
       }>
     | undefined;
+  private lastCreatedRequest:
+    | {
+        providerId: string;
+        identityPropertyId: string;
+        proofRequestId: string;
+      }
+    | undefined;
 
   constructor(private readonly files: BrowserFixtureGatewayFiles) {}
 
@@ -38,7 +45,30 @@ class BrowserFixtureGatewayClient implements GatewayClient {
       input
     });
 
-    return (await this.getFixtures()).createProofRequest;
+    const fixtures = await this.getFixtures();
+    const provider = fixtures.config.providers.find((candidate) =>
+      candidate.identityProperties.some(
+        (property) => property.identityPropertyId === input.identityPropertyId
+      )
+    );
+
+    if (!provider) {
+      throw new SdkError("Unsupported identityPropertyId for browser fixture gateway.", "CONFIGURATION_ERROR", {
+        identityPropertyId: input.identityPropertyId
+      });
+    }
+
+    this.lastCreatedRequest = {
+      providerId: provider.providerId,
+      identityPropertyId: input.identityPropertyId,
+      proofRequestId: fixtures.createProofRequest.proofRequestId
+    };
+
+    return {
+      ...fixtures.createProofRequest,
+      providerId: provider.providerId,
+      identityPropertyId: input.identityPropertyId
+    };
   }
 
   async getProofRequestStatus(
@@ -51,7 +81,16 @@ class BrowserFixtureGatewayClient implements GatewayClient {
       });
     }
 
-    return fixtures.proofRequestStatus;
+    return {
+      ...fixtures.proofRequestStatus,
+      ...(this.lastCreatedRequest === undefined
+        ? {}
+        : {
+            providerId: this.lastCreatedRequest.providerId,
+            identityPropertyId: this.lastCreatedRequest.identityPropertyId,
+            proofRequestId: this.lastCreatedRequest.proofRequestId
+          })
+    };
   }
 
   private async getFixtures(): Promise<{

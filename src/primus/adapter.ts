@@ -17,7 +17,10 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
 
   async init(): Promise<string | boolean> {
     const runtime = await this.getRuntime();
-    const result = await runtime.init(this.config.appId, this.config.appSecret, this.config.initOptions);
+    // const result = await runtime.init(this.config.appId, this.config.appSecret, this.config.initOptions);
+    const result = await runtime.init(this.config.appId, this.config.appSecret, {
+      env: "development"
+    });
     this.initialized = true;
     return result;
   }

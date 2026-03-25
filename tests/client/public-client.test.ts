@@ -21,17 +21,11 @@ async function createTempConfig(): Promise<string> {
         },
         primus: {
           mode: "fixture",
-          bundlePath: "./primus-bundle.json"
-        },
-        provingDataRegistry: {
-          github_account_age: {
-            templateId: "github-template",
-            algorithmType: "proxytls",
-            fieldRules: {
-              contribution: {
-                op: ">",
-                valueOffset: -1
-              }
+          bundlePath: "./primus-bundle.json",
+          templateResolver: {
+            mode: "static",
+            templateIds: {
+              github_account_age: "github-template"
             }
           }
         }
