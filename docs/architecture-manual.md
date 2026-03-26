@@ -122,7 +122,7 @@
   
     `options.onProgress` 回调状态：
   
-    * `initialized`：数据项证明请求成功。
+    * `initializing`：数据项证明请求成功。
     * `data_verifying`：数据源页面已打开，zkTLS 证明中。
     * `proof_generating`：zkTLS 证明已完成，zkVM 证明进行中。
     * `on_chain_attested`：证明成功并已上链。
