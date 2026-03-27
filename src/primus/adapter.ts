@@ -76,6 +76,15 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
       request.setAttConditions(input.attConditions);
     }
 
+    if (input.allJsonResponseFlag !== undefined) {
+      if (input.allJsonResponseFlag !== "true" && input.allJsonResponseFlag !== "false") {
+        throw new ConfigurationError('collectAttestationBundle allJsonResponseFlag must be "true" or "false".', {
+          value: input.allJsonResponseFlag
+        });
+      }
+      request.setAllJsonResponseFlag?.(input.allJsonResponseFlag);
+    }
+
     const requestStr = request.toJsonString();
     const signedRequest = await this.signRequest(requestStr, runtime);
     const attestation = await runtime.startAttestation(signedRequest);

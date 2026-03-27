@@ -25,7 +25,15 @@ export interface PrimusAttCondition {
 
 export type PrimusAttConditions = PrimusAttCondition[][];
 
-export type PrimusAdditionParamsValue = string | number | boolean | null | ProvingParams;
+/** JSON-like values allowed inside `additionParams` (merged then passed to Primus as a JSON string). */
+export type PrimusAdditionParamsValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ProvingParams
+  | PrimusAdditionParamsValue[]
+  | { [key: string]: PrimusAdditionParamsValue };
 
 export type PrimusAdditionParams = Record<string, PrimusAdditionParamsValue>;
 
@@ -34,6 +42,7 @@ export interface PrimusAttestationRequest {
   setAdditionParams(additionParams: string): void;
   setAttMode(attMode: PrimusAttMode): void;
   setAttConditions(attConditions: PrimusAttConditions): void;
+  setAllJsonResponseFlag?(flag: string): void;
   toJsonString(): string;
 }
 
@@ -79,6 +88,8 @@ export interface CollectPrimusAttestationInput {
   resultType?: string;
   additionParams?: PrimusAdditionParams;
   attConditions?: PrimusAttConditions;
+  /** When set, must be `"true"` or `"false"` (Primus API). */
+  allJsonResponseFlag?: "true" | "false";
 }
 
 export interface PrimusZkTlsProof {
@@ -110,4 +121,5 @@ export interface CollectPrimusBundleForProveInput {
   resultType?: string;
   attConditions?: PrimusAttConditions;
   additionParams?: PrimusAdditionParams;
+  allJsonResponseFlag?: "true" | "false";
 }

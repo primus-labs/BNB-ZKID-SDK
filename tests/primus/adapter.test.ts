@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createPrimusZkTlsAdapter } from "../../src/primus/adapter.js";
 import type {
+  CollectPrimusAttestationInput,
   PrimusAttConditions,
   PrimusAttestation,
   PrimusAttestationRequest,
@@ -14,6 +15,7 @@ class FakeAttRequest implements PrimusAttestationRequest {
   private additionParams: string | undefined;
   private attMode: { algorithmType: string; resultType?: string } | undefined;
   private attConditions: PrimusAttConditions | undefined;
+  private allJsonResponseFlag: string | undefined;
 
   constructor(
     private readonly templateId: string,
@@ -33,6 +35,10 @@ class FakeAttRequest implements PrimusAttestationRequest {
     this.attConditions = attConditions;
   }
 
+  setAllJsonResponseFlag(flag: string): void {
+    this.allJsonResponseFlag = flag;
+  }
+
   toJsonString(): string {
     return JSON.stringify({
       appId: "test-app",
@@ -42,6 +48,7 @@ class FakeAttRequest implements PrimusAttestationRequest {
       requestid: this.requestid,
       attMode: this.attMode,
       attConditions: this.attConditions,
+      allJsonResponseFlag: this.allJsonResponseFlag,
       additionParams: this.additionParams
     });
   }
@@ -180,6 +187,43 @@ test("primus adapter signs, verifies, and collects attestation bundle", async ()
       content: ["88"]
     }
   ]);
+});
+
+test("primus adapter forwards allJsonResponseFlag when set", async () => {
+  const runtime = new FakePrimusRuntime();
+  const adapter = createPrimusZkTlsAdapter({
+    appId: "test-app",
+    appSecret: "test-secret",
+    runtimeFactory: async () => runtime
+  });
+
+  await adapter.collectAttestationBundle({
+    templateId: "github-template",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    allJsonResponseFlag: "false"
+  });
+
+  const req = runtime.generatedRequests.at(-1);
+  assert.ok(req);
+  const parsed = JSON.parse(req.toJsonString()) as { allJsonResponseFlag?: string };
+  assert.equal(parsed.allJsonResponseFlag, "false");
+});
+
+test("primus adapter rejects invalid allJsonResponseFlag", async () => {
+  const runtime = new FakePrimusRuntime();
+  const adapter = createPrimusZkTlsAdapter({
+    appId: "test-app",
+    appSecret: "test-secret",
+    runtimeFactory: async () => runtime
+  });
+
+  const badInput = {
+    templateId: "github-template",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    allJsonResponseFlag: "yes"
+  } as unknown as CollectPrimusAttestationInput;
+
+  await assert.rejects(() => adapter.collectAttestationBundle(badInput), /allJsonResponseFlag must be "true" or "false"/);
 });
 
 test("primus adapter fails without appSecret or injected signer", async () => {

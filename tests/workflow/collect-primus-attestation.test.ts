@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { LISTDAO_GITHUB_TEMPLATEID } from "../../src/config/listdao-primus-template-options.js";
 import { collectPrimusAttestationForProveInput } from "../../src/workflow/collect-primus-attestation.js";
 import type {
   CollectPrimusAttestationInput,
@@ -83,4 +84,24 @@ test("workflow forwards prove input into primus additionParams", async () => {
       tenantId: "tenant-a"
     }
   });
+});
+
+test("workflow applies ListDAO template defaults by templateId", async () => {
+  const adapter = new FakePrimusAdapter();
+
+  await collectPrimusAttestationForProveInput(adapter, {
+    templateId: LISTDAO_GITHUB_TEMPLATEID,
+    proveInput: {
+      clientRequestId: "prove-task-002",
+      identityPropertyId: "github_account_age",
+      userAddress: "0x1234567890abcdef1234567890abcdef12345678"
+    }
+  });
+
+  assert(adapter.lastInput);
+  assert.equal(adapter.lastInput.allJsonResponseFlag, "true");
+  const firstGroup = adapter.lastInput.attConditions?.[0];
+  const firstCond = firstGroup?.[0];
+  assert.ok(firstCond);
+  assert.equal(firstCond.field, "github_id");
 });
