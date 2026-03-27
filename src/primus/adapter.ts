@@ -12,22 +12,52 @@ import type {
 class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
   private runtimePromise: Promise<PrimusZkTlsRuntime> | undefined;
   private initialized = false;
+  private initializedAppId: string | undefined;
 
   constructor(private readonly config: PrimusZkTlsAdapterConfig) {}
 
-  async init(): Promise<string | boolean> {
+  async init(appId?: string): Promise<string | boolean> {
+    const resolvedAppId = this.resolveAppId(appId);
+    if (this.initialized) {
+      if (this.initializedAppId && this.initializedAppId !== resolvedAppId) {
+        throw new ConfigurationError(
+          "Primus adapter cannot be re-initialized with a different zkTlsAppId.",
+          {
+            initializedAppId: this.initializedAppId,
+            requestedAppId: resolvedAppId
+          }
+        );
+      }
+
+      return true;
+    }
+
     const runtime = await this.getRuntime();
-    // const result = await runtime.init(this.config.appId, this.config.appSecret, this.config.initOptions);
-    const result = await runtime.init(this.config.appId, this.config.appSecret, {
-      env: "development"
-    });
+    const result = await runtime.init(
+      resolvedAppId,
+      this.config.appSecret,
+      { env: "development" }
+    );
     this.initialized = true;
+    this.initializedAppId = resolvedAppId;
     return result;
   }
 
   async collectAttestationBundle(input: CollectPrimusAttestationInput): Promise<PrimusAttestationBundle> {
     if (!this.initialized) {
-      await this.init();
+      await this.init(input.zktlsAppId);
+    } else if (
+      input.zktlsAppId !== undefined &&
+      input.zktlsAppId.trim().length > 0 &&
+      this.initializedAppId !== input.zktlsAppId.trim()
+    ) {
+      throw new ConfigurationError(
+        "Primus adapter received a different zkTlsAppId after initialization.",
+        {
+          initializedAppId: this.initializedAppId,
+          requestedAppId: input.zktlsAppId
+        }
+      );
     }
 
     const runtime = await this.getRuntime();
@@ -80,7 +110,12 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
 
   private async signRequest(requestStr: string, runtime: PrimusZkTlsRuntime): Promise<string> {
     const signer = this.resolveSigner(runtime);
-    return signer.sign(requestStr);
+    const appId = this.initializedAppId;
+    if (!appId) {
+      throw new ConfigurationError("Primus adapter must be initialized before signing.");
+    }
+
+    return signer.sign(requestStr, appId);
   }
 
   private resolveSigner(runtime: PrimusZkTlsRuntime): PrimusRequestSigner {
@@ -90,7 +125,10 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
 
     if (this.config.appSecret) {
       return {
-        sign: async (requestStr: string) => runtime.sign(requestStr)
+        sign: async (requestStr: string, appId: string) => {
+          void appId;
+          return runtime.sign(requestStr);
+        }
       };
     }
 
@@ -124,6 +162,15 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
     }
 
     throw new SdkError("Unable to resolve Primus requestId from attestation flow.", "VALIDATION_ERROR");
+  }
+
+  private resolveAppId(appId?: string): string {
+    const resolved = (appId ?? this.config.appId)?.trim();
+    if (!resolved) {
+      throw new ConfigurationError("Primus zkTlsAppId must be resolved before adapter init.");
+    }
+
+    return resolved;
   }
 }
 

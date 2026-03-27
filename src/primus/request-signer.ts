@@ -19,18 +19,22 @@ interface PrimusServerSignResponse {
 class HttpPrimusRequestSigner implements PrimusRequestSigner {
   constructor(private readonly config: PrimusServerRequestSignerConfig) {}
 
-  async sign(signParams: string): Promise<string> {
+  async sign(signParams: string, appId: string): Promise<string> {
     const response = await fetch(new URL(this.config.signPath, this.config.baseUrl), {
       method: "POST",
       headers: {
-        "content-type": "text/plain",
+        "content-type": "application/json",
         ...(this.config.apiKey === undefined ? {} : { "x-api-key": this.config.apiKey })
       },
-      body: signParams
+      body: JSON.stringify({
+        appId,
+        data: signParams
+      })
     });
 
     if (!response.ok) {
       throw new SdkError("Unable to sign Primus attestation request.", "TRANSPORT_ERROR", {
+        appId,
         status: response.status
       });
     }
@@ -41,7 +45,9 @@ class HttpPrimusRequestSigner implements PrimusRequestSigner {
       typeof payload.result?.appSignature !== "string" ||
       payload.result.appSignature.trim().length === 0
     ) {
-      throw new SdkError("Primus signer returned an invalid appSignature.", "VALIDATION_ERROR");
+      throw new SdkError("Primus signer returned an invalid appSignature.", "VALIDATION_ERROR", {
+        appId
+      });
     }
 
     return JSON.stringify({

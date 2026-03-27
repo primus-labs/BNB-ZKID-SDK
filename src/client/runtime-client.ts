@@ -16,6 +16,7 @@ import type { PrimusZkTlsAdapter } from "../primus/types.js";
 export async function createRuntimeConfiguredClient(): Promise<BnbZkIdClientMethods> {
   const loadedConfig = await loadBnbZkIdConfig();
   const { file } = loadedConfig;
+  const primusTemplateResolver = createRuntimePrimusTemplateResolver(file.primus.templateResolver);
 
   const gatewayClient =
     file.gateway.mode === "http"
@@ -25,7 +26,6 @@ export async function createRuntimeConfiguredClient(): Promise<BnbZkIdClientMeth
   const primusAdapter =
     file.primus.mode === "sdk"
       ? createPrimusZkTlsAdapter({
-          appId: resolvePrimusAppId(file.primus.zktlsAppId),
           ...(file.primus.appSecret === undefined ? {} : { appSecret: file.primus.appSecret }),
           ...(file.primus.signer === undefined
             ? {}
@@ -44,19 +44,10 @@ export async function createRuntimeConfiguredClient(): Promise<BnbZkIdClientMeth
   const client = createConfiguredBnbZkIdClient({
     gatewayClient,
     primusAdapter,
-    primusTemplateResolver: createRuntimePrimusTemplateResolver(file.primus.templateResolver)
+    primusTemplateResolver
   });
 
   return client;
-}
-
-function resolvePrimusAppId(zktlsAppId: string): string {
-  const appId = zktlsAppId.trim();
-  if (appId.length === 0) {
-    throw new ConfigurationError("primus.zktlsAppId is required in the config file.");
-  }
-
-  return appId;
 }
 
 async function createRuntimeFixtureGatewayClient(
@@ -138,6 +129,9 @@ function createRuntimePrimusTemplateResolver(
     baseUrl: config.baseUrl,
     resolveTemplatePath: config.resolveTemplatePath,
     ...(config.apiKey === undefined ? {} : { apiKey: config.apiKey }),
+    ...(config.appResponseKeyMap === undefined
+      ? {}
+      : { appResponseKeyMap: config.appResponseKeyMap }),
     ...(config.responseKeyMap === undefined ? {} : { responseKeyMap: config.responseKeyMap })
   });
 }

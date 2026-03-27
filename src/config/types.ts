@@ -24,6 +24,7 @@ export interface BnbZkIdPrimusServerTemplateResolverConfig {
   baseUrl: string;
   resolveTemplatePath: string;
   apiKey?: string;
+  appResponseKeyMap?: Record<string, string>;
   responseKeyMap?: Record<string, string>;
 }
 
@@ -36,7 +37,6 @@ export interface BnbZkIdPrimusServerSignerConfig {
 
 export interface BnbZkIdPrimusSdkConfig {
   mode: "sdk";
-  zktlsAppId: string;
   appSecret?: string;
   templateResolver: BnbZkIdPrimusStaticTemplateResolverConfig | BnbZkIdPrimusServerTemplateResolverConfig;
   signer?: BnbZkIdPrimusServerSignerConfig;

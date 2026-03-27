@@ -38,6 +38,7 @@ test("workflow forwards prove input into primus additionParams", async () => {
 
   await collectPrimusAttestationForProveInput(adapter, {
     templateId: "github-template",
+    zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
     proveInput: {
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",
@@ -62,6 +63,7 @@ test("workflow forwards prove input into primus additionParams", async () => {
 
   assert.deepEqual(adapter.lastInput, {
     templateId: "github-template",
+    zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
     attConditions: [
       [

@@ -8,7 +8,13 @@ import type {
   GatewayCreateProofRequestResult,
   GatewayProofRequestStatusResult
 } from "../../src/gateway/types.js";
-import type { PrimusTemplateResolver, ResolvePrimusTemplateInput } from "../../src/primus/template-resolver.js";
+import type {
+  ResolvePrimusAppInput,
+  ResolvePrimusAppResult,
+  PrimusTemplateResolver,
+  ResolvePrimusTemplateInput,
+  ResolvePrimusTemplateResult
+} from "../../src/primus/template-resolver.js";
 import type {
   CollectPrimusAttestationInput,
   PrimusAttestationBundle,
@@ -17,7 +23,7 @@ import type {
 
 class FakeGatewayClient implements GatewayClient {
   readonly config: GatewayConfig = {
-    appIds: ["listdao"],
+    appIds: ["brevisListaDAO"],
     providers: [
       {
         providerId: "github",
@@ -62,14 +68,22 @@ class FakeGatewayClient implements GatewayClient {
 
 class FakePrimusAdapter implements PrimusZkTlsAdapter {
   initialized = false;
+  initAppIds: string[] = [];
   collectedInputs: CollectPrimusAttestationInput[] = [];
 
-  async init(): Promise<string | boolean> {
+  async init(appId?: string): Promise<string | boolean> {
     this.initialized = true;
+    if (appId !== undefined) {
+      this.initAppIds.push(appId);
+    }
     return true;
   }
 
   async collectAttestationBundle(input: CollectPrimusAttestationInput): Promise<PrimusAttestationBundle> {
+    if (!this.initialized) {
+      await this.init(input.zktlsAppId);
+    }
+
     this.collectedInputs.push(input);
     return {
       requestId: "primus-request-001",
@@ -100,16 +114,31 @@ class FakePrimusAdapter implements PrimusZkTlsAdapter {
 }
 
 class FakePrimusTemplateResolver implements PrimusTemplateResolver {
+  readonly appCalls: ResolvePrimusAppInput[] = [];
   readonly calls: ResolvePrimusTemplateInput[] = [];
 
-  async resolveTemplateId(input: ResolvePrimusTemplateInput): Promise<string> {
+  async resolveAppConfig(input: ResolvePrimusAppInput): Promise<ResolvePrimusAppResult> {
+    this.appCalls.push(input);
+    return {
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    };
+  }
+
+  async resolveTemplate(input: ResolvePrimusTemplateInput): Promise<ResolvePrimusTemplateResult> {
     this.calls.push(input);
 
     if (input.identityPropertyId === "github_account_age") {
-      return "github-template";
+      return {
+        templateId: "github-template",
+        zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+      };
     }
 
     throw new Error(`unexpected identityPropertyId: ${input.identityPropertyId}`);
+  }
+
+  async resolveTemplateId(input: ResolvePrimusTemplateInput): Promise<string> {
+    return (await this.resolveTemplate(input)).templateId;
   }
 }
 
@@ -125,12 +154,18 @@ test("configured client runs init and prove through primus and gateway workflow"
   const events: string[] = [];
 
   const initResult = await client.init({
-    appId: "listdao"
+    appId: "brevisListaDAO"
   });
   assert.deepEqual(initResult, {
     success: true
   });
   assert.equal(primusAdapter.initialized, true);
+  assert.deepEqual(primusTemplateResolver.appCalls, [
+    {
+      appId: "brevisListaDAO"
+    }
+  ]);
+  assert.deepEqual(primusAdapter.initAppIds, ["0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"]);
 
   const proveResult = await client.prove(
     {
@@ -156,15 +191,29 @@ test("configured client runs init and prove through primus and gateway workflow"
   ]);
   assert.deepEqual(primusTemplateResolver.calls, [
     {
-      appId: "listdao",
+      appId: "brevisListaDAO",
       identityPropertyId: "github_account_age"
     }
   ]);
+  assert.equal(primusAdapter.initialized, true);
+  assert.deepEqual(primusAdapter.initAppIds, ["0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"]);
   assert.equal(primusAdapter.collectedInputs.length, 1);
-  assert.equal(primusAdapter.collectedInputs[0]?.templateId, "github-template");
+  assert.deepEqual(primusAdapter.collectedInputs[0], {
+    templateId: "github-template",
+    zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    additionParams: {
+      appId: "brevisListaDAO",
+      clientRequestId: "prove-task-001",
+      identityPropertyId: "github_account_age",
+      provingParams: {
+        contribution: [21, 51]
+      }
+    }
+  });
   assert.equal(gatewayClient.createdInputs.length, 1);
   assert.deepEqual(gatewayClient.createdInputs[0], {
-    appId: "listdao",
+    appId: "brevisListaDAO",
     identityPropertyId: "github_account_age",
     zkTlsProof: {
       public_data: {
@@ -228,7 +277,7 @@ test("configured client returns failed result when gateway status fails", async 
   });
 
   await client.init({
-    appId: "listdao"
+    appId: "brevisListaDAO"
   });
 
   const result = await client.prove({

@@ -59,11 +59,11 @@ export interface PrimusZkTlsRuntime {
 }
 
 export interface PrimusRequestSigner {
-  sign(signParams: string): Promise<string>;
+  sign(signParams: string, appId: string): Promise<string>;
 }
 
 export interface PrimusZkTlsAdapterConfig {
-  appId: string;
+  appId?: string;
   appSecret?: string;
   initOptions?: PrimusInitOptions;
   signer?: PrimusRequestSigner;
@@ -73,6 +73,7 @@ export interface PrimusZkTlsAdapterConfig {
 export interface CollectPrimusAttestationInput {
   templateId: string;
   userAddress: string;
+  zktlsAppId?: string;
   timeoutMs?: number;
   algorithmType?: PrimusAlgorithmType;
   resultType?: string;
@@ -93,12 +94,13 @@ export interface PrimusAttestationBundle {
 }
 
 export interface PrimusZkTlsAdapter {
-  init(): Promise<string | boolean>;
+  init(appId?: string): Promise<string | boolean>;
   collectAttestationBundle(input: CollectPrimusAttestationInput): Promise<PrimusAttestationBundle>;
 }
 
 export interface CollectPrimusBundleForProveInput {
   templateId: string;
+  zktlsAppId?: string;
   proveInput: Pick<
     ProveInput,
     "clientRequestId" | "identityPropertyId" | "provingParams" | "userAddress"

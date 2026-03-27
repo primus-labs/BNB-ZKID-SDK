@@ -11,13 +11,16 @@ export async function collectPrimusAttestationFromTemplateResolver(
     additionParams?: Parameters<typeof collectPrimusAttestationForProveInput>[1]["additionParams"];
   }
 ): Promise<PrimusAttestationBundle> {
-  const templateId = await templateResolver.resolveTemplateId({
+  const resolvedTemplate = await templateResolver.resolveTemplate({
     appId: input.appId,
     identityPropertyId: input.proveInput.identityPropertyId
   });
 
   return collectPrimusAttestationForProveInput(adapter, {
-    templateId,
+    templateId: resolvedTemplate.templateId,
+    ...(resolvedTemplate.zktlsAppId === undefined
+      ? {}
+      : { zktlsAppId: resolvedTemplate.zktlsAppId }),
     proveInput: input.proveInput,
     ...(input.additionParams === undefined ? {} : { additionParams: input.additionParams })
   });

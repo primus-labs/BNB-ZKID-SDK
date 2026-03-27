@@ -1,5 +1,5 @@
 {
-  "appIds": ["listdao"],
+  "appIds": ["brevisListaDAO"],
   "providers": [
     {
       "providerId": "github",

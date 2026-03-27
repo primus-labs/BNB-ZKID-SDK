@@ -113,13 +113,13 @@ test("primus adapter signs, verifies, and collects attestation bundle", async ()
   const runtime = new FakePrimusRuntime();
   const signerCalls: string[] = [];
   const adapter = createPrimusZkTlsAdapter({
-    appId: "test-app",
     initOptions: {
       platform: "pc"
     },
     signer: {
-      async sign(signParams: string): Promise<string> {
+      async sign(signParams: string, appId: string): Promise<string> {
         signerCalls.push(signParams);
+        assert.equal(appId, "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2");
         return JSON.stringify({
           attRequest: JSON.parse(signParams),
           appSignature: "signed-by-http-signer"
@@ -131,6 +131,7 @@ test("primus adapter signs, verifies, and collects attestation bundle", async ()
 
   const bundle = await adapter.collectAttestationBundle({
     templateId: "github-template",
+    zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
     userAddress: "0x1234567890abcdef1234567890abcdef12345678",
     timeoutMs: 45_000,
     algorithmType: "proxytls",
@@ -150,9 +151,9 @@ test("primus adapter signs, verifies, and collects attestation bundle", async ()
 
   assert.equal(runtime.initCalls.length, 1);
   assert.deepEqual(runtime.initCalls[0], {
-    appId: "test-app",
+    appId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
     options: {
-      platform: "pc"
+      env: "development"
     }
   });
   assert.equal(signerCalls.length, 1);

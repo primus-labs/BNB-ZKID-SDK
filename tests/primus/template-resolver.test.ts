@@ -9,12 +9,16 @@ test("static primus template resolver maps identityPropertyId to templateId", as
   const resolver = createStaticPrimusTemplateResolver({
     github_account_age: "github-template"
   });
+  const appConfig = await resolver.resolveAppConfig({
+    appId: "brevisListaDAO"
+  });
 
   const templateId = await resolver.resolveTemplateId({
-    appId: "listdao",
+    appId: "brevisListaDAO",
     identityPropertyId: "github_account_age"
   });
 
+  assert.deepEqual(appConfig, {});
   assert.equal(templateId, "github-template");
 });
 
@@ -24,7 +28,7 @@ test("static primus template resolver fails for unmapped identityPropertyId", as
   await assert.rejects(
     () =>
       resolver.resolveTemplateId({
-        appId: "listdao",
+        appId: "brevisListaDAO",
         identityPropertyId: "unknown_data_id"
       }),
     /No Primus templateId mapping found/
@@ -46,7 +50,10 @@ test("http primus template resolver reads provider-specific template id from pub
         mc: "SUCCESS",
         msg: "",
         result: {
-          githubIdentityPropertyId: "21701f5e-c90c-40a4-8ced-bc1696828f11"
+          brevisListaDAO: {
+            zkTlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+            githubIdentityPropertyId: "21701f5e-c90c-40a4-8ced-bc1696828f11"
+          }
         }
       }),
       {
@@ -65,12 +72,21 @@ test("http primus template resolver reads provider-specific template id from pub
       apiKey: "primus-key"
     });
 
-    const templateId = await resolver.resolveTemplateId({
-      appId: "listdao",
+    const appConfig = await resolver.resolveAppConfig({
+      appId: "brevisListaDAO"
+    });
+    const resolved = await resolver.resolveTemplate({
+      appId: "brevisListaDAO",
       identityPropertyId: "github_account_age"
     });
 
-    assert.equal(templateId, "21701f5e-c90c-40a4-8ced-bc1696828f11");
+    assert.deepEqual(appConfig, {
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    });
+    assert.deepEqual(resolved, {
+      templateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    });
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.url, "https://api-dev.padolabs.org/public/identity/templates");
     assert.equal(calls[0]?.init?.method, "GET");
@@ -89,7 +105,10 @@ test("http primus template resolver supports explicit response key overrides", a
         mc: "SUCCESS",
         msg: "",
         result: {
-          customGithubKey: "github-template"
+          brevisListaDAO: {
+            zkTlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+            customGithubKey: "github-template"
+          }
         }
       }),
       {
@@ -109,12 +128,15 @@ test("http primus template resolver supports explicit response key overrides", a
       }
     });
 
-    const templateId = await resolver.resolveTemplateId({
-      appId: "listdao",
+    const resolved = await resolver.resolveTemplate({
+      appId: "brevisListaDAO",
       identityPropertyId: "github_account_age"
     });
 
-    assert.equal(templateId, "github-template");
+    assert.deepEqual(resolved, {
+      templateId: "github-template",
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -129,7 +151,10 @@ test("http primus template resolver accepts identityPropertyId when it already m
         mc: "SUCCESS",
         msg: "",
         result: {
-          binanceIdentityPropertyId: "ccb898b0-e4b2-4859-95ae-9b41159e8b59"
+          brevisListaDAO: {
+            zkTlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+            binanceIdentityPropertyId: "ccb898b0-e4b2-4859-95ae-9b41159e8b59"
+          }
         }
       }),
       {
@@ -146,12 +171,58 @@ test("http primus template resolver accepts identityPropertyId when it already m
       resolveTemplatePath: "/public/identity/templates"
     });
 
-    const templateId = await resolver.resolveTemplateId({
-      appId: "listdao",
+    const resolved = await resolver.resolveTemplate({
+      appId: "brevisListaDAO",
       identityPropertyId: "binanceIdentityPropertyId"
     });
 
-    assert.equal(templateId, "ccb898b0-e4b2-4859-95ae-9b41159e8b59");
+    assert.deepEqual(resolved, {
+      templateId: "ccb898b0-e4b2-4859-95ae-9b41159e8b59",
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("http primus template resolver works when appId directly matches the payload key", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        rc: 0,
+        mc: "SUCCESS",
+        msg: "",
+        result: {
+          brevisListaDAO: {
+            zkTlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+            githubIdentityPropertyId: "21701f5e-c90c-40a4-8ced-bc1696828f11"
+          }
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json"
+        }
+      }
+    )) as typeof fetch;
+
+  try {
+    const resolver = createHttpPrimusTemplateResolver({
+      baseUrl: "https://api-dev.padolabs.org",
+      resolveTemplatePath: "/public/identity/templates"
+    });
+
+    const resolved = await resolver.resolveTemplate({
+      appId: "brevisListaDAO",
+      identityPropertyId: "github_account_age"
+    });
+
+    assert.deepEqual(resolved, {
+      templateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }

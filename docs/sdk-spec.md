@@ -196,7 +196,11 @@ export interface ProofRequestStatusResponse {
 
 在当前实现骨架中，为了保持 `new BnbZkIdClient()` 不变，运行时配置默认来自 SDK 内置配置，而不是构造函数参数。
 
-其中 zkTLS SDK 自身使用的 `appId` 通过 SDK 内置配置里的 `primus.zktlsAppId` 提供，而不是取自 `init({ appId })`。
+其中 zkTLS SDK 自身使用的 `appId` 不再写死在 SDK 内置配置里，而是运行时从模板接口返回的
+`result.<app-node>.zkTlsAppId` 动态解析。
+
+当前实现会在 `init({ appId })` 阶段先解析 app 级配置并初始化 Primus，避免把这一步推迟到首个
+`prove(...)` 调用。
 
 当前内置配置还需要提供 Primus server template resolver，例如：
 
@@ -205,14 +209,17 @@ export interface ProofRequestStatusResponse {
 - `primus.signer.baseUrl`
 - `primus.signer.signPath`
 
-当前实现会请求公开模板接口，并从返回的 `result` 对象里按 provider 前缀读取对应字段，例如：
+当前实现会请求公开模板接口，并先解析 app 级节点，再读取其中的 zkTLS app id 与 provider 字段，例如：
 
-- `github_account_age -> githubIdentityPropertyId`
+- `listdao -> result.brevisListaDAO.zkTlsAppId`
+- `github_account_age -> result.brevisListaDAO.githubIdentityPropertyId`
 
-如果远端字段名与默认规则不一致，可通过 `primus.templateResolver.responseKeyMap` 覆盖。
+如果远端 app 节点名或字段名与默认规则不一致，可通过
+`primus.templateResolver.appResponseKeyMap` 和 `primus.templateResolver.responseKeyMap` 覆盖。
 
-对于 zkTLS 请求签名，当前实现支持通过服务端 signer 完成；签名接口接收原始 attestation request 字符串作为
-`text/plain` 请求体，并返回 `result.appSignature`。
+对于 zkTLS 请求签名，当前实现支持通过服务端 signer 完成；签名接口接收
+`{ appId, data }` JSON 请求体，其中 `appId` 就是动态解析出的 `zkTlsAppId`，并返回
+`result.appSignature`。
 
 本地测试和 harness 可以通过外部 override 覆盖这套默认配置：
 

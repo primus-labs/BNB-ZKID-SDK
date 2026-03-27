@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createHttpPrimusRequestSigner } from "../../src/primus/request-signer.js";
 
-test("http primus request signer posts plain text and returns signed request payload", async () => {
+test("http primus request signer posts appId and request data as json and returns signed request payload", async () => {
   const originalFetch = globalThis.fetch;
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
@@ -32,21 +32,27 @@ test("http primus request signer posts plain text and returns signed request pay
   try {
     const signer = createHttpPrimusRequestSigner({
       baseUrl: "https://api-dev.padolabs.org",
-      signPath: "/developer-center/app-sign-brevis",
+      signPath: "/developer-center/app-sign-by-app-id",
       apiKey: "signer-key"
     });
 
-    const signedRequest = await signer.sign('{"requestid":"primus-request-001"}');
+    const signedRequest = await signer.sign(
+      '{"requestid":"primus-request-001"}',
+      "0x8F3A1cB4D9e7F261A4B5C8dE2F7a9C1D3E6b4A2F"
+    );
 
     assert.equal(calls.length, 1);
-    assert.equal(calls[0]?.url, "https://api-dev.padolabs.org/developer-center/app-sign-brevis");
+    assert.equal(calls[0]?.url, "https://api-dev.padolabs.org/developer-center/app-sign-by-app-id");
     assert.equal(calls[0]?.init?.method, "POST");
     assert.equal(
       (calls[0]?.init?.headers as Record<string, string>)["content-type"],
-      "text/plain"
+      "application/json"
     );
     assert.equal((calls[0]?.init?.headers as Record<string, string>)["x-api-key"], "signer-key");
-    assert.equal(calls[0]?.init?.body, '{"requestid":"primus-request-001"}');
+    assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+      appId: "0x8F3A1cB4D9e7F261A4B5C8dE2F7a9C1D3E6b4A2F",
+      data: '{"requestid":"primus-request-001"}'
+    });
     assert.deepEqual(JSON.parse(signedRequest), {
       attRequest: {
         requestid: "primus-request-001"

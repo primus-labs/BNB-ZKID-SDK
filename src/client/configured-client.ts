@@ -48,7 +48,10 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       };
     }
 
-    await this.options.primusAdapter.init();
+    const primusAppConfig = await this.options.primusTemplateResolver.resolveAppConfig({
+      appId
+    });
+    await this.options.primusAdapter.init(primusAppConfig.zktlsAppId);
     this.initializedAppId = appId;
     this.gatewayConfig = gatewayConfig;
 

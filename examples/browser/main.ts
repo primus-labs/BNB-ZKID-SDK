@@ -36,7 +36,6 @@ interface BrowserHarnessConfigFile {
       }
     | {
         mode: "sdk";
-        zktlsAppId: string;
         templateResolver: {
           mode: "server";
           baseUrl: string;
@@ -128,7 +127,6 @@ function buildLiveSdkConfig(): BrowserHarnessConfigFile {
     },
     primus: {
       mode: "sdk",
-      zktlsAppId: INTERNAL_BNB_ZKID_CONFIG.primus.zktlsAppId,
       templateResolver: {
         mode: "server",
         baseUrl: INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.baseUrl,
@@ -180,7 +178,7 @@ runButton.addEventListener("click", async () => {
     writeLog(`mode: ${modeSelectElement.value}`);
     const client = new BnbZkIdClient();
     const initResult = await client.init({
-      appId: "listdao"
+      appId: "brevisListaDAO"
     });
 
     writeLog(`init: ${JSON.stringify(initResult)}`);

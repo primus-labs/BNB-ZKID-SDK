@@ -40,7 +40,7 @@ async function createTempConfig(): Promise<string> {
     path.join(dir, "gateway-config.json"),
     JSON.stringify(
       {
-        appIds: ["listdao"],
+        appIds: ["brevisListaDAO"],
         providers: [
           {
             providerId: "github",
@@ -129,7 +129,7 @@ test("public BnbZkIdClient loads config file and executes prove workflow", async
   const events: string[] = [];
 
   const initResult = await client.init({
-    appId: "listdao"
+    appId: "brevisListaDAO"
   });
   assert.deepEqual(initResult, {
     success: true

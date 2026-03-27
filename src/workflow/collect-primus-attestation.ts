@@ -10,6 +10,7 @@ export async function collectPrimusAttestationForProveInput(
   return adapter.collectAttestationBundle({
     templateId: input.templateId,
     userAddress: proveInput.userAddress,
+    ...(input.zktlsAppId === undefined ? {} : { zktlsAppId: input.zktlsAppId }),
     ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
     ...(input.algorithmType === undefined ? {} : { algorithmType: input.algorithmType }),
     ...(input.resultType === undefined ? {} : { resultType: input.resultType }),

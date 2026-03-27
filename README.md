@@ -59,7 +59,7 @@ npm run dev:browser-harness -- --host 127.0.0.1 --port 4177
 然后打开 <http://127.0.0.1:4177>。
 
 - `Fixture Gateway + Fixture Primus`：默认回归模式，不依赖真实 zkTLS
-- `Fixture Gateway + Primus SDK`：浏览器 live skeleton，`zktlsAppId` 和 PADO API 地址都复用 SDK 内置配置，Gateway 仍走 fixture；这一步还要求本机浏览器里存在 Primus 扩展环境
+- `Fixture Gateway + Primus SDK`：浏览器 live skeleton，PADO API 地址复用 SDK 内置配置，`zkTlsAppId` 与 template id 会通过模板接口动态解析，Gateway 仍走 fixture；这一步还要求本机浏览器里存在 Primus 扩展环境
 
 ## 当前接口草案
 
@@ -104,19 +104,22 @@ await client.prove(
 
 默认情况下，运行时配置使用 SDK 内置配置。
 
-- 发布态固定参数，例如 Gateway base URL、zkTLS `zktlsAppId`、Primus server template resolver，应放在 SDK 内部模块
+- 发布态固定参数，例如 Gateway base URL、Primus server template resolver 与 signer 地址，应放在 SDK 内部模块
 - Node 测试和本地 harness 可以通过 `BNB_ZKID_CONFIG_PATH` 指向外部 JSON override
 - 浏览器 harness 可以通过 `globalThis.__BNB_ZKID_CONFIG_URL__` 指向外部 JSON override
 
 外部 override 配置中可以定义：
 
 - Gateway 地址或 fixture 文件
-- zkTLS 的 `zktlsAppId`
 - Primus template resolver 与服务端 signer 的地址
 - Primus server 地址与 template 解析路径，或测试用静态 template 映射
 
-当前默认内置解析会请求 `https://api-dev.padolabs.org/public/identity/templates`，并按
-`github_account_age -> result.githubIdentityPropertyId` 这样的 provider 前缀规则取 template id。
+当前默认内置解析会请求 `https://api-dev.padolabs.org/public/identity/templates`，并优先从
+`result.<app-node>.zkTlsAppId` 读取 zkTLS app id，再从 `result.<app-node>.<provider>IdentityPropertyId`
+读取 template id；例如 `github_account_age -> result.brevisListaDAO.githubIdentityPropertyId`。
+
+`init({ appId })` 会先完成 Gateway appId 校验，再预取这份 app 级 Primus 配置并初始化 Primus runtime；
+后续 `prove(...)` 只继续解析对应的 template id 并执行证明流程。
 
 ## Browser Harness
 
