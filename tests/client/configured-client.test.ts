@@ -84,7 +84,10 @@ class FakePrimusAdapter implements PrimusZkTlsAdapter {
       await this.init(input.zktlsAppId);
     }
 
-    this.collectedInputs.push(input);
+    await input.onBeforeStartAttestation?.();
+    const { onBeforeStartAttestation: _hook, ...inputWithoutHook } = input;
+    void _hook;
+    this.collectedInputs.push(inputWithoutHook as CollectPrimusAttestationInput);
     return {
       requestId: "primus-request-001",
       zkTlsProof: {
@@ -184,7 +187,7 @@ test("configured client runs init and prove through primus and gateway workflow"
   );
 
   assert.deepEqual(events, [
-    "initialized",
+    "initializing",
     "data_verifying",
     "proof_generating",
     "on_chain_attested"

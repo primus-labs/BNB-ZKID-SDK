@@ -145,7 +145,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
 
     const created = await this.transport.createProofRequest(input);
     await this.emitProgress(options, {
-      status: "initialized",
+      status: "initializing",
       clientRequestId: input.clientRequestId,
       proofRequestId: created.proofRequestId
     });

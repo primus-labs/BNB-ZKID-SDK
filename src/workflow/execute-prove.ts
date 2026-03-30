@@ -32,11 +32,7 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
 
   resolveProviderMapping(input.gatewayConfig, input.proveInput.identityPropertyId);
   await emitProgress(input.options, {
-    status: "initialized",
-    clientRequestId: input.proveInput.clientRequestId
-  });
-  await emitProgress(input.options, {
-    status: "data_verifying",
+    status: "initializing",
     clientRequestId: input.proveInput.clientRequestId
   });
 
@@ -48,9 +44,20 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
       proveInput: input.proveInput,
       additionParams: {
         appId: input.appId
+      },
+      onBeforeStartAttestation: async () => {
+        await emitProgress(input.options, {
+          status: "data_verifying",
+          clientRequestId: input.proveInput.clientRequestId
+        });
       }
     }
   );
+
+  await emitProgress(input.options, {
+    status: "proof_generating",
+    clientRequestId: input.proveInput.clientRequestId
+  });
 
   const created = await input.gatewayClient.createProofRequest({
     appId: input.appId,
@@ -59,12 +66,6 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
     ...(input.proveInput.provingParams === undefined
       ? {}
       : { businessParams: input.proveInput.provingParams })
-  });
-
-  await emitProgress(input.options, {
-    status: "proof_generating",
-    clientRequestId: input.proveInput.clientRequestId,
-    proofRequestId: created.proofRequestId
   });
 
   const status = await input.gatewayClient.getProofRequestStatus(created.proofRequestId);
@@ -88,7 +89,7 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
   if (!status.walletAddress) {
     throw new SdkError("Gateway success payload is missing walletAddress.", "VALIDATION_ERROR");
   }
-
+  
   await emitProgress(input.options, {
     status: "on_chain_attested",
     clientRequestId: input.proveInput.clientRequestId,

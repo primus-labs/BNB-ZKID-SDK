@@ -96,6 +96,67 @@ test("http primus template resolver reads provider-specific template id from pub
   }
 });
 
+test("http primus template resolver reads zktlsTemplateId and attestation options from nested identity objects", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        rc: 0,
+        mc: "SUCCESS",
+        msg: "",
+        result: {
+          brevisListaDAO: {
+            zkTlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+            githubIdentityPropertyId: {
+              zktlsTemplateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
+              attConditions: [
+                [{ field: "github_id", op: "SHA256_WITH_SALT" }],
+                [
+                  { field: "contribution", op: "SHA256_WITH_SALT" },
+                  { field: "years", op: "SHA256_WITH_SALT" }
+                ]
+              ],
+              allJsonResponseFlag: "true"
+            }
+          }
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json"
+        }
+      }
+    )) as typeof fetch;
+
+  try {
+    const resolver = createHttpPrimusTemplateResolver({
+      baseUrl: "https://api-dev.padolabs.org",
+      resolveTemplatePath: "/public/identity/templates"
+    });
+
+    const resolved = await resolver.resolveTemplate({
+      appId: "brevisListaDAO",
+      identityPropertyId: "github_account_age"
+    });
+
+    assert.deepEqual(resolved, {
+      templateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+      attConditions: [
+        [{ field: "github_id", op: "SHA256_WITH_SALT" }],
+        [
+          { field: "contribution", op: "SHA256_WITH_SALT" },
+          { field: "years", op: "SHA256_WITH_SALT" }
+        ]
+      ],
+      allJsonResponseFlag: "true"
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("http primus template resolver supports explicit response key overrides", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () =>

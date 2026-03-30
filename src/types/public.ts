@@ -22,7 +22,7 @@ export interface InitFailureResult {
 export type InitResult = InitSuccessResult | InitFailureResult;
 
 export type ProveStatus =
-  | "initialized"
+  | "initializing"
   | "data_verifying"
   | "proof_generating"
   | "on_chain_attested"

@@ -87,6 +87,7 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
 
     const requestStr = request.toJsonString();
     const signedRequest = await this.signRequest(requestStr, runtime);
+    await input.onBeforeStartAttestation?.();
     const attestation = await runtime.startAttestation(signedRequest);
     const verified = runtime.verifyAttestation(attestation);
 

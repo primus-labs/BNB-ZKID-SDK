@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LISTDAO_GITHUB_TEMPLATEID } from "../../src/config/listdao-primus-template-options.js";
 import { collectPrimusAttestationForProveInput } from "../../src/workflow/collect-primus-attestation.js";
 import type {
   CollectPrimusAttestationInput,
@@ -86,15 +85,26 @@ test("workflow forwards prove input into primus additionParams", async () => {
   });
 });
 
-test("workflow applies ListDAO template defaults by templateId", async () => {
+test("workflow applies resolver-provided template defaults (resolvedPrimusTemplateOptions)", async () => {
   const adapter = new FakePrimusAdapter();
 
   await collectPrimusAttestationForProveInput(adapter, {
-    templateId: LISTDAO_GITHUB_TEMPLATEID,
+    templateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
     proveInput: {
       clientRequestId: "prove-task-002",
       identityPropertyId: "github_account_age",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678"
+    },
+    resolvedPrimusTemplateOptions: {
+      allJsonResponseFlag: "true",
+      attConditions: [
+        [{ field: "github_id", op: "SHA256_WITH_SALT" }],
+        [
+          { field: "contribution", op: "SHA256_WITH_SALT" },
+          { field: "years", op: "SHA256_WITH_SALT" },
+          { field: "github_id_in_html", op: "SHA256_WITH_SALT" }
+        ]
+      ]
     }
   });
 

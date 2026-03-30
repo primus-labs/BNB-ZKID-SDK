@@ -9,6 +9,9 @@ export async function collectPrimusAttestationFromTemplateResolver(
     appId: string;
     proveInput: Parameters<typeof collectPrimusAttestationForProveInput>[1]["proveInput"];
     additionParams?: Parameters<typeof collectPrimusAttestationForProveInput>[1]["additionParams"];
+    onBeforeStartAttestation?: Parameters<
+      typeof collectPrimusAttestationForProveInput
+    >[1]["onBeforeStartAttestation"];
   }
 ): Promise<PrimusAttestationBundle> {
   const resolvedTemplate = await templateResolver.resolveTemplate({
@@ -16,12 +19,35 @@ export async function collectPrimusAttestationFromTemplateResolver(
     identityPropertyId: input.proveInput.identityPropertyId
   });
 
+  const {
+    templateId,
+    zktlsAppId,
+    attConditions,
+    allJsonResponseFlag,
+    additionParams: resolverAdditionParams
+  } = resolvedTemplate;
+
+  const resolvedPrimusTemplateOptions =
+    attConditions !== undefined ||
+    allJsonResponseFlag !== undefined ||
+    resolverAdditionParams !== undefined
+      ? {
+          ...(attConditions !== undefined ? { attConditions } : {}),
+          ...(allJsonResponseFlag !== undefined ? { allJsonResponseFlag } : {}),
+          ...(resolverAdditionParams !== undefined ? { additionParams: resolverAdditionParams } : {})
+        }
+      : undefined;
+
   return collectPrimusAttestationForProveInput(adapter, {
-    templateId: resolvedTemplate.templateId,
-    ...(resolvedTemplate.zktlsAppId === undefined
-      ? {}
-      : { zktlsAppId: resolvedTemplate.zktlsAppId }),
+    templateId,
+    ...(zktlsAppId === undefined ? {} : { zktlsAppId }),
     proveInput: input.proveInput,
-    ...(input.additionParams === undefined ? {} : { additionParams: input.additionParams })
+    ...(input.additionParams === undefined ? {} : { additionParams: input.additionParams }),
+    ...(resolvedPrimusTemplateOptions === undefined
+      ? {}
+      : { resolvedPrimusTemplateOptions }),
+    ...(input.onBeforeStartAttestation === undefined
+      ? {}
+      : { onBeforeStartAttestation: input.onBeforeStartAttestation })
   });
 }

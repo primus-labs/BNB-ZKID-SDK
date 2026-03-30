@@ -1,15 +1,17 @@
-import { getListdaoTemplateAttOptions } from "../config/listdao-primus-template-options.js";
-import type { PrimusAttestationBundle, PrimusZkTlsAdapter } from "../primus/types.js";
-import type { CollectPrimusBundleForProveInput } from "../primus/types.js";
+import type {
+  CollectPrimusBundleForProveInput,
+  PrimusAttestationBundle,
+  PrimusZkTlsAdapter
+} from "../primus/types.js";
 
 export async function collectPrimusAttestationForProveInput(
   adapter: PrimusZkTlsAdapter,
   input: CollectPrimusBundleForProveInput
 ): Promise<PrimusAttestationBundle> {
   const { proveInput, templateId } = input;
-  const listdao = getListdaoTemplateAttOptions(templateId);
-  const attConditions = input.attConditions?.length ? input.attConditions : listdao?.attConditions;
-  const allJsonResponseFlag = input.allJsonResponseFlag ?? listdao?.allJsonResponseFlag;
+  const resolved = input.resolvedPrimusTemplateOptions;
+  const attConditions = input.attConditions?.length ? input.attConditions : resolved?.attConditions;
+  const allJsonResponseFlag = input.allJsonResponseFlag ?? resolved?.allJsonResponseFlag;
 
   return adapter.collectAttestationBundle({
     templateId,
@@ -20,11 +22,14 @@ export async function collectPrimusAttestationForProveInput(
     ...(input.resultType === undefined ? {} : { resultType: input.resultType }),
     ...(attConditions === undefined || attConditions.length === 0 ? {} : { attConditions }),
     ...(allJsonResponseFlag === undefined ? {} : { allJsonResponseFlag }),
+    ...(input.onBeforeStartAttestation === undefined
+      ? {}
+      : { onBeforeStartAttestation: input.onBeforeStartAttestation }),
     additionParams: {
       clientRequestId: proveInput.clientRequestId,
       identityPropertyId: proveInput.identityPropertyId,
       ...(proveInput.provingParams ? { provingParams: proveInput.provingParams } : {}),
-      ...(listdao?.additionParams ?? {}),
+      ...(resolved?.additionParams ?? {}),
       ...(input.additionParams ?? {})
     }
   });

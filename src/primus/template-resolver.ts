@@ -1,4 +1,12 @@
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
+import type {
+  PrimusAttCondition,
+  PrimusAttConditions,
+  PrimusAdditionParams,
+  ResolvePrimusTemplateResult
+} from "./types.js";
+
+export type { ResolvePrimusTemplateResult, ResolvedPrimusTemplateOptions } from "./types.js";
 
 export interface ResolvePrimusTemplateInput {
   appId: string;
@@ -10,11 +18,6 @@ export interface ResolvePrimusAppInput {
 }
 
 export interface ResolvePrimusAppResult {
-  zktlsAppId?: string;
-}
-
-export interface ResolvePrimusTemplateResult {
-  templateId: string;
   zktlsAppId?: string;
 }
 
@@ -102,10 +105,18 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
     const responseKeys = this.resolveResponseKeys(input.identityPropertyId);
     const matchedKey = responseKeys.find((key) => {
       const value = appPayload[key];
-      return typeof value === "string" && value.trim().length > 0;
+      if (typeof value === "string" && value.trim().length > 0) {
+        return true;
+      }
+      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+        const o = value as Record<string, unknown>;
+        const id = o.zktlsTemplateId ?? o.templateId;
+        return typeof id === "string" && id.trim().length > 0;
+      }
+      return false;
     });
-    const templateId = matchedKey ? appPayload[matchedKey] : undefined;
-    if (typeof templateId !== "string" || templateId.trim().length === 0) {
+    const rawEntry = matchedKey ? appPayload[matchedKey] : undefined;
+    if (rawEntry === undefined) {
       throw new SdkError("Primus template resolver returned an invalid templateId.", "VALIDATION_ERROR", {
         appId: input.appId,
         identityPropertyId: input.identityPropertyId,
@@ -113,8 +124,14 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
       });
     }
 
+    const extracted = extractIdentityTemplateEntry(rawEntry, {
+      appId: input.appId,
+      identityPropertyId: input.identityPropertyId,
+      responseKeys
+    });
+
     return {
-      templateId: templateId.trim(),
+      ...extracted,
       ...(appConfig.zktlsAppId === undefined ? {} : { zktlsAppId: appConfig.zktlsAppId })
     };
   }
@@ -230,6 +247,105 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
 
     return [identityPropertyId, `${providerPrefix}IdentityPropertyId`];
   }
+}
+
+function extractIdentityTemplateEntry(
+  raw: unknown,
+  context: { appId: string; identityPropertyId: string; responseKeys: string[] }
+): ResolvePrimusTemplateResult {
+  if (typeof raw === "string") {
+    const templateId = raw.trim();
+    if (!templateId) {
+      throw new SdkError("Primus template resolver returned an invalid templateId.", "VALIDATION_ERROR", {
+        appId: context.appId,
+        identityPropertyId: context.identityPropertyId,
+        responseKeys: context.responseKeys
+      });
+    }
+    return { templateId };
+  }
+
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    throw new SdkError("Primus template resolver returned an invalid template entry.", "VALIDATION_ERROR", {
+      appId: context.appId,
+      identityPropertyId: context.identityPropertyId,
+      responseKeys: context.responseKeys
+    });
+  }
+
+  const o = raw as Record<string, unknown>;
+  const idRaw = o.zktlsTemplateId ?? o.templateId;
+  if (typeof idRaw !== "string" || idRaw.trim().length === 0) {
+    throw new SdkError("Primus template resolver returned an invalid templateId.", "VALIDATION_ERROR", {
+      appId: context.appId,
+      identityPropertyId: context.identityPropertyId,
+      responseKeys: context.responseKeys
+    });
+  }
+
+  const result: ResolvePrimusTemplateResult = { templateId: idRaw.trim() };
+
+  if ("attConditions" in o && o.attConditions !== undefined) {
+    result.attConditions = normalizeAttConditions(o.attConditions, context);
+  }
+  if (o.allJsonResponseFlag === "true" || o.allJsonResponseFlag === "false") {
+    result.allJsonResponseFlag = o.allJsonResponseFlag;
+  }
+  if (typeof o.additionParams === "object" && o.additionParams !== null && !Array.isArray(o.additionParams)) {
+    result.additionParams = o.additionParams as PrimusAdditionParams;
+  }
+
+  return result;
+}
+
+function normalizeAttConditions(
+  raw: unknown,
+  context: { appId: string; identityPropertyId: string }
+): PrimusAttConditions {
+  if (!Array.isArray(raw)) {
+    throw new SdkError("Primus template resolver returned invalid attConditions.", "VALIDATION_ERROR", {
+      appId: context.appId,
+      identityPropertyId: context.identityPropertyId
+    });
+  }
+
+  return raw.map((group, groupIndex) => {
+    if (!Array.isArray(group)) {
+      throw new SdkError("Primus template resolver returned invalid attConditions group.", "VALIDATION_ERROR", {
+        appId: context.appId,
+        identityPropertyId: context.identityPropertyId,
+        groupIndex
+      });
+    }
+
+    return group.map((cond, conditionIndex) => {
+      if (typeof cond !== "object" || cond === null) {
+        throw new SdkError("Primus template resolver returned invalid attCondition.", "VALIDATION_ERROR", {
+          appId: context.appId,
+          identityPropertyId: context.identityPropertyId,
+          groupIndex,
+          conditionIndex
+        });
+      }
+
+      const c = cond as Record<string, unknown>;
+      if (typeof c.field !== "string" || typeof c.op !== "string") {
+        throw new SdkError("Primus template resolver returned invalid attCondition.", "VALIDATION_ERROR", {
+          appId: context.appId,
+          identityPropertyId: context.identityPropertyId,
+          groupIndex,
+          conditionIndex
+        });
+      }
+
+      const out: PrimusAttCondition = { field: c.field, op: c.op };
+      if (typeof c.value === "string") {
+        out.value = c.value;
+      }
+
+      return out;
+    });
+  });
 }
 
 export function createStaticPrimusTemplateResolver(

@@ -152,7 +152,7 @@ test("public BnbZkIdClient loads config file and executes prove workflow", async
   );
 
   assert.deepEqual(events, [
-    "initialized",
+    "initializing",
     "data_verifying",
     "proof_generating",
     "on_chain_attested"

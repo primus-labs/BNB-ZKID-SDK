@@ -306,7 +306,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 
 `ProveStatus`
 
-- `initialized`
+- `initializing`
 - `data_verifying`
 - `proof_generating`
 - `on_chain_attested`

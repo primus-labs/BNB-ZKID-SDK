@@ -31,7 +31,7 @@ test("deterministic harness returns a typed happy path", async () => {
   );
 
   assert.deepEqual(events, [
-    "initialized",
+    "initializing",
     "data_verifying",
     "proof_generating",
     "on_chain_attested"
@@ -58,6 +58,6 @@ test("minimal example executes successfully after build", async () => {
   });
 
   assert.equal(stderr, "");
-  assert.match(stdout, /progress initialized/);
+  assert.match(stdout, /progress initializing/);
   assert.match(stdout, /result on_chain_attested/);
 });

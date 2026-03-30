@@ -107,3 +107,44 @@ test("resolver-based workflow resolves template id before collecting attestation
     }
   });
 });
+
+test("resolver-based workflow forwards template API options into primus collect", async () => {
+  const adapter = new FakeResolverPrimusAdapter();
+  const templateResolver: PrimusTemplateResolver = {
+    async resolveAppConfig() {
+      return { zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2" };
+    },
+    async resolveTemplate() {
+      return {
+        templateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
+        zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+        allJsonResponseFlag: "true",
+        attConditions: [[{ field: "github_id", op: "SHA256_WITH_SALT" }]],
+        additionParams: {
+          needUpdateRequests: [{ bodyParams: { rows: 100 } }]
+        }
+      };
+    },
+    async resolveTemplateId(input) {
+      return (await this.resolveTemplate(input)).templateId;
+    }
+  };
+
+  await collectPrimusAttestationFromTemplateResolver(adapter, templateResolver, {
+    appId: "brevisListaDAO",
+    proveInput: {
+      clientRequestId: "prove-task-002",
+      identityPropertyId: "github_account_age",
+      userAddress: "0x1234567890abcdef1234567890abcdef12345678"
+    }
+  });
+
+  assert(adapter.lastInput);
+  assert.equal(adapter.lastInput.allJsonResponseFlag, "true");
+  assert.deepEqual(adapter.lastInput.attConditions, [
+    [{ field: "github_id", op: "SHA256_WITH_SALT" }]
+  ]);
+  assert.deepEqual(adapter.lastInput.additionParams?.needUpdateRequests, [
+    { bodyParams: { rows: 100 } }
+  ]);
+});

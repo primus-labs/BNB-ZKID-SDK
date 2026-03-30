@@ -90,6 +90,8 @@ export interface CollectPrimusAttestationInput {
   attConditions?: PrimusAttConditions;
   /** When set, must be `"true"` or `"false"` (Primus API). */
   allJsonResponseFlag?: "true" | "false";
+  /** Invoked immediately before `PrimusZkTlsRuntime.startAttestation` (e.g. prove progress). */
+  onBeforeStartAttestation?: () => void | Promise<void>;
 }
 
 export interface PrimusZkTlsProof {
@@ -109,6 +111,18 @@ export interface PrimusZkTlsAdapter {
   collectAttestationBundle(input: CollectPrimusAttestationInput): Promise<PrimusAttestationBundle>;
 }
 
+/** Optional Primus fields returned by the template HTTP API (per identity property). */
+export interface ResolvedPrimusTemplateOptions {
+  attConditions?: PrimusAttConditions;
+  allJsonResponseFlag?: "true" | "false";
+  additionParams?: PrimusAdditionParams;
+}
+
+export interface ResolvePrimusTemplateResult extends ResolvedPrimusTemplateOptions {
+  templateId: string;
+  zktlsAppId?: string;
+}
+
 export interface CollectPrimusBundleForProveInput {
   templateId: string;
   zktlsAppId?: string;
@@ -122,4 +136,8 @@ export interface CollectPrimusBundleForProveInput {
   attConditions?: PrimusAttConditions;
   additionParams?: PrimusAdditionParams;
   allJsonResponseFlag?: "true" | "false";
+  /** Defaults from the template resolver (e.g. HTTP `/public/identity/templates`); explicit fields above override when set. */
+  resolvedPrimusTemplateOptions?: ResolvedPrimusTemplateOptions;
+  /** Forwarded to `collectAttestationBundle` — runs before `startAttestation`. */
+  onBeforeStartAttestation?: () => void | Promise<void>;
 }

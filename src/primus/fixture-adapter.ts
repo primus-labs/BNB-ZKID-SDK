@@ -20,7 +20,7 @@ class FixturePrimusZkTlsAdapter implements PrimusZkTlsAdapter {
   async collectAttestationBundle(
     input: CollectPrimusAttestationInput
   ): Promise<PrimusAttestationBundle> {
-    void input;
+    await input.onBeforeStartAttestation?.();
     return this.getBundle();
   }
 
