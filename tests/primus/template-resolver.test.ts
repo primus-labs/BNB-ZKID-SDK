@@ -157,6 +157,76 @@ test("http primus template resolver reads zktlsTemplateId and attestation option
   }
 });
 
+test("http primus template resolver TEMP: hardcodes bodyParams and query _start/_end/t (limit coerced)", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        rc: 0,
+        mc: "SUCCESS",
+        msg: "",
+        result: {
+          brevisListaDAO: {
+            zkTlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+            binanceIdentityPropertyId: {
+              zktlsTemplateId: "ccb898b0-e4b2-4859-95ae-9b41159e8b59",
+              additionParams: {
+                needUpdateRequests: [
+                  {
+                    bodyParams: {
+                      startTime: "1759222655324",
+                      endTime: "1774947455324",
+                      rows: 100
+                    }
+                  },
+                  {
+                    queryParams: {
+                      _start: "1759222655324",
+                      _end: "1774947455324",
+                      limit: "100",
+                      t: "1774947455324"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json"
+        }
+      }
+    )) as typeof fetch;
+
+  try {
+    const resolver = createHttpPrimusTemplateResolver({
+      baseUrl: "https://api-dev.padolabs.org",
+      resolveTemplatePath: "/public/identity/templates"
+    });
+
+    const resolved = await resolver.resolveTemplate({
+      appId: "brevisListaDAO",
+      identityPropertyId: "binanceIdentityPropertyId"
+    });
+
+    const nu = resolved.additionParams?.needUpdateRequests;
+    assert.ok(Array.isArray(nu) && nu.length >= 2);
+    const body = (nu[0] as { bodyParams?: Record<string, unknown> }).bodyParams;
+    const query = (nu[1] as { queryParams?: Record<string, unknown> }).queryParams;
+    assert.equal(body?.startTime, 1757838071320);
+    assert.equal(body?.endTime, 1773390071320);
+    assert.equal(query?._start, 1757838520216);
+    assert.equal(query?._end, 1773390520216);
+    assert.equal(query?.limit, 100);
+    assert.equal(query?.t, 1773390520216);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("http primus template resolver supports explicit response key overrides", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () =>
@@ -240,6 +310,64 @@ test("http primus template resolver accepts identityPropertyId when it already m
     assert.deepEqual(resolved, {
       templateId: "ccb898b0-e4b2-4859-95ae-9b41159e8b59",
       zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("http primus template resolver supports chain-app-id bucket with Brevis property hex keys", async () => {
+  const chainAppKey =
+    "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C";
+  const githubPropertyId =
+    "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff";
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        rc: 0,
+        mc: "SUCCESS",
+        msg: "",
+        result: {
+          [chainAppKey]: {
+            zkTlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+            [githubPropertyId]: {
+              zktlsTemplateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
+              allJsonResponseFlag: "true"
+            }
+          }
+        }
+      }),
+      {
+        status: 200,
+        headers: {
+          "content-type": "application/json"
+        }
+      }
+    )) as typeof fetch;
+
+  try {
+    const resolver = createHttpPrimusTemplateResolver({
+      baseUrl: "https://api-dev.padolabs.org",
+      resolveTemplatePath: "/public/identity/templates"
+    });
+
+    const appConfig = await resolver.resolveAppConfig({
+      appId: "brevisListaDAO"
+    });
+    const resolved = await resolver.resolveTemplate({
+      appId: "brevisListaDAO",
+      identityPropertyId: githubPropertyId
+    });
+
+    assert.deepEqual(appConfig, {
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
+    });
+    assert.deepEqual(resolved, {
+      templateId: "21701f5e-c90c-40a4-8ced-bc1696828f11",
+      zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+      allJsonResponseFlag: "true"
     });
   } finally {
     globalThis.fetch = originalFetch;

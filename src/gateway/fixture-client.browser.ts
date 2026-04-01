@@ -1,5 +1,10 @@
 import { SdkError } from "../errors/sdk-error.js";
 import { emitGatewayCreateProofRequestDebug } from "./debug.js";
+import { normalizeGatewayConfigPayload } from "./normalize-config.js";
+import {
+  findIdentityPropertyConfig,
+  gatewayConfigToStatusIdentityProperty
+} from "./status-identity.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -64,11 +69,7 @@ class BrowserFixtureGatewayClient implements GatewayClient {
       proofRequestId: fixtures.createProofRequest.proofRequestId
     };
 
-    return {
-      ...fixtures.createProofRequest,
-      providerId: provider.providerId,
-      identityPropertyId: input.identityPropertyId
-    };
+    return { ...fixtures.createProofRequest };
   }
 
   async getProofRequestStatus(
@@ -81,15 +82,22 @@ class BrowserFixtureGatewayClient implements GatewayClient {
       });
     }
 
+    const base = fixtures.proofRequestStatus;
+    if (this.lastCreatedRequest === undefined) {
+      return base;
+    }
+
+    const ipCfg = findIdentityPropertyConfig(fixtures.config, this.lastCreatedRequest.identityPropertyId);
+    const identityProperty = ipCfg
+      ? gatewayConfigToStatusIdentityProperty(ipCfg)
+      : base.identityProperty;
+
     return {
-      ...fixtures.proofRequestStatus,
-      ...(this.lastCreatedRequest === undefined
-        ? {}
-        : {
-            providerId: this.lastCreatedRequest.providerId,
-            identityPropertyId: this.lastCreatedRequest.identityPropertyId,
-            proofRequestId: this.lastCreatedRequest.proofRequestId
-          })
+      ...base,
+      proofRequestId: this.lastCreatedRequest.proofRequestId,
+      providerId: base.providerId ?? this.lastCreatedRequest.providerId,
+      ...(identityProperty !== undefined ? { identityProperty } : {}),
+      identityPropertyId: this.lastCreatedRequest.identityPropertyId
     };
   }
 
@@ -100,11 +108,11 @@ class BrowserFixtureGatewayClient implements GatewayClient {
   }> {
     if (!this.fixturesPromise) {
       this.fixturesPromise = Promise.all([
-        fetchJson<GatewayConfig>(this.files.configUrl),
+        fetchJson<unknown>(this.files.configUrl),
         fetchJson<GatewayCreateProofRequestResult>(this.files.createProofRequestUrl),
         fetchJson<GatewayProofRequestStatusResult>(this.files.proofRequestStatusUrl)
-      ]).then(([config, createProofRequest, proofRequestStatus]) => ({
-        config,
+      ]).then(([configRaw, createProofRequest, proofRequestStatus]) => ({
+        config: normalizeGatewayConfigPayload(configRaw),
         createProofRequest,
         proofRequestStatus
       }));

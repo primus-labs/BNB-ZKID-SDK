@@ -4,7 +4,11 @@ export interface BnbZkIdError {
   details?: Record<string, unknown>;
 }
 
-export type ProvingParams = Record<string, number[]>;
+/**
+ * App-side name for Gateway `businessParams` on `POST /v1/proof-requests`.
+ * Shape is opaque: same keys/values as `GET /v1/config` `properties[].businessParams` (SDK passes through).
+ */
+export type ProvingParams = Record<string, unknown>;
 
 export interface InitInput {
   appId: string;
@@ -32,6 +36,10 @@ export interface ProveInput {
   clientRequestId: string;
   userAddress: string;
   identityPropertyId: string;
+  /**
+   * Optional Gateway `businessParams` payload under the public name `provingParams`.
+   * Omitted to use defaults from `GET /v1/config` `properties[].businessParams` when present.
+   */
   provingParams?: ProvingParams;
 }
 

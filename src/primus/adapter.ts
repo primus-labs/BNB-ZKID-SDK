@@ -1,5 +1,6 @@
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
 import { loadPrimusZkTlsRuntime } from "./load-runtime.js";
+import { normalizeZkTlsPrivateDataForGateway } from "./normalize-zktls-private-data.js";
 import type {
   CollectPrimusAttestationInput,
   PrimusAttestationBundle,
@@ -88,6 +89,7 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
     const requestStr = request.toJsonString();
     const signedRequest = await this.signRequest(requestStr, runtime);
     await input.onBeforeStartAttestation?.();
+    debugger; // Pause before Primus startAttestation (inspect requestStr / signedRequest in DevTools)
     const attestation = await runtime.startAttestation(signedRequest);
     const verified = runtime.verifyAttestation(attestation);
 
@@ -96,7 +98,7 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
     }
 
     const requestId = this.resolveRequestId(request.requestid, signedRequest, attestation);
-    const privateData = runtime.getPrivateData(requestId);
+    const privateData = normalizeZkTlsPrivateDataForGateway(runtime.getPrivateData(requestId));
 
     return {
       requestId,

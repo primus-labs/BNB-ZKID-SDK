@@ -155,29 +155,13 @@ const input: ProveInput = {
 
 下面这些结构不是当前 public surface 的组成部分，但它们描述了 SDK 未来内部需要对齐的 Gateway 协议对象：
 
-```ts
-export interface CreateProofRequestInput {
-  appId: string;
-  identityPropertyId: string;
-  zkTlsProof: {
-    public_data: unknown;
-    private_data: unknown;
-  };
-  businessParams?: Record<string, unknown>;
-}
+与 BNB ZK ID Framework Gateway 规范对齐的 HTTP 契约（`POST /v1/proof-requests`、`GET /v1/proof-requests/{proofRequestId}`）以源码 **`src/gateway/types.ts`** 为准，主要包括：
 
-export interface CreateProofRequestResponse {
-  proofRequestId: string;
-  status: "initialized" | "generating" | "submitting" | "on_chain_attested" | "failed";
-  createdAt?: string;
-}
+- `GatewayCreateProofRequestInput` / `GatewayCreateProofRequestResult`
+- `GatewayProofRequestStatusResult`
+- `GatewayProofStatus`、`GatewayError`、`GatewayPropertyInformation` 等
 
-export interface ProofRequestStatusResponse {
-  proofRequestId: string;
-  status: "initialized" | "generating" | "submitting" | "on_chain_attested" | "failed";
-  uiStatus?: "Processing" | "Completed" | "Failed";
-}
-```
+公开 `ProveResult` 仍使用 `on_chain_attested` 等业务态命名；网关返回的 **`onchain_attested`** 与历史 **`on_chain_attested`** 会在 workflow 中一并识别。
 
 ## API 设计原则
 

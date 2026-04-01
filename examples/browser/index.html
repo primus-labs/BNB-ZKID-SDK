@@ -120,22 +120,36 @@
         <h1>Browser Harness</h1>
         <p>
           这个页面用于浏览器环境下验证 <code>BnbZkIdClient</code> 的加载、配置读取和
-          <code>prove</code> 主流程。现在支持两种模式：默认的 <code>fixture + fixture</code>
-          回归模式，以及 <code>Gateway fixture + Primus sdk</code> 的浏览器 live skeleton。
+          <code>prove</code> 主流程：<strong>Fixture</strong> 为双 fixture；
+          <strong>BrevisFixture+PrimusSDK</strong> 的 Gateway 使用与
+          <code>GET /v1/config</code>、<code>POST/GET /v1/proof-requests</code> 对齐的静态 JSON，Primus 仍调 PADO；
+          <strong>Brevis+PrimusSDK</strong> 为真实 Gateway HTTP 8038 + Primus SDK。
         </p>
         <div class="controls">
           <div class="field">
             <label for="mode">Harness mode</label>
             <select id="mode">
+              <option value="primus-sdk">Brevis Gateway + Primus SDK</option>
+              <option value="fixture-brevis-gateway-primus-sdk">
+                BrevisFixture Gateway + Primus SDK
+              </option>
+              
               <option value="fixture">Fixture Gateway + Fixture Primus</option>
-              <option value="primus-sdk">Fixture Gateway + Primus SDK</option>
             </select>
           </div>
           <div id="primus-sdk-fields" hidden>
+            <div class="field">
+              <label for="brevis-provider">Provider（选项来自 <code>fixtures/config.json</code>，与 Brevis <code>/v1/config</code> 示例一致）</label>
+              <select id="brevis-provider" disabled></select>
+            </div>
             <p class="hint">
-              这个 live skeleton 仍然使用 Gateway fixture，只把 Primus 切到真实 SDK，并通过 PADO API
-              动态解析 `zkTlsAppId`、template id 和完成服务端签名。PADO API 地址复用 SDK
-              内置配置，真实初始化仍依赖 Primus 浏览器扩展环境。
+              命名约定：<strong>应用侧</strong> <code>prove.provingParams</code> 与
+              <strong>Gateway</strong> <code>GET /v1/config</code> 的
+              <code>properties[].businessParams</code>、<code>POST /v1/proof-requests</code> 的
+              <code>businessParams</code> 为同一载荷（SDK 按配置<strong>原样透传</strong>，不改写 key/value
+              类型）。<strong>BrevisFixture Gateway</strong> 与下拉的配置源均为
+              <code>examples/browser/fixtures/config.json</code>。开发模式可经 Vite 代理访问
+              <code>/brevis-gateway/</code>、<code>/pado-api/</code>。仍需 Primus 浏览器扩展等环境。
             </p>
           </div>
         </div>

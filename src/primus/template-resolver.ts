@@ -1,4 +1,5 @@
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
+import { joinBaseUrlAndPath } from "../util/join-base-url.js";
 import type {
   PrimusAttCondition,
   PrimusAttConditions,
@@ -33,6 +34,97 @@ export interface PrimusServerTemplateResolverConfig {
   apiKey?: string;
   appResponseKeyMap?: Record<string, string>;
   responseKeyMap?: Record<string, string>;
+}
+
+/** `result.{appKey}`: PADO may use a chain app id (0x…) or legacy name (e.g. brevisListaDAO). */
+function isTemplatesAppBucket(value: unknown): value is Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const o = value as Record<string, unknown>;
+  return typeof o.zkTlsAppId === "string" && o.zkTlsAppId.trim().length > 0;
+}
+
+function isTemplateEntryValue(value: unknown): boolean {
+  if (typeof value === "string") {
+    return value.trim().length > 0;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const o = value as Record<string, unknown>;
+  const id = o.zktlsTemplateId ?? o.templateId;
+  return typeof id === "string" && id.trim().length > 0;
+}
+
+function keysEqualLooseHex(a: string, b: string): boolean {
+  const na = a.trim();
+  const nb = b.trim();
+  if (na.startsWith("0x") && nb.startsWith("0x")) {
+    return na.toLowerCase() === nb.toLowerCase();
+  }
+  return na === nb;
+}
+
+function legacyIdentityResponseKeyCandidates(identityPropertyId: string): string[] {
+  if (identityPropertyId.endsWith("IdentityPropertyId")) {
+    return [identityPropertyId];
+  }
+  const providerPrefix = identityPropertyId.split("_")[0]?.trim();
+  if (!providerPrefix) {
+    throw new ConfigurationError("Unable to derive Primus template response key.", {
+      identityPropertyId
+    });
+  }
+  return [identityPropertyId, `${providerPrefix}IdentityPropertyId`];
+}
+
+function findTemplateRawInAppPayload(
+  appPayload: Record<string, unknown>,
+  identityPropertyId: string,
+  config: PrimusServerTemplateResolverConfig
+): { raw: unknown; responseKeys: string[] } | undefined {
+  const mappedKey = config.responseKeyMap?.[identityPropertyId];
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const add = (k: string) => {
+    const t = k.trim();
+    if (!seen.has(t)) {
+      seen.add(t);
+      candidates.push(t);
+    }
+  };
+
+  if (mappedKey) {
+    add(mappedKey);
+  }
+  const trimmedId = identityPropertyId.trim();
+  add(trimmedId);
+
+  const isHexLike = /^0x[0-9a-fA-F]+$/.test(trimmedId);
+  if (isHexLike) {
+    for (const k of Object.keys(appPayload)) {
+      if (k === "zkTlsAppId") {
+        continue;
+      }
+      if (keysEqualLooseHex(k, trimmedId)) {
+        add(k);
+      }
+    }
+  } else {
+    for (const k of legacyIdentityResponseKeyCandidates(trimmedId)) {
+      add(k);
+    }
+  }
+
+  for (const key of candidates) {
+    const value = appPayload[key];
+    if (isTemplateEntryValue(value)) {
+      return { raw: value, responseKeys: candidates };
+    }
+  }
+
+  return undefined;
 }
 
 interface ResolvePrimusTemplateResponse {
@@ -90,9 +182,6 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
   }
 
   async resolveTemplate(input: ResolvePrimusTemplateInput): Promise<ResolvePrimusTemplateResult> {
-    const appConfig = await this.resolveAppConfig({
-      appId: input.appId
-    });
     const payload = await this.loadPayload(input);
     if (payload.rc !== 0 || typeof payload.result !== "object" || payload.result === null) {
       throw new SdkError("Primus template resolver returned an invalid payload.", "VALIDATION_ERROR", {
@@ -101,38 +190,24 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
       });
     }
 
-    const appPayload = this.resolveAppPayload(input, payload.result);
-    const responseKeys = this.resolveResponseKeys(input.identityPropertyId);
-    const matchedKey = responseKeys.find((key) => {
-      const value = appPayload[key];
-      if (typeof value === "string" && value.trim().length > 0) {
-        return true;
-      }
-      if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-        const o = value as Record<string, unknown>;
-        const id = o.zktlsTemplateId ?? o.templateId;
-        return typeof id === "string" && id.trim().length > 0;
-      }
-      return false;
-    });
-    const rawEntry = matchedKey ? appPayload[matchedKey] : undefined;
-    if (rawEntry === undefined) {
+    const appPayload = this.resolveAppPayload(input, payload.result, input.identityPropertyId);
+    const found = findTemplateRawInAppPayload(appPayload, input.identityPropertyId, this.config);
+    if (found === undefined) {
       throw new SdkError("Primus template resolver returned an invalid templateId.", "VALIDATION_ERROR", {
         appId: input.appId,
-        identityPropertyId: input.identityPropertyId,
-        responseKeys
+        identityPropertyId: input.identityPropertyId
       });
     }
 
-    const extracted = extractIdentityTemplateEntry(rawEntry, {
+    const extracted = extractIdentityTemplateEntry(found.raw, {
       appId: input.appId,
       identityPropertyId: input.identityPropertyId,
-      responseKeys
+      responseKeys: found.responseKeys
     });
 
     return {
       ...extracted,
-      ...(appConfig.zktlsAppId === undefined ? {} : { zktlsAppId: appConfig.zktlsAppId })
+      zktlsAppId: this.resolveZkTlsAppId(input, appPayload)
     };
   }
 
@@ -145,7 +220,7 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
   ): Promise<ResolvePrimusTemplateResponse> {
     if (!this.payloadPromise) {
       this.payloadPromise = fetch(
-        new URL(this.config.resolveTemplatePath, this.config.baseUrl),
+        joinBaseUrlAndPath(this.config.baseUrl, this.config.resolveTemplatePath),
         {
           method: "GET",
           headers: {
@@ -172,35 +247,73 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
 
   private resolveAppPayload(
     input: ResolvePrimusAppInput | ResolvePrimusTemplateInput,
-    payloadResult: Record<string, unknown>
+    payloadResult: Record<string, unknown>,
+    identityPropertyId?: string
   ): Record<string, unknown> {
-    const candidateKeys = [
-      this.config.appResponseKeyMap?.[input.appId],
-      input.appId
-    ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+    const bucketForKey = (key: string): Record<string, unknown> | undefined => {
+      const direct = payloadResult[key];
+      if (isTemplatesAppBucket(direct)) {
+        return direct;
+      }
+      for (const [k, v] of Object.entries(payloadResult)) {
+        if (keysEqualLooseHex(k, key) && isTemplatesAppBucket(v)) {
+          return v;
+        }
+      }
+      return undefined;
+    };
 
-    for (const key of candidateKeys) {
-      const value = payloadResult[key];
-      if (typeof value === "object" && value !== null) {
-        return value as Record<string, unknown>;
+    const mapTarget = this.config.appResponseKeyMap?.[input.appId];
+    if (mapTarget !== undefined && mapTarget.trim() !== "") {
+      const hit = bucketForKey(mapTarget.trim());
+      if (hit) {
+        return hit;
       }
     }
 
-    const appEntries = Object.entries(payloadResult).filter(
+    const byAppId = bucketForKey(input.appId);
+    if (byAppId) {
+      return byAppId;
+    }
+
+    const buckets = Object.entries(payloadResult).filter(
+      ([name, value]) =>
+        name !== "error" && typeof value === "object" && value !== null && isTemplatesAppBucket(value)
+    );
+
+    if (buckets.length === 1) {
+      const pair = buckets[0];
+      const bucketValue = pair?.[1];
+      if (isTemplatesAppBucket(bucketValue)) {
+        return bucketValue;
+      }
+    }
+
+    if (buckets.length > 1 && identityPropertyId) {
+      for (const [, bucket] of buckets) {
+        if (
+          isTemplatesAppBucket(bucket) &&
+          findTemplateRawInAppPayload(bucket, identityPropertyId, this.config) !== undefined
+        ) {
+          return bucket;
+        }
+      }
+    }
+
+    const objectEntries = Object.entries(payloadResult).filter(
       ([, value]) => typeof value === "object" && value !== null
     );
-    if (appEntries.length === 1) {
-      const [singleAppEntry] = appEntries;
-      if (singleAppEntry) {
-        return singleAppEntry[1] as Record<string, unknown>;
+    if (objectEntries.length === 1) {
+      const single = objectEntries[0];
+      const singleValue = single?.[1];
+      if (isTemplatesAppBucket(singleValue)) {
+        return singleValue;
       }
     }
 
     throw new SdkError("Primus template resolver could not resolve the app payload.", "VALIDATION_ERROR", {
       appId: input.appId,
-      ...(this.hasIdentityPropertyId(input)
-        ? { identityPropertyId: input.identityPropertyId }
-        : {}),
+      ...(identityPropertyId !== undefined ? { identityPropertyId } : {}),
       availableAppKeys: Object.keys(payloadResult)
     });
   }
@@ -227,25 +340,73 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
   ): input is ResolvePrimusTemplateInput {
     return "identityPropertyId" in input;
   }
+}
 
-  private resolveResponseKeys(identityPropertyId: string): string[] {
-    const mappedKey = this.config.responseKeyMap?.[identityPropertyId];
-    if (mappedKey) {
-      return [mappedKey];
+/**
+ * TEMP (PADO `/public/identity/templates` testing): under `needUpdateRequests`, hardcode
+ * `bodyParams.startTime`/`endTime` and `queryParams._start`/`_end`/`t`; coerce `queryParams.limit`
+ * if present. Remove this block when the API
+ * is fixed — flip to `false` or delete the helper + call site in `extractIdentityTemplateEntry`.
+ */
+const TEMP_COERCE_PADO_TEMPLATE_NEED_UPDATE_NUMBERS = true;
+
+/** TEMP: fixed window for `needUpdateRequests[].bodyParams` (remove with flag above). */
+const TEMP_PADO_NEED_UPDATE_BODY_START_TIME_MS = 1757838071320;
+const TEMP_PADO_NEED_UPDATE_BODY_END_TIME_MS = 1773390071320;
+
+/** TEMP: fixed query window for `needUpdateRequests[].queryParams` (remove with flag above). */
+const TEMP_PADO_NEED_UPDATE_QUERY_START_MS = 1757838520216;
+const TEMP_PADO_NEED_UPDATE_QUERY_END_MS = 1773390520216;
+const TEMP_PADO_NEED_UPDATE_QUERY_T_MS = 1773390520216;
+
+function coerceJsonNumberLoose(value: unknown): unknown {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) {
+      return n;
     }
+  }
+  return value;
+}
 
-    if (identityPropertyId.endsWith("IdentityPropertyId")) {
-      return [identityPropertyId];
+/** Mutates `additionParams` in place (must be a fresh clone). */
+function tempNormalizePadoNeedUpdateRequestNumericFields(additionParams: Record<string, unknown>): void {
+  const needUpdateRequests = additionParams.needUpdateRequests;
+  if (!Array.isArray(needUpdateRequests)) {
+    return;
+  }
+  for (const entry of needUpdateRequests) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
     }
-
-    const providerPrefix = identityPropertyId.split("_")[0]?.trim();
-    if (!providerPrefix) {
-      throw new ConfigurationError("Unable to derive Primus template response key.", {
-        identityPropertyId
-      });
+    const row = entry as Record<string, unknown>;
+    const bodyParams = row.bodyParams;
+    if (typeof bodyParams === "object" && bodyParams !== null && !Array.isArray(bodyParams)) {
+      const b = bodyParams as Record<string, unknown>;
+      b.startTime = TEMP_PADO_NEED_UPDATE_BODY_START_TIME_MS;
+      b.endTime = TEMP_PADO_NEED_UPDATE_BODY_END_TIME_MS;
     }
+    const queryParams = row.queryParams;
+    if (typeof queryParams === "object" && queryParams !== null && !Array.isArray(queryParams)) {
+      const q = queryParams as Record<string, unknown>;
+      q._start = TEMP_PADO_NEED_UPDATE_QUERY_START_MS;
+      q._end = TEMP_PADO_NEED_UPDATE_QUERY_END_MS;
+      q.t = TEMP_PADO_NEED_UPDATE_QUERY_T_MS;
+      if ("limit" in q) {
+        q.limit = coerceJsonNumberLoose(q.limit);
+      }
+    }
+  }
+}
 
-    return [identityPropertyId, `${providerPrefix}IdentityPropertyId`];
+function cloneAdditionParamsForResult(raw: Record<string, unknown>): Record<string, unknown> {
+  try {
+    return structuredClone(raw) as Record<string, unknown>;
+  } catch {
+    return JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
   }
 }
 
@@ -292,7 +453,13 @@ function extractIdentityTemplateEntry(
     result.allJsonResponseFlag = o.allJsonResponseFlag;
   }
   if (typeof o.additionParams === "object" && o.additionParams !== null && !Array.isArray(o.additionParams)) {
-    result.additionParams = o.additionParams as PrimusAdditionParams;
+    if (TEMP_COERCE_PADO_TEMPLATE_NEED_UPDATE_NUMBERS) {
+      const ap = cloneAdditionParamsForResult(o.additionParams as Record<string, unknown>);
+      tempNormalizePadoNeedUpdateRequestNumericFields(ap);
+      result.additionParams = ap as PrimusAdditionParams;
+    } else {
+      result.additionParams = o.additionParams as PrimusAdditionParams;
+    }
   }
 
   return result;

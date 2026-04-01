@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
 import { emitGatewayCreateProofRequestDebug } from "./debug.js";
+import { normalizeGatewayConfigPayload } from "./normalize-config.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -41,23 +42,19 @@ class FixtureGatewayClient implements GatewayClient {
     });
 
     const fixtures = await this.getFixtures();
-    const provider = fixtures.config.providers.find((candidate) =>
+    const supported = fixtures.config.providers.some((candidate) =>
       candidate.identityProperties.some(
         (property) => property.identityPropertyId === input.identityPropertyId
       )
     );
 
-    if (!provider) {
+    if (!supported) {
       throw new ConfigurationError("Unsupported identityPropertyId for fixture gateway.", {
         identityPropertyId: input.identityPropertyId
       });
     }
 
-    return {
-      ...fixtures.createProofRequest,
-      providerId: provider.providerId,
-      identityPropertyId: input.identityPropertyId
-    };
+    return { ...fixtures.createProofRequest };
   }
 
   async getProofRequestStatus(
@@ -80,11 +77,11 @@ class FixtureGatewayClient implements GatewayClient {
   }> {
     if (!this.fixturesPromise) {
       this.fixturesPromise = Promise.all([
-        readJsonFixture<GatewayConfig>(this.files.configPath),
+        readJsonFixture<unknown>(this.files.configPath),
         readJsonFixture<GatewayCreateProofRequestResult>(this.files.createProofRequestPath),
         readJsonFixture<GatewayProofRequestStatusResult>(this.files.proofRequestStatusPath)
-      ]).then(([config, createProofRequest, proofRequestStatus]) => ({
-        config,
+      ]).then(([configRaw, createProofRequest, proofRequestStatus]) => ({
+        config: normalizeGatewayConfigPayload(configRaw),
         createProofRequest,
         proofRequestStatus
       }));

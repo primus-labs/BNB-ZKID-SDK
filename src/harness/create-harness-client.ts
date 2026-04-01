@@ -1,5 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
+import { resolveProviderIdForIdentityPropertyId } from "../gateway/status-identity.js";
+import type {
+  GatewayConfig,
+  GatewayCreateProofRequestResult,
+  GatewayProofRequestStatusResult
+} from "../gateway/types.js";
 import type {
   BnbZkIdClientMethods,
   InitInput,
@@ -8,8 +14,7 @@ import type {
   ProveInput,
   ProveOptions,
   ProveProgressEvent,
-  ProveResult,
-  ProvingParams
+  ProveResult
 } from "../types/public.js";
 
 interface HarnessGatewayConfig {
@@ -23,22 +28,9 @@ interface HarnessGatewayConfig {
   }>;
 }
 
-interface CreateProofRequestFixture {
-  proofRequestId: string;
-  status: "initialized";
-  providerId: string;
-  identityPropertyId: string;
-  createdAt?: string;
-}
+type CreateProofRequestFixture = GatewayCreateProofRequestResult;
 
-interface ProofRequestStatusFixture {
-  proofRequestId: string;
-  status: "on_chain_attested" | "failed";
-  uiStatus?: "Processing" | "Completed" | "Failed";
-  walletAddress?: string;
-  providerId: string;
-  identityPropertyId: string;
-}
+type ProofRequestStatusFixture = GatewayProofRequestStatusResult;
 
 interface HarnessFixtures {
   config: HarnessGatewayConfig;
@@ -57,29 +49,25 @@ class HarnessGatewayTransport {
     clientRequestId: string;
     userAddress: string;
     identityPropertyId: string;
-    provingParams?: ProvingParams;
+    provingParams?: ProveInput["provingParams"];
   }): Promise<CreateProofRequestFixture> {
     void input.clientRequestId;
     void input.userAddress;
     void input.provingParams;
 
-    const provider = this.fixtures.config.providers.find((candidate) =>
+    const supported = this.fixtures.config.providers.some((candidate) =>
       candidate.identityProperties.some(
         (property) => property.identityPropertyId === input.identityPropertyId
       )
     );
 
-    if (!provider) {
+    if (!supported) {
       throw new ConfigurationError("Unsupported identityPropertyId for deterministic harness.", {
         identityPropertyId: input.identityPropertyId
       });
     }
 
-    return {
-      ...this.fixtures.createProofRequest,
-      providerId: provider.providerId,
-      identityPropertyId: input.identityPropertyId
-    };
+    return { ...this.fixtures.createProofRequest };
   }
 
   async getProofRequestStatus(proofRequestId: string): Promise<ProofRequestStatusFixture> {
@@ -136,10 +124,10 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       });
     }
 
-    if (!this.isValidProvingParams(input.provingParams)) {
+    if (input.provingParams !== undefined && !this.isValidProvingParams(input.provingParams)) {
       return this.buildFailureResult(input.clientRequestId, {
         code: "VALIDATION_ERROR",
-        message: "provingParams must be a record of numeric threshold arrays."
+        message: "provingParams must be a plain object when provided."
       });
     }
 
@@ -161,7 +149,14 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     });
 
     const status = await this.transport.getProofRequestStatus(created.proofRequestId);
-    if (status.status === "failed") {
+    if (
+      status.status === "failed" ||
+      status.status === "prover_failed" ||
+      status.status === "packaging_failed" ||
+      status.status === "submission_failed" ||
+      status.status === "internal_error" ||
+      status.failure != null
+    ) {
       await this.emitProgress(options, {
         status: "failed",
         clientRequestId: input.clientRequestId,
@@ -178,30 +173,46 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       throw new SdkError("Harness success payload is missing walletAddress.", "VALIDATION_ERROR");
     }
 
+    if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
+      throw new SdkError("Harness proof request is not in an on-chain attested state.", "VALIDATION_ERROR", {
+        status: status.status
+      });
+    }
+
     await this.emitProgress(options, {
       status: "on_chain_attested",
       clientRequestId: input.clientRequestId,
       proofRequestId: created.proofRequestId
     });
 
+    const identityPropertyId =
+      status.identityProperty?.id?.trim() ||
+      status.identityProperty?.identityPropertyId?.trim() ||
+      status.identityPropertyId?.trim();
+    if (!identityPropertyId) {
+      throw new SdkError("Harness success payload is missing identity property id.", "VALIDATION_ERROR");
+    }
+
+    const gatewayConfig = (await this.transport.getConfig()) as unknown as GatewayConfig;
+    const providerId =
+      status.providerId?.trim() ||
+      resolveProviderIdForIdentityPropertyId(gatewayConfig, identityPropertyId)?.trim();
+    if (!providerId) {
+      throw new SdkError("Harness success payload is missing providerId.", "VALIDATION_ERROR");
+    }
+
     return {
       status: "on_chain_attested",
       clientRequestId: input.clientRequestId,
       walletAddress: status.walletAddress,
-      providerId: status.providerId,
-      identityPropertyId: status.identityPropertyId,
+      providerId,
+      identityPropertyId,
       proofRequestId: created.proofRequestId
     };
   }
 
-  private isValidProvingParams(provingParams: ProvingParams | undefined): boolean {
-    if (!provingParams) {
-      return true;
-    }
-
-    return Object.values(provingParams).every((values) =>
-      Array.isArray(values) && values.every((value) => Number.isFinite(value))
-    );
+  private isValidProvingParams(provingParams: unknown): boolean {
+    return typeof provingParams === "object" && provingParams !== null && !Array.isArray(provingParams);
   }
 
   private buildFailureResult(

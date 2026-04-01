@@ -37,7 +37,7 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       };
     }
 
-    if (!gatewayConfig.appIds.includes(appId)) {
+    if (gatewayConfig.appIds.length > 0 && !gatewayConfig.appIds.includes(appId)) {
       return {
         success: false,
         error: {

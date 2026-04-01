@@ -1,5 +1,7 @@
 import { SdkError } from "../errors/sdk-error.js";
+import { joinBaseUrlAndPath } from "../util/join-base-url.js";
 import { emitGatewayCreateProofRequestDebug } from "./debug.js";
+import { normalizeGatewayConfigPayload } from "./normalize-config.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -12,9 +14,10 @@ class HttpGatewayClient implements GatewayClient {
   constructor(private readonly baseUrl: string) {}
 
   async getConfig(): Promise<GatewayConfig> {
-    return this.requestJson<GatewayConfig>("/v1/config", {
+    const raw = await this.requestJson<unknown>("/v1/config", {
       method: "GET"
     });
+    return normalizeGatewayConfigPayload(raw);
   }
 
   async createProofRequest(
@@ -46,12 +49,18 @@ class HttpGatewayClient implements GatewayClient {
     );
   }
 
+  private resolveRequestUrl(pathname: string): URL {
+    return joinBaseUrlAndPath(this.baseUrl, pathname);
+  }
+
   private async requestJson<T>(pathname: string, init: RequestInit): Promise<T> {
-    const response = await fetch(new URL(pathname, this.baseUrl), init);
+    const url = this.resolveRequestUrl(pathname);
+    const response = await fetch(url, init);
     if (!response.ok) {
       throw new SdkError("Gateway request failed.", "TRANSPORT_ERROR", {
         status: response.status,
-        pathname
+        pathname,
+        url: url.toString()
       });
     }
 

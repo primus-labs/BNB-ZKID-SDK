@@ -65,8 +65,7 @@ async function createTempConfig(): Promise<string> {
       {
         proofRequestId: "proof-request-001",
         status: "initialized",
-        providerId: "github",
-        identityPropertyId: "github_account_age"
+        error: null
       },
       null,
       2
@@ -79,10 +78,23 @@ async function createTempConfig(): Promise<string> {
     JSON.stringify(
       {
         proofRequestId: "proof-request-001",
-        status: "on_chain_attested",
+        status: "onchain_attested",
+        error: null,
         walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
         providerId: "github",
-        identityPropertyId: "github_account_age"
+        appId: "brevisListaDAO",
+        identityProperty: {
+          id: "github_account_age",
+          description: "GitHub account age",
+          schemaVersion: "1.0.0"
+        },
+        identityPropertyId: "github_account_age",
+        attestation: {
+          chainId: "56",
+          registry: "0x0000000000000000000000000000000000000001",
+          txHash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        failure: null
       },
       null,
       2

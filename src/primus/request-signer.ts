@@ -1,4 +1,5 @@
 import { SdkError } from "../errors/sdk-error.js";
+import { joinBaseUrlAndPath } from "../util/join-base-url.js";
 import type { PrimusRequestSigner } from "./types.js";
 
 export interface PrimusServerRequestSignerConfig {
@@ -20,7 +21,7 @@ class HttpPrimusRequestSigner implements PrimusRequestSigner {
   constructor(private readonly config: PrimusServerRequestSignerConfig) {}
 
   async sign(signParams: string, appId: string): Promise<string> {
-    const response = await fetch(new URL(this.config.signPath, this.config.baseUrl), {
+    const response = await fetch(joinBaseUrlAndPath(this.config.baseUrl, this.config.signPath), {
       method: "POST",
       headers: {
         "content-type": "application/json",

@@ -40,10 +40,23 @@ class FakeGatewayClient implements GatewayClient {
   createdInputs: GatewayCreateProofRequestInput[] = [];
   statusResult: GatewayProofRequestStatusResult = {
     proofRequestId: "proof-request-001",
-    status: "on_chain_attested",
+    status: "onchain_attested",
+    error: null,
     walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
     providerId: "github",
-    identityPropertyId: "github_account_age"
+    appId: "brevisListaDAO",
+    identityProperty: {
+      id: "github_account_age",
+      description: "GitHub account age",
+      schemaVersion: "1.0.0"
+    },
+    identityPropertyId: "github_account_age",
+    attestation: {
+      chainId: "56",
+      registry: "0x0000000000000000000000000000000000000001",
+      txHash: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    failure: null
   };
 
   async getConfig(): Promise<GatewayConfig> {
@@ -55,8 +68,7 @@ class FakeGatewayClient implements GatewayClient {
     return {
       proofRequestId: "proof-request-001",
       status: "initialized",
-      providerId: "github",
-      identityPropertyId: "github_account_age"
+      error: null
     };
   }
 
@@ -267,10 +279,13 @@ test("configured client returns failed result when gateway status fails", async 
     status: "failed",
     providerId: "github",
     identityPropertyId: "github_account_age",
+    identityProperty: { id: "github_account_age" },
     error: {
       code: "REMOTE_FAILURE",
       message: "proof generation failed"
-    }
+    },
+    failure: null,
+    attestation: null
   };
 
   const client = createConfiguredBnbZkIdClient({

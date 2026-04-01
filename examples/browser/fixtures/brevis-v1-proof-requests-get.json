@@ -1,0 +1,19 @@
+{
+  "proofRequestId": "brevis-fixture-proof-001",
+  "status": "onchain_attested",
+  "error": null,
+  "walletAddress": "0x1234567890abcdef1234567890abcdef12345678",
+  "providerId": "0x07a17bd3c7c8d7b88e93a4d9007e3bc230b0a586a434de0bed6500e9f343deb7",
+  "appId": "brevisListaDAO",
+  "identityProperty": {
+    "id": "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff",
+    "description": "GitHub account creation + contribution"
+  },
+  "identityPropertyId": "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff",
+  "attestation": {
+    "chainId": "56",
+    "registry": "0x0000000000000000000000000000000000000003",
+    "txHash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "failure": null
+}

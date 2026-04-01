@@ -21,7 +21,7 @@
     "dev:browser-harness": "vite --config vite.browser-harness.config.ts",
     "example:minimal": "npm run build && node dist/examples/minimal.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "npm run build && node --test dist/tests/config/load-config.test.js dist/tests/harness/minimal-sdk.test.js dist/tests/primus/adapter.test.js dist/tests/primus/request-signer.test.js dist/tests/primus/template-resolver.test.js dist/tests/workflow/collect-primus-attestation.test.js dist/tests/workflow/collect-primus-attestation-from-resolver.test.js dist/tests/client/configured-client.test.js dist/tests/client/public-client.test.js"
+    "test": "npm run build && node --test dist/tests/config/load-config.test.js dist/tests/gateway/business-params.test.js dist/tests/gateway/normalize-config.test.js dist/tests/harness/minimal-sdk.test.js dist/tests/primus/adapter.test.js dist/tests/primus/normalize-zktls-private-data.test.js dist/tests/primus/request-signer.test.js dist/tests/primus/template-resolver.test.js dist/tests/workflow/collect-primus-attestation.test.js dist/tests/workflow/collect-primus-attestation-from-resolver.test.js dist/tests/client/configured-client.test.js dist/tests/client/public-client.test.js"
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
