@@ -77,7 +77,9 @@ test("resolver-based workflow resolves template id before collecting attestation
         clientRequestId: "prove-task-001",
         identityPropertyId: "github_account_age",
         provingParams: {
-          contribution: [21, 51]
+          businessParams: {
+            contribution: [21, 51]
+          }
         },
         userAddress: "0x1234567890abcdef1234567890abcdef12345678"
       },
@@ -101,7 +103,9 @@ test("resolver-based workflow resolves template id before collecting attestation
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",
       provingParams: {
-        contribution: [21, 51]
+        businessParams: {
+          contribution: [21, 51]
+        }
       },
       tenantId: "tenant-a"
     }

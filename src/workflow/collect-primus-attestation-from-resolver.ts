@@ -12,6 +12,7 @@ export async function collectPrimusAttestationFromTemplateResolver(
     onBeforeStartAttestation?: Parameters<
       typeof collectPrimusAttestationForProveInput
     >[1]["onBeforeStartAttestation"];
+    closeDataSourceOnProofComplete?: boolean;
   }
 ): Promise<PrimusAttestationBundle> {
   const resolvedTemplate = await templateResolver.resolveTemplate({
@@ -48,6 +49,9 @@ export async function collectPrimusAttestationFromTemplateResolver(
       : { resolvedPrimusTemplateOptions }),
     ...(input.onBeforeStartAttestation === undefined
       ? {}
-      : { onBeforeStartAttestation: input.onBeforeStartAttestation })
+      : { onBeforeStartAttestation: input.onBeforeStartAttestation }),
+    ...(input.closeDataSourceOnProofComplete === undefined
+      ? {}
+      : { closeDataSourceOnProofComplete: input.closeDataSourceOnProofComplete })
   });
 }

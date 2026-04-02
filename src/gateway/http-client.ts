@@ -1,23 +1,90 @@
 import { SdkError } from "../errors/sdk-error.js";
 import { joinBaseUrlAndPath } from "../util/join-base-url.js";
 import { emitGatewayCreateProofRequestDebug } from "./debug.js";
-import { normalizeGatewayConfigPayload } from "./normalize-config.js";
+import {
+  extractPublicProvidersWireFromConfigRaw,
+  normalizeGatewayConfigPayload
+} from "./normalize-config.js";
+import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import type {
   GatewayClient,
   GatewayConfig,
   GatewayCreateProofRequestInput,
   GatewayCreateProofRequestResult,
-  GatewayProofRequestStatusResult
+  GatewayError,
+  GatewayProofRequestStatusResult,
+  GatewayProofStatus
 } from "./types.js";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function looksLikeGatewayProofRequestError(value: unknown): value is GatewayError {
+  return isRecord(value) && typeof value.code === "string" && value.code.trim().length > 0;
+}
+
+/**
+ * Brevis may respond with HTTP 4xx/5xx while still returning a Framework `{ error: { category, code, message|detail } }` body.
+ * Treat that as a normal `GatewayCreateProofRequestResult` instead of throwing `TRANSPORT_ERROR`.
+ */
+function parseCreateProofRequestResponse(
+  response: Response,
+  body: unknown,
+  pathname: string,
+  url: string
+): GatewayCreateProofRequestResult {
+  if (response.ok) {
+    return body as GatewayCreateProofRequestResult;
+  }
+
+  if (isRecord(body) && body.error != null && looksLikeGatewayProofRequestError(body.error)) {
+    const proofRequestId =
+      typeof body.proofRequestId === "string" && body.proofRequestId.trim() !== ""
+        ? body.proofRequestId.trim()
+        : "";
+    const status: GatewayProofStatus =
+      typeof body.status === "string" ? (body.status as GatewayProofStatus) : "failed";
+    return {
+      proofRequestId,
+      status,
+      error: body.error as GatewayError
+    };
+  }
+
+  throw new SdkError("Gateway request failed.", "TRANSPORT_ERROR", {
+    status: response.status,
+    pathname,
+    url
+  });
+}
+
 class HttpGatewayClient implements GatewayClient {
+  private configBundlePromise:
+    | Promise<{ raw: unknown; normalized: GatewayConfig }>
+    | undefined;
+
   constructor(private readonly baseUrl: string) {}
 
+  private async loadConfigBundle(): Promise<{ raw: unknown; normalized: GatewayConfig }> {
+    if (!this.configBundlePromise) {
+      this.configBundlePromise = this.requestJson<unknown>("/v1/config", {
+        method: "GET"
+      }).then((raw) => ({
+        raw,
+        normalized: normalizeGatewayConfigPayload(raw)
+      }));
+    }
+    return this.configBundlePromise;
+  }
+
   async getConfig(): Promise<GatewayConfig> {
-    const raw = await this.requestJson<unknown>("/v1/config", {
-      method: "GET"
-    });
-    return normalizeGatewayConfigPayload(raw);
+    return (await this.loadConfigBundle()).normalized;
+  }
+
+  async getConfigProvidersWire(): Promise<BnbZkIdGatewayConfigProviderWire[]> {
+    const b = await this.loadConfigBundle();
+    return extractPublicProvidersWireFromConfigRaw(b.raw, b.normalized);
   }
 
   async createProofRequest(
@@ -29,13 +96,28 @@ class HttpGatewayClient implements GatewayClient {
       input
     });
 
-    return this.requestJson<GatewayCreateProofRequestResult>("/v1/proof-requests", {
+    const pathname = "/v1/proof-requests";
+    const url = this.resolveRequestUrl(pathname);
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "content-type": "application/json"
       },
       body: JSON.stringify(input)
     });
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new SdkError("Gateway returned a non-JSON response.", "TRANSPORT_ERROR", {
+        status: response.status,
+        pathname,
+        url: url.toString()
+      });
+    }
+
+    return parseCreateProofRequestResponse(response, body, pathname, url.toString());
   }
 
   async getProofRequestStatus(

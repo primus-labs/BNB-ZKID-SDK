@@ -37,6 +37,7 @@ The only executable flow allowed in this phase is the deterministic harness back
 ## Repo Map
 
 - `src/types/`: public contract definitions
+- `src/config/proof-request-polling.ts`: proof-request `GET` poll interval + max duration (`execute-prove`)
 - `src/client/`: public facade stub
 - `src/harness/`: internal deterministic harness utilities for examples and tests
 - `fixtures/`: shared mocked Gateway payloads

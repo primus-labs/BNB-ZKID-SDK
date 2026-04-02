@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeGatewayConfigPayload } from "../../src/gateway/normalize-config.js";
+import {
+  extractPublicProvidersWireFromConfigRaw,
+  normalizeGatewayConfigPayload
+} from "../../src/gateway/normalize-config.js";
 
 test("normalizeGatewayConfigPayload maps Brevis /v1/config wire to GatewayConfig", () => {
   const normalized = normalizeGatewayConfigPayload({
@@ -47,6 +50,62 @@ test("normalizeGatewayConfigPayload passes through legacy fixture shape", () => 
   };
 
   assert.deepEqual(normalizeGatewayConfigPayload(legacy), legacy);
+});
+
+test("extractPublicProvidersWireFromConfigRaw mirrors Brevis wire from raw payload", () => {
+  const raw = {
+    providers: [
+      {
+        id: "0x07a17",
+        description: "GitHub",
+        properties: [
+          {
+            id: "0x0e5a",
+            description: "GitHub account age",
+            businessParams: { contribution: [10, 20] }
+          }
+        ]
+      }
+    ]
+  };
+  const normalized = normalizeGatewayConfigPayload(raw);
+  const wire = extractPublicProvidersWireFromConfigRaw(raw, normalized);
+
+  assert.equal(wire.length, 1);
+  assert.equal(wire[0]?.id, "0x07a17");
+  assert.equal(wire[0]?.description, "GitHub");
+  assert.equal(wire[0]?.properties[0]?.id, "0x0e5a");
+  assert.equal(wire[0]?.properties[0]?.description, "GitHub account age");
+  assert.deepEqual(wire[0]?.properties[0]?.businessParams, { contribution: [10, 20] });
+});
+
+test("extractPublicProvidersWireFromConfigRaw synthesizes wire from legacy raw", () => {
+  const raw = {
+    appIds: ["a"],
+    providers: [
+      {
+        providerId: "github",
+        identityProperties: [
+          {
+            identityPropertyId: "github_account_age",
+            businessParams: { contribution: [21, 51] }
+          }
+        ]
+      }
+    ]
+  };
+  const normalized = normalizeGatewayConfigPayload(raw);
+  assert.deepEqual(extractPublicProvidersWireFromConfigRaw(raw, normalized), [
+    {
+      id: "github",
+      properties: [
+        {
+          id: "github_account_age",
+          businessParams: { contribution: [21, 51] }
+        }
+      ]
+    }
+  ]);
 });
 
 test("normalizeGatewayConfigPayload rejects top-level error object", () => {

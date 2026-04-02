@@ -1,6 +1,10 @@
 import { SdkError } from "../errors/sdk-error.js";
 import { emitGatewayCreateProofRequestDebug } from "./debug.js";
-import { normalizeGatewayConfigPayload } from "./normalize-config.js";
+import {
+  extractPublicProvidersWireFromConfigRaw,
+  normalizeGatewayConfigPayload
+} from "./normalize-config.js";
+import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import {
   findIdentityPropertyConfig,
   gatewayConfigToStatusIdentityProperty
@@ -22,6 +26,7 @@ interface BrowserFixtureGatewayFiles {
 class BrowserFixtureGatewayClient implements GatewayClient {
   private fixturesPromise:
     | Promise<{
+        configRaw: unknown;
         config: GatewayConfig;
         createProofRequest: GatewayCreateProofRequestResult;
         proofRequestStatus: GatewayProofRequestStatusResult;
@@ -39,6 +44,11 @@ class BrowserFixtureGatewayClient implements GatewayClient {
 
   async getConfig(): Promise<GatewayConfig> {
     return (await this.getFixtures()).config;
+  }
+
+  async getConfigProvidersWire(): Promise<BnbZkIdGatewayConfigProviderWire[]> {
+    const f = await this.getFixtures();
+    return extractPublicProvidersWireFromConfigRaw(f.configRaw, f.config);
   }
 
   async createProofRequest(
@@ -102,6 +112,7 @@ class BrowserFixtureGatewayClient implements GatewayClient {
   }
 
   private async getFixtures(): Promise<{
+    configRaw: unknown;
     config: GatewayConfig;
     createProofRequest: GatewayCreateProofRequestResult;
     proofRequestStatus: GatewayProofRequestStatusResult;
@@ -112,6 +123,7 @@ class BrowserFixtureGatewayClient implements GatewayClient {
         fetchJson<GatewayCreateProofRequestResult>(this.files.createProofRequestUrl),
         fetchJson<GatewayProofRequestStatusResult>(this.files.proofRequestStatusUrl)
       ]).then(([configRaw, createProofRequest, proofRequestStatus]) => ({
+        configRaw,
         config: normalizeGatewayConfigPayload(configRaw),
         createProofRequest,
         proofRequestStatus

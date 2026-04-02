@@ -7,6 +7,7 @@ import type {
   PrimusAttestation,
   PrimusAttestationRequest,
   PrimusInitOptions,
+  PrimusGenerateRequestParamsOptions,
   PrimusZkTlsRuntime
 } from "../../src/primus/types.js";
 
@@ -16,12 +17,18 @@ class FakeAttRequest implements PrimusAttestationRequest {
   private attMode: { algorithmType: string; resultType?: string } | undefined;
   private attConditions: PrimusAttConditions | undefined;
   private allJsonResponseFlag: string | undefined;
+  private readonly timeout: number | undefined;
+  private readonly closeDataSourceOnProofComplete: boolean | undefined;
 
   constructor(
     private readonly templateId: string,
     private readonly userAddress: string,
-    private readonly timeout: number | undefined
-  ) {}
+    options?: PrimusGenerateRequestParamsOptions
+  ) {
+    this.timeout = options?.timeout;
+    this.closeDataSourceOnProofComplete =
+      options?.closeDataSourceOnProofComplete === true ? true : undefined;
+  }
 
   setAdditionParams(additionParams: string): void {
     this.additionParams = additionParams;
@@ -40,17 +47,23 @@ class FakeAttRequest implements PrimusAttestationRequest {
   }
 
   toJsonString(): string {
-    return JSON.stringify({
+    const payload: Record<string, unknown> = {
       appId: "test-app",
       attTemplateID: this.templateId,
       userAddress: this.userAddress,
-      timeout: this.timeout,
       requestid: this.requestid,
       attMode: this.attMode,
       attConditions: this.attConditions,
       allJsonResponseFlag: this.allJsonResponseFlag,
       additionParams: this.additionParams
-    });
+    };
+    if (this.timeout !== undefined) {
+      payload.timeout = this.timeout;
+    }
+    if (this.closeDataSourceOnProofComplete === true) {
+      payload.closeDataSourceOnProofComplete = true;
+    }
+    return JSON.stringify(payload);
   }
 }
 
@@ -70,8 +83,12 @@ class FakePrimusRuntime implements PrimusZkTlsRuntime {
     return true;
   }
 
-  generateRequestParams(attTemplateID: string, userAddress?: string, timeout?: number): PrimusAttestationRequest {
-    const request = new FakeAttRequest(attTemplateID, userAddress ?? "", timeout);
+  generateRequestParams(
+    attTemplateID: string,
+    userAddress?: string,
+    options?: PrimusGenerateRequestParamsOptions
+  ): PrimusAttestationRequest {
+    const request = new FakeAttRequest(attTemplateID, userAddress ?? "", options);
     this.generatedRequests.push(request);
     return request;
   }
@@ -188,6 +205,31 @@ test("primus adapter signs, verifies, and collects attestation bundle", async ()
     }
   ]);
 });
+
+test("primus adapter sets closeDataSourceOnProofComplete on att JSON when requested", async () => {
+  const runtime = new FakePrimusRuntime();
+  const adapter = createPrimusZkTlsAdapter({
+    appId: "test-app",
+    appSecret: "test-secret",
+    runtimeFactory: async () => runtime
+  });
+
+  await adapter.collectAttestationBundle({
+    templateId: "t1",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    zktlsAppId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
+    closeDataSourceOnProofComplete: true,
+    additionParams: {}
+  });
+
+  const parsed = firstSignedAttRequestPayload(runtime);
+  assert.equal(parsed.closeDataSourceOnProofComplete, true);
+});
+
+function firstSignedAttRequestPayload(runtime: FakePrimusRuntime): Record<string, unknown> {
+  assert.equal(runtime.signedRequests.length, 1);
+  return JSON.parse(runtime.signedRequests[0] ?? "{}") as Record<string, unknown>;
+}
 
 test("primus adapter forwards allJsonResponseFlag when set", async () => {
   const runtime = new FakePrimusRuntime();

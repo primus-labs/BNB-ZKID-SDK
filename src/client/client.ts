@@ -1,3 +1,4 @@
+import { createBnbZkIdProveError } from "../errors/prove-error.js";
 import { createRuntimeConfiguredClient } from "./runtime-client.js";
 import type {
   BnbZkIdClientMethods,
@@ -5,7 +6,7 @@ import type {
   InitResult,
   ProveInput,
   ProveOptions,
-  ProveResult
+  ProveSuccessResult
 } from "../types/public.js";
 
 export class BnbZkIdClient implements BnbZkIdClientMethods {
@@ -18,16 +19,13 @@ export class BnbZkIdClient implements BnbZkIdClientMethods {
     return runtimeClient.init(input);
   }
 
-  async prove(input: ProveInput, options?: ProveOptions): Promise<ProveResult> {
+  async prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult> {
     if (!this.runtimeClientPromise) {
-      return {
-        status: "failed",
-        clientRequestId: input.clientRequestId,
-        error: {
-          code: "CONFIGURATION_ERROR",
-          message: "init must succeed before prove can run."
-        }
-      };
+      throw createBnbZkIdProveError(
+        "00000",
+        { reason: "init must succeed before prove can run." },
+        { clientRequestId: input.clientRequestId }
+      );
     }
 
     const runtimeClient = await this.runtimeClientPromise;

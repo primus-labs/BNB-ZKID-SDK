@@ -1,7 +1,7 @@
 import type { PrimusZkTlsRuntime } from "./types.js";
 
 export async function loadPrimusZkTlsRuntime(): Promise<PrimusZkTlsRuntime> {
-  const module = (await import("@primuslabs/zktls-js-sdk")) as {
+  const module = (await import("@superorange/zka-js-sdk")) as {
     PrimusZKTLS: new () => PrimusZkTlsRuntime;
   };
 

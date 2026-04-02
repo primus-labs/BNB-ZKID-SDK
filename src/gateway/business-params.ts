@@ -40,7 +40,7 @@ export function isBusinessParamsObject(value: unknown): value is Record<string, 
 }
 
 /**
- * Deep-clones a Gateway `businessParams`-shaped object for `prove.provingParams` / POST body.
+ * Deep-clones a Gateway `businessParams`-shaped object for `prove.provingParams.businessParams` / POST body.
  * Returns `undefined` for missing or non-object input.
  */
 export function cloneGatewayBusinessParamsForRequest(raw: unknown): Record<string, unknown> | undefined {

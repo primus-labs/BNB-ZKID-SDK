@@ -43,7 +43,10 @@ test("workflow forwards prove input into primus additionParams", async () => {
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",
       provingParams: {
-        contribution: [21, 51]
+        businessParams: {
+          contribution: [21, 51]
+        },
+        extraPrimusField: "reserved"
       },
       userAddress: "0x1234567890abcdef1234567890abcdef12345678"
     },
@@ -78,7 +81,10 @@ test("workflow forwards prove input into primus additionParams", async () => {
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",
       provingParams: {
-        contribution: [21, 51]
+        businessParams: {
+          contribution: [21, 51]
+        },
+        extraPrimusField: "reserved"
       },
       tenantId: "tenant-a"
     }

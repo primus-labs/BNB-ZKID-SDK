@@ -112,6 +112,180 @@
         font-size: 0.9rem;
         line-height: 1.5;
       }
+
+      .log {
+        max-height: min(70vh, 36rem);
+        overflow: auto;
+        margin: 0;
+        padding: 0.75rem 0;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border-top: 1px solid var(--border);
+      }
+
+      .log-line {
+        margin: 0;
+        padding: 0.1rem 0;
+      }
+
+      .log-line--with-action {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.35rem 0.5rem;
+      }
+
+      .log-detail-trigger {
+        border: 0;
+        padding: 0;
+        background: none;
+        color: var(--accent);
+        font: inherit;
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .log-detail-trigger:hover {
+        opacity: 0.85;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        box-sizing: border-box;
+      }
+
+      .modal[hidden] {
+        display: none;
+      }
+
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(31, 26, 20, 0.45);
+      }
+
+      .modal-panel {
+        position: relative;
+        z-index: 1;
+        width: min(52rem, 100%);
+        max-height: min(85vh, 40rem);
+        display: flex;
+        flex-direction: column;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        box-shadow: 0 24px 60px rgba(31, 26, 20, 0.18);
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem 1.1rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .modal-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+      }
+
+      .modal-header h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 600;
+        line-height: 1.3;
+        min-width: 0;
+      }
+
+      .modal-copy {
+        border-radius: 0.6rem;
+        padding: 0.45rem 0.75rem;
+        background: var(--ink);
+        color: #fff;
+        border: 0;
+        font: inherit;
+        font-size: 0.88rem;
+        cursor: pointer;
+      }
+
+      .modal-copy:hover {
+        opacity: 0.92;
+      }
+
+      .log-outcome {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.45rem;
+        padding-top: 0.65rem;
+        border-top: 1px solid var(--border);
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+
+      .status-dot {
+        width: 0.6rem;
+        height: 0.6rem;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+
+      .status-dot--success {
+        background: #0a7a5a;
+        box-shadow: 0 0 0 2px rgba(10, 122, 90, 0.22);
+      }
+
+      .status-dot--failure {
+        background: #c03434;
+        box-shadow: 0 0 0 2px rgba(192, 52, 52, 0.2);
+      }
+
+      .log-outcome--success {
+        color: #0a5c45;
+      }
+
+      .log-outcome--failure {
+        color: #8f2929;
+      }
+
+      .modal-body {
+        margin: 0;
+        padding: 1rem 1.1rem;
+        overflow: auto;
+        flex: 1;
+        font-size: 0.82rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .modal-close {
+        flex-shrink: 0;
+        border-radius: 0.6rem;
+        padding: 0.45rem 0.75rem;
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--border);
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .modal-close:hover {
+        background: rgba(31, 26, 20, 0.05);
+      }
     </style>
   </head>
   <body>
@@ -139,17 +313,19 @@
           </div>
           <div id="primus-sdk-fields" hidden>
             <div class="field">
-              <label for="brevis-provider">Provider（选项来自 <code>fixtures/config.json</code>，与 Brevis <code>/v1/config</code> 示例一致）</label>
+              <label for="brevis-provider">Provider（<strong>Brevis+PrimusSDK</strong>：<code>GET /v1/config</code>；<strong>BrevisFixture</strong>：<code>fixtures/config.json</code>）</label>
               <select id="brevis-provider" disabled></select>
             </div>
             <p class="hint">
-              命名约定：<strong>应用侧</strong> <code>prove.provingParams</code> 与
+              命名约定：<strong>应用侧</strong> <code>prove.provingParams.businessParams</code> 与
               <strong>Gateway</strong> <code>GET /v1/config</code> 的
               <code>properties[].businessParams</code>、<code>POST /v1/proof-requests</code> 的
-              <code>businessParams</code> 为同一载荷（SDK 按配置<strong>原样透传</strong>，不改写 key/value
-              类型）。<strong>BrevisFixture Gateway</strong> 与下拉的配置源均为
-              <code>examples/browser/fixtures/config.json</code>。开发模式可经 Vite 代理访问
-              <code>/brevis-gateway/</code>、<code>/pado-api/</code>。仍需 Primus 浏览器扩展等环境。
+              <code>businessParams</code> 对齐；<code>provingParams</code> 整体进入 Primus
+              <code>additionParams</code>（亦可含其它预留 key）。<strong>Brevis+PrimusSDK</strong> 下选项来自当前 Gateway base 的实时
+              <code>GET /v1/config</code>（推荐 <code>npm run dev:browser-harness</code>，经
+              <code>/brevis-gateway/</code> 同源代理，避免 CORS；直连远端 Gateway 需对方开启 CORS）。
+              <strong>BrevisFixture</strong> 下选项仍与静态 <code>fixtures/config.json</code> 一致。
+              PADO 可走 <code>/pado-api/</code> 代理。仍需 Primus 浏览器扩展等环境。
             </p>
           </div>
         </div>
@@ -157,9 +333,22 @@
           <button id="run-harness">Run Harness</button>
           <button id="clear-log" class="secondary">Clear</button>
         </div>
-        <pre id="log"></pre>
+        <div id="log" class="log" aria-live="polite"></div>
       </div>
     </main>
+    <div id="json-detail-modal" class="modal" hidden aria-hidden="true">
+      <div class="modal-backdrop" data-modal-dismiss tabindex="-1"></div>
+      <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="json-detail-title">
+        <div class="modal-header">
+          <h2 id="json-detail-title">Detail</h2>
+          <div class="modal-header-actions">
+            <button type="button" class="modal-copy" id="json-detail-copy">复制</button>
+            <button type="button" class="modal-close" data-modal-dismiss>Close</button>
+          </div>
+        </div>
+        <pre id="json-detail-body" class="modal-body"></pre>
+      </div>
+    </div>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

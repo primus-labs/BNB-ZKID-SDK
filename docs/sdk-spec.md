@@ -48,7 +48,12 @@ export interface BnbZkIdError {
   details?: Record<string, unknown>;
 }
 
-export type ProvingParams = Record<string, number[]>;
+export type BusinessParams = Record<string, unknown>;
+
+export interface ProvingParams {
+  businessParams?: BusinessParams;
+  [key: string]: unknown;
+}
 
 export interface InitInput {
   appId: string;
@@ -56,6 +61,8 @@ export interface InitInput {
 
 export interface InitSuccessResult {
   success: true;
+  /** `GET /v1/config` 的 `providers`（Brevis wire：`id`、`properties[].id`、可选 `description` / `businessParams`）。 */
+  providers: BnbZkIdGatewayConfigProviderWire[];
 }
 
 export interface InitFailureResult {
@@ -87,6 +94,7 @@ export interface ProveProgressEvent {
 
 export interface ProveOptions {
   onProgress?: (event: ProveProgressEvent) => void;
+  closeDataSourceOnProofComplete?: boolean;
 }
 
 export interface ProveSuccessResult {
@@ -98,6 +106,7 @@ export interface ProveSuccessResult {
   proofRequestId?: string;
 }
 
+/** @deprecated Failures throw `BnbZkIdProveError`; this shape is no longer returned. */
 export interface ProveFailureResult {
   status: "failed";
   clientRequestId: string;
@@ -105,28 +114,53 @@ export interface ProveFailureResult {
   error?: BnbZkIdError;
 }
 
+/** @deprecated Prefer `ProveSuccessResult` for `prove` return type. */
 export type ProveResult = ProveSuccessResult | ProveFailureResult;
 
 export interface BnbZkIdClientMethods {
   init(input: InitInput): Promise<InitResult>;
-  prove(input: ProveInput, options?: ProveOptions): Promise<ProveResult>;
+  prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
+}
+
+export declare class BnbZkIdProveError extends Error {
+  readonly proveCode: "00000" | "00001" | "00002" | "00003";
+  readonly code: string;
+  readonly details: Record<string, unknown>;
+  readonly clientRequestId?: string;
+  readonly proofRequestId?: string;
+}
+
+/** Framework `error` on proof-requests (and typing aid for `prove` failure `details.brevis`). */
+export type BnbZkIdFrameworkErrorCategory =
+  | "binding_conflict"
+  | "internal_error"
+  | "policy_rejected"
+  | "schema_invalid"
+  | "zktls_invalid";
+
+export interface BnbZkIdFrameworkError {
+  category?: BnbZkIdFrameworkErrorCategory | string;
+  code: string;
+  detail?: string;
+  message?: string;
+  details?: Record<string, unknown>;
 }
 
 export declare class BnbZkIdClient implements BnbZkIdClientMethods {
   constructor();
   init(input: InitInput): Promise<InitResult>;
-  prove(input: ProveInput, options?: ProveOptions): Promise<ProveResult>;
+  prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
 }
 ```
 
 ## `provingParams` 规则
 
-`provingParams` 用于传递与 `identityPropertyId` 对应的数据源分档阈值。
+`provingParams` 类型为 `ProvingParams`（与字段同名）：整体序列化进 Primus `additionParams.provingParams`；其中 **`businessParams`** 与 Gateway 的 `businessParams` 对齐（数据源分档等）。
 
-- 它的当前设计类型应收敛为 `Record<string, number[]>`
-- key 表示 provider-specific 的判定字段，例如 `contribution`、`ordersVolume`
-- value 表示该字段对应的阈值数组，由低到高表达不同分档边界
-- 如果只证明“已绑定”而不需要额外阈值，调用方可以不传 `provingParams`
+- `businessParams` 内 key 多为 provider-specific 字段，例如 `contribution`、`ordersVolume`；值为阈值数组等，由低到高表达分档边界
+- 还可包含其它 key（预留 zktls 扩展），与 `businessParams` 一起进入 `additionParams.provingParams`
+- 若不需要显式业务阈值，可省略整个 `provingParams`，或只传扩展字段不传 `businessParams`（此时 Gateway 侧 `businessParams` 仍可使用 `GET /v1/config` 默认值）
+- **校验**：仅当调用方提供 **`provingParams.businessParams`** 时，SDK 将其与 `GET /v1/config` 对应当前 `identityPropertyId` 的 `properties[].businessParams` 做深度相等比较；不一致或配置中缺少 `businessParams` 时，`prove` 抛出 `BnbZkIdProveError`（`proveCode` `00003`）
 
 示例：
 
@@ -136,7 +170,9 @@ const input: ProveInput = {
   userAddress: "0x1234567890abcdef1234567890abcdef12345678",
   identityPropertyId: "github_account_age",
   provingParams: {
-    contribution: [21, 51]
+    businessParams: {
+      contribution: [21, 51]
+    }
   }
 };
 ```
@@ -146,8 +182,8 @@ const input: ProveInput = {
 当前收敛后的内部规则是：
 
 - SDK 运行时根据 `identityPropertyId` 从 Primus server 解析 `templateId`
-- `provingParams` 继续保留为业务侧输入，并作为 Gateway `businessParams` 的来源
-- `clientRequestId`、`identityPropertyId`、`provingParams` 可以继续透传给 Primus 作为 `additionParams`
+- `provingParams.businessParams` 作为 Gateway `POST /v1/proof-requests` 体里 `businessParams` 的主要来源（可与 config 默认合并逻辑见实现）
+- `clientRequestId`、`identityPropertyId`、`provingParams`（整体对象）进入 Primus `additionParams`
 
 这样 public contract 继续保持业务领域命名，而 Primus template 解析细节留在内部。
 
@@ -159,9 +195,9 @@ const input: ProveInput = {
 
 - `GatewayCreateProofRequestInput` / `GatewayCreateProofRequestResult`
 - `GatewayProofRequestStatusResult`
-- `GatewayProofStatus`、`GatewayError`、`GatewayPropertyInformation` 等
+- `GatewayProofStatus`、public **`BnbZkIdFrameworkError`**（即内部 `GatewayError`）、`GatewayPropertyInformation` 等
 
-公开 `ProveResult` 仍使用 `on_chain_attested` 等业务态命名；网关返回的 **`onchain_attested`** 与历史 **`on_chain_attested`** 会在 workflow 中一并识别。
+`prove` 成功时仅返回 `ProveSuccessResult`（`status: "on_chain_attested"` 等）；网关返回的 **`onchain_attested`** 与历史 **`on_chain_attested`** 会在 workflow 中一并识别。失败时统一 `throw BnbZkIdProveError`（见「prove 错误码」）。
 
 ## API 设计原则
 
@@ -214,18 +250,29 @@ const input: ProveInput = {
 
 ## 错误模型
 
-第一版应提供可预测的错误表面：
+`init` 在 **`appId` 缺失、类型非 `string` 或 trim 后为空** 时**抛出** `BnbZkIdProveError`（`proveCode` **`00003`**，`message` **`Invalid parameters`**，`details.message` / `details.field` 指向参数问题）；其余配置类失败仍返回 `InitResult`（`success: false` 时带 `BnbZkIdError`，如 appId 不在 Gateway `appIds` 列表）。
 
-- 配置错误：client 配置不合法
-- 校验错误：输入或输出结构不合法
-- transport 错误：网络失败或非成功响应
-- 协议错误：远端状态违反预期
+`prove` 失败时**一律抛出** `BnbZkIdProveError`（继承 `Error`），字段：
 
-每个错误至少应包含：
+- `code` / `proveCode`：`00000` | `00001` | `00002` | `00003`
+- `message`：与 `proveCode` 对应的固定英文说明（见下表）
+- `details`：参数类错误（含 `init` 与 `prove` 的 **00003**）带 **`message`**（人类可读说明）与 **`field`**（出错字段名，如 `appId`、`userAddress`、`identityPropertyId`、`provingParams.businessParams`）；可选 **`value`**（如非法 `identityPropertyId`）。其它阶段：`details.primus`（zkTLS）；`details.brevis`（Gateway）
+- `clientRequestId` / `proofRequestId`（若已知）
 
-- 稳定的错误名称
-- 简短的用户可读信息
-- 可选的机器可读元数据
+### prove 错误码
+
+| `code` | 含义 |
+|--------|------|
+| `00000` | `Failed to initialize`（例如未成功 `init` 就调用 `prove`） |
+| `00001` | `Failed to generate zkTLS proof`（Primus / zktls-js-sdk 阶段） |
+| `00002` | `Failed to generate zkVM proof`（Gateway：`POST`/`GET` proof-requests 及成功载荷校验） |
+| `00003` | `Invalid parameters`（`init` 的 `appId`；`prove` 的输入类型、`userAddress` 格式、`identityPropertyId` 是否在 `GET /v1/config` `providers[].properties[].id`、`provingParams` / `businessParams` 与配置一致性等） |
+
+`00001` 时 `details.primus`：zkTLS SDK 业务错误按带 `code` / `message`（及可选 `data`）的对象序列化（与 `@superorange/zka-js-sdk` 的 `ZkAttestationError` 对齐，不依赖 `instanceof`）；否则为 `cause`（`serializeErrorForProveDetails` 形状）。
+
+`00002` 时 `details.brevis`：轮询 `GET /v1/proof-requests/{id}` 进入终态失败时带 **`status`**（响应里的 `status` 字段）。Framework **`error`** 体仍扁平写入（`category`、`code`、`message` 等，与 **`BnbZkIdFrameworkError`** 对齐）；**`failure`** 体规范嵌套为 **`failure: { reason, detail }`**。纯 status 终态无 `error`/`failure` 时为 `code` / `message` 兜底。轮询超过 **`src/config/proof-request-polling.ts`** 中 **`PROOF_REQUEST_POLL_MAX_DURATION_MS`**（默认 10 分钟）时，`details.brevis` 为 **`code`：`TIMEOUT`**、**`message`：`timeout`**，并带 `phase`：`pollProofRequest`、`maxDurationMs`、`elapsedMs` 等。轮询间隔为同一文件中的 **`PROOF_REQUEST_POLL_INTERVAL_MS`**（默认 3s）。Transport / 其它轮询异常等为 `phase`、`proofRequestId`（若有）、`cause` 等。Primus / zktls-js-sdk 使用 **`details.primus`**，其 `code` 与 Framework 命名空间不同。
+
+`BnbZkIdFrameworkErrorCategory` 枚举了规范中的确定性 `category`（`policy_rejected`、`zktls_invalid`、`schema_invalid`、`binding_conflict`、`internal_error`）；服务端若下发新类别，类型上仍兼容 `string`。
 
 ## 运行时支持
 
@@ -241,7 +288,7 @@ const input: ProveInput = {
 README 和 examples 中的示例，复杂度应尽量保持在这个级别：
 
 ```ts
-import { BnbZkIdClient } from "bnb-zkid-sdk";
+import { BnbZkIdClient, BnbZkIdProveError } from "bnb-zkid-sdk";
 
 const client = new BnbZkIdClient();
 
@@ -252,29 +299,36 @@ if (!initResult.success) {
   console.error(initResult.error);
 }
 
-const proveResult = await client.prove(
-  {
-    clientRequestId: "prove-task-001",
-    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    identityPropertyId: "github_account_age",
-    provingParams: {
-      contribution: [21, 51],
+try {
+  const proveResult = await client.prove(
+    {
+      clientRequestId: "prove-task-001",
+      userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+      identityPropertyId: "github_account_age",
+      provingParams: {
+        businessParams: {
+          contribution: [21, 51],
+        },
+      },
     },
-  },
-  {
-    onProgress(event) {
-      console.log(event.status, event.proofRequestId);
-    },
-  }
-);
-
-console.log(proveResult.status);
-if (proveResult.status === "on_chain_attested") {
+    {
+      onProgress(event) {
+        console.log(event.status, event.proofRequestId);
+      },
+    }
+  );
+  console.log(proveResult.status);
   console.log(
     proveResult.walletAddress,
     proveResult.providerId,
     proveResult.identityPropertyId
   );
+} catch (error) {
+  if (error instanceof BnbZkIdProveError) {
+    console.error(error.code, error.message, error.details);
+  } else {
+    throw error;
+  }
 }
 ```
 

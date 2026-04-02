@@ -2,7 +2,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
 import { emitGatewayCreateProofRequestDebug } from "./debug.js";
-import { normalizeGatewayConfigPayload } from "./normalize-config.js";
+import {
+  extractPublicProvidersWireFromConfigRaw,
+  normalizeGatewayConfigPayload
+} from "./normalize-config.js";
+import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -20,6 +24,7 @@ interface FixtureGatewayFiles {
 class FixtureGatewayClient implements GatewayClient {
   private fixturesPromise:
     | Promise<{
+        configRaw: unknown;
         config: GatewayConfig;
         createProofRequest: GatewayCreateProofRequestResult;
         proofRequestStatus: GatewayProofRequestStatusResult;
@@ -30,6 +35,11 @@ class FixtureGatewayClient implements GatewayClient {
 
   async getConfig(): Promise<GatewayConfig> {
     return (await this.getFixtures()).config;
+  }
+
+  async getConfigProvidersWire(): Promise<BnbZkIdGatewayConfigProviderWire[]> {
+    const f = await this.getFixtures();
+    return extractPublicProvidersWireFromConfigRaw(f.configRaw, f.config);
   }
 
   async createProofRequest(
@@ -71,6 +81,7 @@ class FixtureGatewayClient implements GatewayClient {
   }
 
   private async getFixtures(): Promise<{
+    configRaw: unknown;
     config: GatewayConfig;
     createProofRequest: GatewayCreateProofRequestResult;
     proofRequestStatus: GatewayProofRequestStatusResult;
@@ -81,6 +92,7 @@ class FixtureGatewayClient implements GatewayClient {
         readJsonFixture<GatewayCreateProofRequestResult>(this.files.createProofRequestPath),
         readJsonFixture<GatewayProofRequestStatusResult>(this.files.proofRequestStatusPath)
       ]).then(([configRaw, createProofRequest, proofRequestStatus]) => ({
+        configRaw,
         config: normalizeGatewayConfigPayload(configRaw),
         createProofRequest,
         proofRequestStatus

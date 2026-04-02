@@ -1,15 +1,8 @@
-/** Gateway API top-level `error` on POST/GET proof-requests (Framework: category + code + detail). */
-export interface GatewayError {
-  /** Framework deterministic category e.g. `policy_rejected`, `zktls_invalid`. */
-  category?: string;
-  /** Stable machine-readable code e.g. `VALIDATOR_UNAVAILABLE`. */
-  code: string;
-  /** Human-readable summary (legacy / HTTP). */
-  message?: string;
-  /** Human-readable detail (Framework). */
-  detail?: string;
-  details?: Record<string, unknown>;
-}
+import type { BnbZkIdFrameworkError } from "../types/framework-error.js";
+import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
+
+/** Gateway API top-level `error` on POST/GET proof-requests — same as public {@link BnbZkIdFrameworkError}. */
+export type GatewayError = BnbZkIdFrameworkError;
 
 /**
  * `ProofStatus` per framework Gateway spec (`POST`/`GET /v1/proof-requests`).
@@ -39,7 +32,7 @@ export interface GatewayIdentityPropertyConfig {
   primusTemplateResponseKey?: string;
   /**
    * Brevis `GET /v1/config` may set per-property defaults for `POST /v1/proof-requests` body
-   * `businessParams` (SDK passes the same object through to `prove.provingParams` / request body).
+   * `businessParams` (SDK aligns with `prove.provingParams.businessParams` / request body).
    */
   businessParams?: Record<string, unknown>;
 }
@@ -54,7 +47,7 @@ export interface GatewayConfig {
   providers: GatewayProviderConfig[];
 }
 
-/** `POST /v1/proof-requests` body (`businessParams` matches /v1/config wire name; values align with `prove.provingParams`). */
+/** `POST /v1/proof-requests` body (`businessParams` matches /v1/config wire name; values align with `prove.provingParams.businessParams`). */
 export interface GatewayCreateProofRequestInput {
   appId: string;
   identityPropertyId: string;
@@ -118,6 +111,8 @@ export interface GatewayProofRequestStatusResult {
 
 export interface GatewayClient {
   getConfig(): Promise<GatewayConfig>;
+  /** Public mirror of `GET /v1/config` `providers` (Brevis wire or synthesized from normalized config). */
+  getConfigProvidersWire(): Promise<BnbZkIdGatewayConfigProviderWire[]>;
   createProofRequest(input: GatewayCreateProofRequestInput): Promise<GatewayCreateProofRequestResult>;
   getProofRequestStatus(proofRequestId: string): Promise<GatewayProofRequestStatusResult>;
 }

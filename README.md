@@ -75,26 +75,34 @@ if (!initResult.success) {
   console.error(initResult.error);
 }
 
-await client.prove(
-  {
-    clientRequestId: "prove-task-001",
-    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    identityPropertyId: "github_account_age",
-    provingParams: {
-      contribution: [21, 51],
+try {
+  const proveResult = await client.prove(
+    {
+      clientRequestId: "prove-task-001",
+      userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+      identityPropertyId: "github_account_age",
+      provingParams: {
+        businessParams: {
+          contribution: [21, 51],
+        },
+      },
     },
-  },
-  {
-    onProgress(event) {
-      console.log(event.status, event.proofRequestId);
-    },
-  }
-);
+    {
+      onProgress(event) {
+        console.log(event.status, event.proofRequestId);
+      },
+    }
+  );
+  console.log(proveResult.status, proveResult.walletAddress);
+} catch (error) {
+  // `BnbZkIdProveError`: code 00000–00003, message; prove 场景中 `details.primus` / `details.brevis` 分阶段
+  console.error(error);
+}
 ```
 
 当前仓库已经提供一条可运行的 public workflow 实现；发布态默认读取 SDK 内置配置，harness 和测试可以通过外部配置 override。
 
-`provingParams` 用于传递数据源相关的分档阈值输入。当前设计阶段将它收敛为 `Record<string, number[]>`，例如 GitHub 可以传 `contribution: [21, 51]`，表示不同分档对应的贡献次数阈值。
+`provingParams` 为进入 Primus `additionParams.provingParams` 的对象；其中可选的 `businessParams` 与 Gateway `businessParams` 对齐（例如 GitHub 传 `contribution: [21, 51]` 作为分档阈值）。其余 key 保留给后续 zktls 侧字段并原样透传。
 
 仓库内提供了一个仅用于验证设计的 deterministic harness，用于驱动 `examples/` 和 `tests/harness/`，但它不会作为 package public API 导出。
 
@@ -118,8 +126,8 @@ await client.prove(
 `result.<app-node>.zkTlsAppId` 读取 zkTLS app id，再从 `result.<app-node>.<provider>IdentityPropertyId`
 读取 template id；例如 `github_account_age -> result.brevisListaDAO.githubIdentityPropertyId`。
 
-`init({ appId })` 会先完成 Gateway appId 校验，再预取这份 app 级 Primus 配置并初始化 Primus runtime；
-后续 `prove(...)` 只继续解析对应的 template id 并执行证明流程。
+`init({ appId })` 若 `appId` 为空或无效会先 **抛出** `BnbZkIdProveError`（`00003` / `Invalid parameters`，`details.field` 等为 `appId`）；否则会完成 Gateway appId 校验，再预取这份 app 级 Primus 配置并初始化 Primus runtime；
+成功时结果里会带上 `providers`（与 `GET /v1/config` 的 `providers` wire 一致）。后续 `prove(...)` 只继续解析对应的 template id 并执行证明流程；若调用方传入 `provingParams.businessParams`，须与配置里该 `identityPropertyId` 对应的 `businessParams` **深度相等**，否则 `prove` 会以 `00003` 失败。
 
 ## Browser Harness
 

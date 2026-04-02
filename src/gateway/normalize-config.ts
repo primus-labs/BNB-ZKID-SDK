@@ -1,5 +1,9 @@
 import { SdkError } from "../errors/sdk-error.js";
 import type {
+  BnbZkIdGatewayConfigPropertyWire,
+  BnbZkIdGatewayConfigProviderWire
+} from "../types/gateway-config-wire.js";
+import type {
   GatewayConfig,
   GatewayIdentityPropertyConfig,
   GatewayProviderConfig
@@ -136,4 +140,71 @@ export function normalizeGatewayConfigPayload(raw: unknown): GatewayConfig {
   throw new SdkError("Unrecognized Gateway /v1/config payload shape.", "VALIDATION_ERROR", {
     keys: Object.keys(raw)
   });
+}
+
+function clonePlainObjectRecord(value: unknown): Record<string, unknown> | undefined {
+  if (
+    value !== undefined &&
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  ) {
+    return { ...(value as Record<string, unknown>) };
+  }
+  return undefined;
+}
+
+function brevisWireToPublicProviders(wire: BrevisConfigWire): BnbZkIdGatewayConfigProviderWire[] {
+  return wire.providers.map(
+    (prov): BnbZkIdGatewayConfigProviderWire => ({
+      id: prov.id,
+      ...(typeof prov.description === "string" && prov.description.trim() !== ""
+        ? { description: prov.description.trim() }
+        : {}),
+      properties: prov.properties.map(
+        (prop): BnbZkIdGatewayConfigPropertyWire => {
+          const businessParams = clonePlainObjectRecord(prop.businessParams);
+          return {
+            id: prop.id,
+            ...(typeof prop.description === "string" && prop.description.trim() !== ""
+              ? { description: prop.description.trim() }
+              : {}),
+            ...(businessParams !== undefined ? { businessParams } : {})
+          };
+        }
+      )
+    })
+  );
+}
+
+/**
+ * Builds the public `providers` slice mirrored from `GET /v1/config` (Brevis wire) or synthesized from
+ * normalized legacy {@link GatewayConfig}.
+ */
+export function extractPublicProvidersWireFromConfigRaw(
+  raw: unknown,
+  normalized: GatewayConfig
+): BnbZkIdGatewayConfigProviderWire[] {
+  if (isRecord(raw) && isBrevisGatewayConfigShape(raw)) {
+    return brevisWireToPublicProviders(raw);
+  }
+
+  return normalized.providers.map(
+    (p): BnbZkIdGatewayConfigProviderWire => ({
+      id: p.providerId,
+      properties: p.identityProperties.map(
+        (ip): BnbZkIdGatewayConfigPropertyWire => {
+          const businessParams =
+            ip.businessParams !== undefined ? { ...ip.businessParams } : undefined;
+          return {
+            id: ip.identityPropertyId,
+            ...(ip.description !== undefined && ip.description.trim() !== ""
+              ? { description: ip.description.trim() }
+              : {}),
+            ...(businessParams !== undefined ? { businessParams } : {})
+          };
+        }
+      )
+    })
+  );
 }

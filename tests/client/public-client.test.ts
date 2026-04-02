@@ -47,7 +47,10 @@ async function createTempConfig(): Promise<string> {
             identityProperties: [
               {
                 identityPropertyId: "github_account_age",
-                schemaVersion: "1.0.0"
+                schemaVersion: "1.0.0",
+                businessParams: {
+                  contribution: [21, 51]
+                }
               }
             ]
           }
@@ -144,7 +147,20 @@ test("public BnbZkIdClient loads config file and executes prove workflow", async
     appId: "brevisListaDAO"
   });
   assert.deepEqual(initResult, {
-    success: true
+    success: true,
+    providers: [
+      {
+        id: "github",
+        properties: [
+          {
+            id: "github_account_age",
+            businessParams: {
+              contribution: [21, 51]
+            }
+          }
+        ]
+      }
+    ]
   });
 
   const proveResult = await client.prove(
@@ -153,7 +169,9 @@ test("public BnbZkIdClient loads config file and executes prove workflow", async
       userAddress: "0x1234567890abcdef1234567890abcdef12345678",
       identityPropertyId: "github_account_age",
       provingParams: {
-        contribution: [21, 51]
+        businessParams: {
+          contribution: [21, 51]
+        }
       }
     },
     {

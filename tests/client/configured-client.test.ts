@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createConfiguredBnbZkIdClient } from "../../src/client/configured-client.js";
+import { BnbZkIdProveError } from "../../src/errors/prove-error.js";
+import { extractPublicProvidersWireFromConfigRaw } from "../../src/gateway/normalize-config.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -30,7 +32,10 @@ class FakeGatewayClient implements GatewayClient {
         identityProperties: [
           {
             identityPropertyId: "github_account_age",
-            schemaVersion: "1.0.0"
+            schemaVersion: "1.0.0",
+            businessParams: {
+              contribution: [21, 51]
+            }
           }
         ]
       }
@@ -61,6 +66,10 @@ class FakeGatewayClient implements GatewayClient {
 
   async getConfig(): Promise<GatewayConfig> {
     return this.config;
+  }
+
+  async getConfigProvidersWire() {
+    return extractPublicProvidersWireFromConfigRaw(this.config, this.config);
   }
 
   async createProofRequest(input: GatewayCreateProofRequestInput): Promise<GatewayCreateProofRequestResult> {
@@ -172,7 +181,20 @@ test("configured client runs init and prove through primus and gateway workflow"
     appId: "brevisListaDAO"
   });
   assert.deepEqual(initResult, {
-    success: true
+    success: true,
+    providers: [
+      {
+        id: "github",
+        properties: [
+          {
+            id: "github_account_age",
+            businessParams: {
+              contribution: [21, 51]
+            }
+          }
+        ]
+      }
+    ]
   });
   assert.equal(primusAdapter.initialized, true);
   assert.deepEqual(primusTemplateResolver.appCalls, [
@@ -188,7 +210,9 @@ test("configured client runs init and prove through primus and gateway workflow"
       userAddress: "0x1234567890abcdef1234567890abcdef12345678",
       identityPropertyId: "github_account_age",
       provingParams: {
-        contribution: [21, 51]
+        businessParams: {
+          contribution: [21, 51]
+        }
       }
     },
     {
@@ -222,7 +246,9 @@ test("configured client runs init and prove through primus and gateway workflow"
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",
       provingParams: {
-        contribution: [21, 51]
+        businessParams: {
+          contribution: [21, 51]
+        }
       }
     }
   });
@@ -249,30 +275,127 @@ test("configured client runs init and prove through primus and gateway workflow"
   assert.equal(proveResult.status, "on_chain_attested");
 });
 
-test("configured client returns failure when prove runs before init", async () => {
+test("configured client throws 00003 when provingParams do not match config businessParams", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age",
+        provingParams: {
+          businessParams: {
+            contribution: [99]
+          }
+        }
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+      assert.equal((err as BnbZkIdProveError).message, "Invalid parameters");
+      assert.equal((err as BnbZkIdProveError).details.field, "provingParams.businessParams");
+      assert.ok(typeof (err as BnbZkIdProveError).details.message === "string");
+      return true;
+    }
+  );
+});
+
+test("configured client throws 00003 when init appId is empty", async () => {
   const client = createConfiguredBnbZkIdClient({
     gatewayClient: new FakeGatewayClient(),
     primusAdapter: new FakePrimusAdapter(),
     primusTemplateResolver: new FakePrimusTemplateResolver()
   });
 
-  const result = await client.prove({
-    clientRequestId: "prove-task-001",
-    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    identityPropertyId: "github_account_age"
-  });
-
-  assert.deepEqual(result, {
-    status: "failed",
-    clientRequestId: "prove-task-001",
-    error: {
-      code: "CONFIGURATION_ERROR",
-      message: "init must succeed before prove can run."
-    }
+  await assert.rejects(async () => client.init({ appId: "   " }), (err: unknown) => {
+    assert.ok(err instanceof BnbZkIdProveError);
+    assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+    assert.equal((err as BnbZkIdProveError).details.field, "appId");
+    return true;
   });
 });
 
-test("configured client returns failed result when gateway status fails", async () => {
+test("configured client throws 00003 when userAddress is not a valid EVM address", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "not-a-wallet",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+      assert.equal((err as BnbZkIdProveError).details.field, "userAddress");
+      return true;
+    }
+  );
+});
+
+test("configured client throws 00003 when identityPropertyId is not in GET /v1/config providers wire", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "unknown_property_id"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+      assert.equal((err as BnbZkIdProveError).details.field, "identityPropertyId");
+      assert.equal((err as BnbZkIdProveError).details.value, "unknown_property_id");
+      return true;
+    }
+  );
+});
+
+test("configured client throws 00000 when prove runs before init", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "00000");
+      assert.equal(err.clientRequestId, "prove-task-001");
+      return true;
+    }
+  );
+});
+
+test("configured client throws 00002 when gateway poll returns terminal error", async () => {
   const gatewayClient = new FakeGatewayClient();
   gatewayClient.statusResult = {
     proofRequestId: "proof-request-001",
@@ -298,19 +421,156 @@ test("configured client returns failed result when gateway status fails", async 
     appId: "brevisListaDAO"
   });
 
-  const result = await client.prove({
-    clientRequestId: "prove-task-001",
-    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-    identityPropertyId: "github_account_age"
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "00002");
+      assert.equal(err.proofRequestId, "proof-request-001");
+      const brevis = err.details.brevis as Record<string, unknown>;
+      assert.equal(brevis.status, "failed");
+      assert.equal(brevis.code, "REMOTE_FAILURE");
+      assert.equal(brevis.message, "proof generation failed");
+      return true;
+    }
+  );
+});
+
+test("configured client throws 00002 when gateway poll returns prover_failed with failure object", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  gatewayClient.statusResult = {
+    proofRequestId: "proof-request-001",
+    status: "prover_failed",
+    providerId: "github",
+    identityPropertyId: "github_account_age",
+    identityProperty: { id: "github_account_age" },
+    error: null,
+    failure: {
+      reason: "PROVER_CRASHED",
+      detail: "Prover exited with code 1"
+    },
+    attestation: null
+  };
+
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
   });
 
-  assert.deepEqual(result, {
-    status: "failed",
-    clientRequestId: "prove-task-001",
-    proofRequestId: "proof-request-001",
-    error: {
-      code: "REMOTE_FAILURE",
-      message: "proof generation failed"
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "00002");
+      const brevis = err.details.brevis as Record<string, unknown>;
+      assert.equal(brevis.status, "prover_failed");
+      assert.deepEqual(brevis.failure, {
+        reason: "PROVER_CRASHED",
+        detail: "Prover exited with code 1"
+      });
+      return true;
     }
+  );
+});
+
+test("configured client throws 00002 when createProofRequest returns gateway error body", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  gatewayClient.createProofRequest = async (input) => {
+    gatewayClient.createdInputs.push(input);
+    return {
+      proofRequestId: "proof-request-001",
+      status: "failed",
+      error: {
+        category: "policy_rejected",
+        code: "STEAM_POLICY_CHECK_FAILED",
+        message: "steam special policy not satisfied"
+      }
+    };
+  };
+
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
   });
+
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "00002");
+      assert.equal(err.message, "Failed to generate zkVM proof");
+      const brevis = err.details.brevis as Record<string, unknown>;
+      assert.equal(brevis.category, "policy_rejected");
+      assert.equal(brevis.code, "STEAM_POLICY_CHECK_FAILED");
+      assert.equal(brevis.message, "steam special policy not satisfied");
+      return true;
+    }
+  );
+});
+
+test("configured client throws 00002 with zkVM outer message when create returns zktls_invalid", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  gatewayClient.createProofRequest = async (input) => {
+    gatewayClient.createdInputs.push(input);
+    return {
+      proofRequestId: "proof-request-001",
+      status: "failed",
+      error: {
+        category: "zktls_invalid",
+        code: "ZKTLS_VERIFICATION_FAILED",
+        message: "zkTls verification failed"
+      }
+    };
+  };
+
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "prove-task-001",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal((err as BnbZkIdProveError).proveCode, "00002");
+      assert.equal((err as BnbZkIdProveError).message, "Failed to generate zkVM proof");
+      assert.deepEqual((err as BnbZkIdProveError).details, {
+        brevis: {
+          category: "zktls_invalid",
+          code: "ZKTLS_VERIFICATION_FAILED",
+          message: "zkTls verification failed"
+        }
+      });
+      return true;
+    }
+  );
 });

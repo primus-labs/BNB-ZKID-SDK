@@ -1,12 +1,19 @@
-import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
 import {
-  cloneGatewayBusinessParamsForRequest,
-  isBusinessParamsObject
-} from "../gateway/business-params.js";
+  createBnbZkIdProveError,
+  serializeErrorForProveDetails,
+  serializePrimusStageDetails
+} from "../errors/prove-error.js";
+import { ConfigurationError, SdkError } from "../errors/sdk-error.js";
+import { cloneGatewayBusinessParamsForRequest } from "../gateway/business-params.js";
 import {
   findIdentityPropertyConfig,
   resolveProviderIdForIdentityPropertyId
 } from "../gateway/status-identity.js";
+import {
+  PROOF_REQUEST_POLL_INTERVAL_MS,
+  PROOF_REQUEST_POLL_MAX_DURATION_MS
+} from "../config/proof-request-polling.js";
+import { ProofRequestPollTimeoutError } from "../errors/proof-request-poll-timeout-error.js";
 import type {
   GatewayClient,
   GatewayConfig,
@@ -16,20 +23,20 @@ import type {
 import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
 import type { PrimusZkTlsAdapter } from "../primus/types.js";
 import { collectPrimusAttestationFromTemplateResolver } from "./collect-primus-attestation-from-resolver.js";
+import { assertProveInputValidOrThrow } from "../validation/public-input-validation.js";
+import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import type {
-  ProveFailureResult,
   ProveInput,
   ProveOptions,
   ProveProgressEvent,
-  ProveResult
+  ProvingParams,
+  ProveSuccessResult
 } from "../types/public.js";
-
-/** Framework `GET /v1/proof-requests/{id}` polling interval while status is in-flight. */
-const PROOF_REQUEST_POLL_INTERVAL_MS = 3000;
 
 interface ExecuteProveWorkflowInput {
   appId: string;
   gatewayConfig: GatewayConfig;
+  configProvidersWire: BnbZkIdGatewayConfigProviderWire[];
   gatewayClient: GatewayClient;
   primusAdapter: PrimusZkTlsAdapter;
   primusTemplateResolver: PrimusTemplateResolver;
@@ -37,8 +44,41 @@ interface ExecuteProveWorkflowInput {
   options?: ProveOptions;
 }
 
-export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Promise<ProveResult> {
-  resolveProviderMapping(input.gatewayConfig, input.proveInput.identityPropertyId);
+function proveErrorContext(
+  clientRequestId: string,
+  proofRequestId?: string
+): { clientRequestId: string; proofRequestId?: string } {
+  return proofRequestId !== undefined
+    ? { clientRequestId, proofRequestId }
+    : { clientRequestId };
+}
+
+function brevisDetails(inner: Record<string, unknown>): Record<string, unknown> {
+  return { brevis: inner };
+}
+
+export async function executeProveWorkflow(
+  input: ExecuteProveWorkflowInput
+): Promise<ProveSuccessResult> {
+  assertProveInputValidOrThrow(input.proveInput, input.configProvidersWire);
+  const clientRequestId = input.proveInput.clientRequestId.trim();
+
+  try {
+    resolveProviderMapping(input.gatewayConfig, input.proveInput.identityPropertyId);
+  } catch (error) {
+    if (error instanceof ConfigurationError) {
+      throw createBnbZkIdProveError(
+        "00003",
+        {
+          message:
+            "identityPropertyId is not supported by the normalized Gateway configuration (no matching provider / property).",
+          field: "identityPropertyId"
+        },
+        { clientRequestId }
+      );
+    }
+    throw error;
+  }
 
   const ipConfig = findIdentityPropertyConfig(
     input.gatewayConfig,
@@ -46,25 +86,34 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
   );
   const fromConfig = cloneGatewayBusinessParamsForRequest(ipConfig?.businessParams);
 
-  if (input.proveInput.provingParams !== undefined && !isBusinessParamsObject(input.proveInput.provingParams)) {
-    return buildFailureResult(input.proveInput.clientRequestId, {
-      code: "VALIDATION_ERROR",
-      message: "provingParams must be a plain object when provided."
-    });
-  }
+  const userProvingParams = input.proveInput.provingParams;
+  const explicitBusinessParams = userProvingParams?.businessParams;
 
-  const effectiveProvingParams =
-    input.proveInput.provingParams !== undefined
-      ? cloneGatewayBusinessParamsForRequest(input.proveInput.provingParams)
+  const resolvedBusiness =
+    explicitBusinessParams !== undefined
+      ? cloneGatewayBusinessParamsForRequest(explicitBusinessParams)
       : fromConfig;
+
+  let workflowProvingParams: ProvingParams | undefined;
+  if (userProvingParams !== undefined) {
+    workflowProvingParams = {
+      ...userProvingParams,
+      ...(resolvedBusiness === undefined ? {} : { businessParams: resolvedBusiness })
+    };
+  } else if (resolvedBusiness !== undefined) {
+    workflowProvingParams = { businessParams: resolvedBusiness };
+  } else {
+    workflowProvingParams = undefined;
+  }
 
   const proveInputForWorkflow: ProveInput = {
     ...input.proveInput,
-    ...(effectiveProvingParams === undefined ? {} : { provingParams: effectiveProvingParams })
+    ...(workflowProvingParams === undefined ? {} : { provingParams: workflowProvingParams })
   };
+
   await emitProgress(input.options, {
     status: "initializing",
-    clientRequestId: input.proveInput.clientRequestId
+    clientRequestId
   });
 
   const primusIdentityPropertyId = resolvePrimusTemplateIdentityKey(
@@ -72,80 +121,149 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
     proveInputForWorkflow.identityPropertyId
   );
 
-  const bundle = await collectPrimusAttestationFromTemplateResolver(
-    input.primusAdapter,
-    input.primusTemplateResolver,
-    {
-      appId: input.appId,
-      proveInput: {
-        ...proveInputForWorkflow,
-        identityPropertyId: primusIdentityPropertyId
-      },
-      additionParams: {
-        appId: input.appId
-      },
-      onBeforeStartAttestation: async () => {
-        await emitProgress(input.options, {
-          status: "data_verifying",
-          clientRequestId: input.proveInput.clientRequestId
-        });
+  let bundle;
+  try {
+    bundle = await collectPrimusAttestationFromTemplateResolver(
+      input.primusAdapter,
+      input.primusTemplateResolver,
+      {
+        appId: input.appId,
+        proveInput: {
+          ...proveInputForWorkflow,
+          identityPropertyId: primusIdentityPropertyId
+        },
+        additionParams: {
+          appId: input.appId
+        },
+        onBeforeStartAttestation: async () => {
+          await emitProgress(input.options, {
+            status: "data_verifying",
+            clientRequestId
+          });
+        },
+        ...(input.options?.closeDataSourceOnProofComplete === undefined
+          ? {}
+          : {
+              closeDataSourceOnProofComplete: input.options.closeDataSourceOnProofComplete
+            })
       }
-    }
-  );
+    );
+  } catch (error) {
+    throw createBnbZkIdProveError(
+      "00001",
+      { primus: serializePrimusStageDetails(error) },
+      { clientRequestId }
+    );
+  }
 
   await emitProgress(input.options, {
     status: "proof_generating",
-    clientRequestId: input.proveInput.clientRequestId
+    clientRequestId
   });
-  // Body field is `businessParams` (Gateway); values originate from prove.provingParams and/or /v1/config defaults.
+
   const createdParams = {
     appId: input.appId,
     identityPropertyId: proveInputForWorkflow.identityPropertyId,
     zkTlsProof: bundle.zkTlsProof,
-    ...(effectiveProvingParams === undefined
-      ? {}
-      : { businessParams: effectiveProvingParams })
+    ...(resolvedBusiness === undefined ? {} : { businessParams: resolvedBusiness })
   };
-  console.log("createProofRequest req:", createdParams);
-  debugger
-  const created = await input.gatewayClient.createProofRequest(createdParams);
-  console.log('createProofRequest res:',created)
-  if (created.error != null) {
-    return buildFailureResult(
-      input.proveInput.clientRequestId,
-      gatewayErrorToProveError(created.error),
-      created.proofRequestId
+
+  let created;
+  try {
+    created = await input.gatewayClient.createProofRequest(createdParams);
+  } catch (error) {
+    throw createBnbZkIdProveError(
+      "00002",
+      brevisDetails({
+        phase: "createProofRequest",
+        cause: serializeErrorForProveDetails(error)
+      }),
+      { clientRequestId }
     );
   }
-  console.log("pollProofRequestUntilSettled req:", created.proofRequestId);
-  const status = await pollProofRequestUntilSettled(
-    input.gatewayClient,
-    created.proofRequestId
-  );
-  console.log("pollProofRequestUntilSettled res:", status);
+
+  const proofRequestIdAfterCreate =
+    created.proofRequestId.trim() !== "" ? created.proofRequestId : undefined;
+
+  if (created.error != null) {
+    throw createBnbZkIdProveError(
+      "00002",
+      brevisDetails(flatDetailsFromFrameworkError(created.error)),
+      proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
+    );
+  }
+
+  let status: GatewayProofRequestStatusResult;
+  try {
+    status = await pollProofRequestUntilSettled(
+      input.gatewayClient,
+      created.proofRequestId,
+      {
+        pollIntervalMs: PROOF_REQUEST_POLL_INTERVAL_MS,
+        maxDurationMs: PROOF_REQUEST_POLL_MAX_DURATION_MS
+      }
+    );
+  } catch (error) {
+    if (error instanceof ProofRequestPollTimeoutError) {
+      throw createBnbZkIdProveError(
+        "00002",
+        brevisDetails({
+          code: error.code,
+          message: error.message,
+          phase: "pollProofRequest",
+          proofRequestId: error.proofRequestId,
+          maxDurationMs: error.maxDurationMs,
+          elapsedMs: error.elapsedMs
+        }),
+        proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
+      );
+    }
+    throw createBnbZkIdProveError(
+      "00002",
+      brevisDetails({
+        phase: "pollProofRequest",
+        proofRequestId: created.proofRequestId,
+        cause: serializeErrorForProveDetails(error)
+      }),
+      proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
+    );
+  }
+
   if (gatewayStatusIsTerminalFailure(status)) {
     await emitProgress(input.options, {
       status: "failed",
-      clientRequestId: input.proveInput.clientRequestId,
-      proofRequestId: created.proofRequestId
+      clientRequestId,
+      ...(proofRequestIdAfterCreate !== undefined ? { proofRequestId: proofRequestIdAfterCreate } : {})
     });
 
-    return buildFailureResult(
-      input.proveInput.clientRequestId,
-      resolveTerminalProofError(status),
-      created.proofRequestId
+    throw createBnbZkIdProveError(
+      "00002",
+      brevisDetails(brevisDetailsFromPollTerminalStatus(status)),
+      proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
     );
   }
 
   if (!status.walletAddress) {
-    throw new SdkError("Gateway success payload is missing walletAddress.", "VALIDATION_ERROR");
+    throw createBnbZkIdProveError(
+      "00002",
+      brevisDetails({
+        phase: "gateway_payload",
+        reason: "Gateway success payload is missing walletAddress."
+      }),
+      proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
+    );
   }
 
   const identityPropertyId = resolveProofIdentityPropertyId(status);
   if (!identityPropertyId) {
-    throw new SdkError(
-      "Gateway success payload is missing identity property id (`identityProperty.id` or legacy fields).",
-      "VALIDATION_ERROR"
+    throw createBnbZkIdProveError(
+      "00002",
+      brevisDetails({
+        phase: "gateway_payload",
+        reason:
+          "Gateway success payload is missing identity property id (`identityProperty.id` or legacy fields)."
+      }),
+      proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
     );
   }
 
@@ -153,22 +271,29 @@ export async function executeProveWorkflow(input: ExecuteProveWorkflowInput): Pr
     status.providerId?.trim() ||
     resolveProviderIdForIdentityPropertyId(input.gatewayConfig, identityPropertyId)?.trim();
   if (!providerId) {
-    throw new SdkError("Gateway success payload is missing providerId.", "VALIDATION_ERROR");
+    throw createBnbZkIdProveError(
+      "00002",
+      brevisDetails({
+        phase: "gateway_payload",
+        reason: "Gateway success payload is missing providerId."
+      }),
+      proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
+    );
   }
 
   await emitProgress(input.options, {
     status: "on_chain_attested",
-    clientRequestId: input.proveInput.clientRequestId,
-    proofRequestId: created.proofRequestId
+    clientRequestId,
+    ...(proofRequestIdAfterCreate !== undefined ? { proofRequestId: proofRequestIdAfterCreate } : {})
   });
 
   return {
     status: "on_chain_attested",
-    clientRequestId: input.proveInput.clientRequestId,
+    clientRequestId,
     walletAddress: status.walletAddress,
     providerId,
     identityPropertyId,
-    proofRequestId: created.proofRequestId
+    ...(proofRequestIdAfterCreate !== undefined ? { proofRequestId: proofRequestIdAfterCreate } : {})
   };
 }
 
@@ -221,9 +346,20 @@ function gatewayStatusIsPending(status: GatewayProofRequestStatusResult["status"
 
 async function pollProofRequestUntilSettled(
   gatewayClient: GatewayClient,
-  proofRequestId: string
+  proofRequestId: string,
+  timing: { pollIntervalMs: number; maxDurationMs: number }
 ): Promise<GatewayProofRequestStatusResult> {
+  const startedAt = Date.now();
+
   for (;;) {
+    if (Date.now() - startedAt > timing.maxDurationMs) {
+      throw new ProofRequestPollTimeoutError(
+        proofRequestId,
+        timing.maxDurationMs,
+        Date.now() - startedAt
+      );
+    }
+
     const status = await gatewayClient.getProofRequestStatus(proofRequestId);
 
     if (gatewayStatusIsTerminalFailure(status)) {
@@ -235,7 +371,7 @@ async function pollProofRequestUntilSettled(
     }
 
     if (gatewayStatusIsPending(status.status)) {
-      await delay(PROOF_REQUEST_POLL_INTERVAL_MS);
+      await delay(timing.pollIntervalMs);
       continue;
     }
 
@@ -271,92 +407,78 @@ function gatewayStatusIsTerminalFailure(status: GatewayProofRequestStatusResult)
 }
 
 function resolveProofIdentityPropertyId(status: GatewayProofRequestStatusResult): string | undefined {
-  const fromNested = status.identityProperty?.id?.trim() || status.identityProperty?.identityPropertyId?.trim();
+  const fromNested =
+    status.identityProperty?.id?.trim() || status.identityProperty?.identityPropertyId?.trim();
   if (fromNested) {
     return fromNested;
   }
   return status.identityPropertyId?.trim();
 }
 
-function failureDetailToError(failure: GatewayProofFailure | Record<string, unknown>): {
-  code: string;
-  message: string;
-  details?: Record<string, unknown>;
-} {
+/** `GET /v1/proof-requests/{id}` terminal payload → `details.brevis` inner object (always includes wire `status`). */
+function brevisDetailsFromPollTerminalStatus(
+  status: GatewayProofRequestStatusResult
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { status: status.status };
+
+  if (status.error != null) {
+    Object.assign(out, flatDetailsFromFrameworkError(status.error));
+    return out;
+  }
+
+  if (status.failure != null) {
+    out.failure = normalizeGatewayFailureForBrevis(status.failure);
+    return out;
+  }
+
+  out.code = "PROOF_REQUEST_FAILED";
+  out.message = "Gateway reported a failed proof request.";
+  return out;
+}
+
+function normalizeGatewayFailureForBrevis(
+  failure: GatewayProofFailure | Record<string, unknown>
+): { reason: string; detail: string } {
   if (
     typeof failure === "object" &&
     failure !== null &&
-    "reason" in failure &&
-    "detail" in failure &&
     typeof (failure as GatewayProofFailure).reason === "string" &&
     typeof (failure as GatewayProofFailure).detail === "string"
   ) {
     const f = failure as GatewayProofFailure;
-    return { code: f.reason, message: f.detail, details: failure as Record<string, unknown> };
+    return { reason: f.reason, detail: f.detail };
   }
 
   const f = failure as Record<string, unknown>;
-  const code = typeof f.code === "string" ? f.code : "PROOF_REQUEST_FAILED";
-  const message =
-    typeof f.message === "string" ? f.message : "Gateway reported proof lifecycle failure.";
-  return { code, message, details: f };
+  const reason = typeof f.reason === "string" ? f.reason : "PROOF_REQUEST_FAILED";
+  const detail =
+    typeof f.detail === "string"
+      ? f.detail
+      : typeof f.message === "string"
+        ? f.message
+        : "Gateway reported proof lifecycle failure.";
+  return { reason, detail };
 }
 
-function gatewayErrorToProveError(err: {
+/** Mirrors Gateway Framework `error` in `details` (`category`, `code`, `message` / `detail`). */
+function flatDetailsFromFrameworkError(err: {
   category?: string;
   code: string;
   message?: string;
   detail?: string;
   details?: Record<string, unknown>;
-}): { code: string; message: string; details?: Record<string, unknown> } {
-  const message = err.detail ?? err.message ?? err.code;
-  const details = {
-    ...err.details,
-    ...(err.category !== undefined ? { category: err.category } : {})
-  };
-  const hasDetails = Object.keys(details).length > 0;
-  return {
-    code: err.code,
-    message,
-    ...(hasDetails ? { details } : {})
-  };
-}
-
-function resolveTerminalProofError(status: GatewayProofRequestStatusResult): {
-  code: string;
-  message: string;
-  details?: Record<string, unknown>;
-} {
-  if (status.error != null) {
-    return gatewayErrorToProveError(status.error);
+}): Record<string, unknown> {
+  const text = err.detail ?? err.message ?? err.code;
+  const out: Record<string, unknown> = {};
+  if (err.category !== undefined) {
+    out.category = err.category;
   }
-
-  if (status.failure != null) {
-    return failureDetailToError(status.failure);
+  out.code = err.code;
+  out.message = text;
+  if (err.details !== undefined && Object.keys(err.details).length > 0) {
+    out.rawDetails = err.details;
   }
-
-  return {
-    code: "PROOF_REQUEST_FAILED",
-    message: "Gateway returned a failed proof request."
-  };
-}
-
-function buildFailureResult(
-  clientRequestId: string,
-  error: { code: string; message: string; details?: Record<string, unknown> },
-  proofRequestId?: string
-): ProveFailureResult {
-  const result: ProveFailureResult = {
-    status: "failed",
-    clientRequestId,
-    error
-  };
-
-  if (proofRequestId) {
-    result.proofRequestId = proofRequestId;
-  }
-
-  return result;
+  return out;
 }
 
 async function emitProgress(

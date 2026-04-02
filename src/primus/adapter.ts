@@ -62,7 +62,20 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
     }
 
     const runtime = await this.getRuntime();
-    const request = runtime.generateRequestParams(input.templateId, input.userAddress, input.timeoutMs);
+    const genOptions =
+      input.timeoutMs === undefined && input.closeDataSourceOnProofComplete !== true
+        ? undefined
+        : {
+            ...(input.timeoutMs === undefined ? {} : { timeout: input.timeoutMs }),
+            ...(input.closeDataSourceOnProofComplete === true
+              ? { closeDataSourceOnProofComplete: true as const }
+              : {})
+          };
+    const request = runtime.generateRequestParams(
+      input.templateId,
+      input.userAddress,
+      genOptions
+    );
 
     request.setAttMode({
       algorithmType: input.algorithmType ?? "proxytls",
@@ -89,7 +102,6 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
     const requestStr = request.toJsonString();
     const signedRequest = await this.signRequest(requestStr, runtime);
     await input.onBeforeStartAttestation?.();
-    debugger; // Pause before Primus startAttestation (inspect requestStr / signedRequest in DevTools)
     const attestation = await runtime.startAttestation(signedRequest);
     const verified = runtime.verifyAttestation(attestation);
 

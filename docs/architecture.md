@@ -54,7 +54,7 @@
 3. 根据 `identityPropertyId` 和 provider 规则准备 `provingParams` 这类阈值输入。
 4. 将 attestation、private data、public data 等内容组装为 Gateway 认可的 `ProofRequest`。
 5. 提交 `POST /v1/proof-requests`。
-6. 在 `prove(...)` 执行过程中通过进度回调向调用方返回状态，直到 `on_chain_attested` 或 `failed`。
+6. 在 `prove(...)` 执行过程中通过进度回调向调用方返回状态，直到 `on_chain_attested` 成功；失败则抛出 `BnbZkIdProveError`（进度仍可出现 `failed`）。
 
 因此，这个 SDK 的本质是一个“客户端集成编排 SDK”。
 
@@ -216,7 +216,7 @@ SDK 对业务应用暴露的第一层能力应固定为：
 
 - `init({ appId })` 代表 SDK 级初始化，其中 `appId` 表示注册到 BNB ZK ID framework 的应用标识，并在失败时返回结构化错误信息
 - `prove(...)` 代表从“业务证明意图”到“最终证明完成”这一整段编排
-- `prove(...)` 的输入可包含 `provingParams`，用于传递 provider-specific 的数值分档阈值
+- `prove(...)` 的输入可包含 `provingParams`（含可选的 `businessParams` 及后续 zktls 扩展字段），用于 Gateway / Primus 载荷
 - `options.onProgress` 用于在长任务执行过程中向调用方返回状态变化
 
 ### Gateway Client
@@ -299,7 +299,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 4. 调用 `client.prove(input, { onProgress })`
 5. SDK 内部触发 Primus 和 Gateway 编排
 6. SDK 在执行过程中通过 `onProgress` 向应用回传状态
-7. `client.prove(...)` 最终返回 `on_chain_attested` 或 `failed`
+7. `client.prove(...)` 成功则返回 `on_chain_attested` 结果；失败则抛出统一错误类型（见 `docs/sdk-spec.md`）
 8. 成功态结果必须包含 `walletAddress`、`providerId`、`identityPropertyId`
 
 ## 状态模型
@@ -315,7 +315,7 @@ SDK 对 Primus 集成暴露的第一层抽象应固定为：
 设计原则：
 
 - 对外只暴露业务上能理解的少量状态
-- `onProgress` 与最终 `ProveResult` 共享同一套核心状态语义
+- `onProgress` 与成功时的返回结果共享同一套核心状态语义（失败不进返回路径）
 - SDK 不应在第一版向调用方暴露过多内部生命周期细节
 
 ## 错误模型
