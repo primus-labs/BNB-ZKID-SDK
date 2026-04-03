@@ -1,67 +1,74 @@
 # BNB-ZKID-SDK
 
-BNB ZKID TypeScript SDK 设计工作区。
+BNB ZKID TypeScript SDK design workspace.
 
-## 当前状态
+## Current Status
 
-当前仓库已经从纯接口设计阶段进入“contract-first + harness-driven implementation”阶段。
+This repository has moved beyond the pure interface-design stage and is now in the
+"contract-first + harness-driven implementation" phase.
 
-当前重点：
+Current focus:
 
-- 定义 facade `BnbZkIdClient(init/prove)`
-- 定义 Primus `zktls-js-sdk` 接入抽象
-- 定义 `zktls -> Gateway` 的输入映射接口
-- 通过 deterministic harness 和 browser harness 验证主流程
-- 明确状态流转、请求结构和错误模型
+- Define the facade `BnbZkIdClient(init/prove)`
+- Define the Primus `zktls-js-sdk` integration abstraction
+- Define the `zktls -> Gateway` input mapping interface
+- Validate the main workflow with the deterministic harness and browser harness
+- Make the state transitions, request structures, and error model explicit
 
-## 文档
+## Documents
 
-- [总体架构设计](./docs/architecture.md)
-- [SDK 规范](./docs/sdk-spec.md)
-- [Harness 说明](./docs/harness.md)
-- [文档索引](./docs/index.md)
+- [Architecture](./docs/architecture.md)
+- [SDK Spec](./docs/sdk-spec.md)
+- [Harness Guide](./docs/harness.md)
+- [Docs Index](./docs/index.md)
 
-其中 `docs/architecture.md` 是当前阶段的最高优先级文档。实现工作应先遵循它，再进入 `sdk-spec` 和具体代码。
+`docs/architecture.md` is the highest-priority document in the current phase. Any
+implementation work should follow it first, then `sdk-spec`, and only then the
+concrete code.
 
-## 开发
+## Development
 
-安装依赖：
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-如果你要运行基于 fixture 的本地 override：
+If you want to run with a local fixture-based override:
 
 ```bash
 cp bnb-zkid.config.json bnb-zkid.config.local.json
 BNB_ZKID_CONFIG_PATH=./bnb-zkid.config.local.json npm test
 ```
 
-执行类型检查：
+Run the validation suite:
 
 ```bash
 npm test
 ```
 
-执行最小 example：
+Run the minimal example:
 
 ```bash
 npm run example:minimal
 ```
 
-浏览器环境下运行 browser harness：
+Run the browser harness:
 
 ```bash
 npm run dev:browser-harness -- --host 127.0.0.1 --port 4177
 ```
 
-然后打开 <http://127.0.0.1:4177>。
+Then open <http://127.0.0.1:4177>.
 
-- `Fixture Gateway + Fixture Primus`：默认回归模式，不依赖真实 zkTLS
-- `Fixture Gateway + Primus SDK`：浏览器 live skeleton，PADO API 地址复用 SDK 内置配置，`zkTlsAppId` 与 template id 会通过模板接口动态解析，Gateway 仍走 fixture；这一步还要求本机浏览器里存在 Primus 扩展环境
+- `Fixture Gateway + Fixture Primus`: default regression mode, with no dependency on
+  real zkTLS
+- `Fixture Gateway + Primus SDK`: browser live skeleton mode. The PADO API address
+  reuses the SDK built-in configuration, `zkTlsAppId` and the template id are
+  resolved dynamically from the template API, and Gateway still uses fixtures. This
+  mode also requires a local browser environment with the Primus extension installed
 
-## 当前接口草案
+## Current API Draft
 
 ```ts
 import { BnbZkIdClient } from "bnb-zkid-sdk";
@@ -95,53 +102,79 @@ try {
   );
   console.log(proveResult.status, proveResult.walletAddress);
 } catch (error) {
-  // `BnbZkIdProveError`: code 00000–00003, message; prove 场景中 `details.primus` / `details.brevis` 分阶段
+  // `BnbZkIdProveError`: code 00000-00003, message; in the prove flow,
+  // `details.primus` / `details.brevis` describe the stage-specific failure.
   console.error(error);
 }
 ```
 
-当前仓库已经提供一条可运行的 public workflow 实现；发布态默认读取 SDK 内置配置，harness 和测试可以通过外部配置 override。
+The repository already includes one runnable public workflow implementation. The
+published runtime reads the SDK built-in configuration by default, while the harness
+and tests can override it through external configuration.
 
-`provingParams` 为进入 Primus `additionParams.provingParams` 的对象；其中可选的 `businessParams` 与 Gateway `businessParams` 对齐（例如 GitHub 传 `contribution: [21, 51]` 作为分档阈值）。其余 key 保留给后续 zktls 侧字段并原样透传。
+`provingParams` is the object passed into Primus
+`additionParams.provingParams`. Its optional `businessParams` aligns with Gateway
+`businessParams` (for example, GitHub can pass `contribution: [21, 51]` as tier
+thresholds). All other keys are reserved for future zkTLS-side fields and are passed
+through unchanged.
 
-仓库内提供了一个仅用于验证设计的 deterministic harness，用于驱动 `examples/` 和 `tests/harness/`，但它不会作为 package public API 导出。
+The repository also includes a deterministic harness used only to validate the
+design. It drives `examples/` and `tests/harness/`, but it is not exported as part
+of the package public API.
 
-## 运行时配置
+## Runtime Configuration
 
-`BnbZkIdClient` 保持 `new BnbZkIdClient()` 的接口不变。
+`BnbZkIdClient` keeps the `new BnbZkIdClient()` constructor shape unchanged.
 
-默认情况下，运行时配置使用 SDK 内置配置。
+By default, runtime configuration comes from SDK built-in configuration.
 
-- 发布态固定参数，例如 Gateway base URL、Primus server template resolver 与 signer 地址，应放在 SDK 内部模块
-- Node 测试和本地 harness 可以通过 `BNB_ZKID_CONFIG_PATH` 指向外部 JSON override
-- 浏览器 harness 可以通过 `globalThis.__BNB_ZKID_CONFIG_URL__` 指向外部 JSON override
+- Release-time fixed parameters, such as the Gateway base URL, Primus server
+  template resolver, and signer address, should live in internal SDK modules
+- Node tests and the local harness can point `BNB_ZKID_CONFIG_PATH` to an external
+  JSON override
+- The browser harness can point `globalThis.__BNB_ZKID_CONFIG_URL__` to an external
+  JSON override
 
-外部 override 配置中可以定义：
+The external override configuration can define:
 
-- Gateway 地址或 fixture 文件
-- Primus template resolver 与服务端 signer 的地址
-- Primus server 地址与 template 解析路径，或测试用静态 template 映射
+- A Gateway address or fixture file
+- The Primus template resolver and server-side signer address
+- A Primus server address and template resolution path, or a static template mapping
+  for tests
 
-当前默认内置解析会请求 `https://api-dev.padolabs.org/public/identity/templates`，并优先从
-`result.<app-node>.zkTlsAppId` 读取 zkTLS app id，再从 `result.<app-node>.<provider>IdentityPropertyId`
-读取 template id；例如 `github_account_age -> result.brevisListaDAO.githubIdentityPropertyId`。
+The current built-in resolver requests
+`https://api-dev.padolabs.org/public/identity/templates` and first reads the zkTLS
+app id from `result.<app-node>.zkTlsAppId`, then reads the template id from
+`result.<app-node>.<provider>IdentityPropertyId`; for example,
+`github_account_age -> result.brevisListaDAO.githubIdentityPropertyId`.
 
-`init({ appId })` 若 `appId` 为空或无效会先 **抛出** `BnbZkIdProveError`（`00003` / `Invalid parameters`，`details.field` 等为 `appId`）；否则会完成 Gateway appId 校验，再预取这份 app 级 Primus 配置并初始化 Primus runtime；
-成功时结果里会带上 `providers`（与 `GET /v1/config` 的 `providers` wire 一致）。后续 `prove(...)` 只继续解析对应的 template id 并执行证明流程；若调用方传入 `provingParams.businessParams`，须与配置里该 `identityPropertyId` 对应的 `businessParams` **深度相等**，否则 `prove` 会以 `00003` 失败。
+If `init({ appId })` receives an empty or invalid `appId`, it first throws
+`BnbZkIdProveError` (`00003` / `Invalid parameters`, with `details.field` and
+related metadata pointing to `appId`). Otherwise it validates the Gateway appId,
+prefetches the app-level Primus configuration, and initializes the Primus runtime.
+On success the result includes `providers` (matching the `providers` wire returned
+by `GET /v1/config`). A later `prove(...)` call only needs to resolve the matching
+template id and execute the proving flow. If the caller provides
+`provingParams.businessParams`, it must be deeply equal to the configured
+`businessParams` for that `identityPropertyId`, otherwise `prove` fails with
+`00003`.
 
 ## Browser Harness
 
-仓库提供了一个浏览器专用 harness 页面：
+The repository includes a browser-specific harness page:
 
 - [examples/browser/index.html](./examples/browser/index.html)
 
-这层 harness 的目标不是替代 `npm test`，而是验证：
+This harness is not meant to replace `npm test`. Its purpose is to verify:
 
-- 浏览器环境能加载 `BnbZkIdClient`
-- 浏览器配置加载逻辑可运行
-- `init -> prove` 主流程在浏览器里能走通
+- The browser environment can load `BnbZkIdClient`
+- The browser configuration-loading logic works
+- The `init -> prove` main workflow runs successfully in the browser
 
-当前 browser harness 支持两层验证：
+The current browser harness supports two validation modes:
 
-- `fixture + fixture`：默认回归，不依赖真实 Gateway 或真实 zkTLS
-- `fixture + primus sdk`：浏览器里验证真实 zkTLS SDK 初始化和 attestation 流程，但 Gateway 仍保持 fixture；推荐通过 Vite dev server 启动，而不是静态 `python http.server`
+- `fixture + fixture`: default regression mode, with no dependency on a real Gateway
+  or real zkTLS
+- `fixture + primus sdk`: validates real zkTLS SDK initialization and the
+  attestation flow in the browser while keeping Gateway fixture-backed; Vite dev
+  server is recommended instead of a static `python http.server`

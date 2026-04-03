@@ -1,32 +1,41 @@
-# Harness 说明
+# Harness Guide
 
-## 目标
+## Goal
 
-定义 SDK 进入实现阶段后的第一个可执行 harness。
+Define the first executable harness for the SDK after entering the implementation
+phase.
 
-当前仓库已经进入 harness 驱动实现阶段，因此本文档既描述目标，也描述仓库里已经落地的 harness 分层。
+The repository is already in the harness-driven implementation phase, so this
+document describes both the target and the harness layers that already exist in the
+repository.
 
-补充说明：仓库现在已经加入 deterministic harness 和 browser harness，用于验证文档、fixture、example 和 public workflow 之间是否一致。它们不代表生产环境联调已经完成。
+Additional note: the repository now includes both a deterministic harness and a
+browser harness to verify consistency between the docs, fixtures, examples, and the
+public workflow. They do not imply that production live integration is complete.
 
-## 第一个 Harness 的定义
+## Definition Of The First Harness
 
-第一个 harness 应验证一条完整的 Gateway happy path：
+The first harness should validate one full Gateway happy path:
 
-1. 开发者创建一个 client。
-2. client 获取 Gateway 配置。
-3. client 提交一个包含 `zkTlsProof` 的 `ProofRequest`，其中 `public_data` 是 Primus attestation，`private_data` 是 `getPrivateData` 结果。
-4. client 查询 `proofRequestId` 的状态。
-5. 应用拿到类型明确的成功结果，包含 `status = on_chain_attested`、`walletAddress`、`providerId`、`identityPropertyId`。
+1. A developer creates a client.
+2. The client fetches Gateway configuration.
+3. The client submits a `ProofRequest` that includes `zkTlsProof`, where
+   `public_data` is the Primus attestation and `private_data` is the result of
+   `getPrivateData`.
+4. The client queries the status for `proofRequestId`.
+5. The application receives a typed success result containing
+   `status = on_chain_attested`, `walletAddress`, `providerId`, and
+   `identityPropertyId`.
 
-## Harness 必须证明什么
+## What The Harness Must Prove
 
-- public API 是自洽的
-- README 里的示例是可执行的
-- 请求与响应结构能被正确解析
-- 错误能够以可预测的形式暴露
-- 在早期开发阶段无需真实后端也能验证 SDK
+- The public API is internally coherent
+- The example in the README is executable
+- Request and response structures are parsed correctly
+- Errors are exposed in a predictable form
+- The SDK can be validated early without a real backend
 
-## 建议的早期 Harness 结构
+## Suggested Early Harness Structure
 
 ```text
 examples/
@@ -40,71 +49,90 @@ fixtures/
   get-proof-request-status.json
 ```
 
-当前仓库已落地对应目录，并将 internal harness 实现放在 `src/harness/` 下，避免污染 package public surface。
+The repository already includes the matching directories and keeps the internal
+harness implementation under `src/harness/` to avoid polluting the package public
+surface.
 
-随着 Primus 集成实现展开，仓库也可以增加面向 `src/primus/` 和 `src/workflow/` 的 deterministic tests，但仍应优先使用 fake runtime 和 injected signer，而不是直接依赖浏览器扩展或真实 appSecret。
+As the Primus integration expands, the repository can also add deterministic tests
+for `src/primus/` and `src/workflow/`, but fake runtime and injected signer should
+still be preferred over direct dependencies on a browser extension or a real
+`appSecret`.
 
-同理，当前仓库已经用 internal configured client 把 `init -> Primus -> Gateway -> status` 串起来，作为 public facade 的实现验收骨架。
+Likewise, the repository already uses an internal configured client to connect
+`init -> Primus -> Gateway -> status` as the implementation-acceptance skeleton for
+the public facade.
 
-如果正式 zkTLS 运行必须在浏览器中验证，则应单独保留一层 browser harness。它与当前默认的 deterministic harness 分工不同：
+If the real zkTLS runtime must be validated in a browser, the project should keep a
+separate browser harness layer. Its role is different from the default deterministic
+harness:
 
-- deterministic harness：默认回归、快速反馈、无浏览器依赖
-- browser harness：验证浏览器运行时、配置加载和真实页面上下文
+- deterministic harness: default regression path, fast feedback, no browser
+  dependency
+- browser harness: validates browser runtime behavior, config loading, and real page
+  context
 
-当前仓库里的 browser harness 已经支持两种模式：
+The browser harness in this repository already supports two modes:
 
-- `fixture + fixture`：验证页面加载、浏览器配置读取和 public client 主流程
-- `gateway fixture + primus sdk`：验证浏览器里真实 zkTLS SDK 初始化和 attestation 主链路，同时保持 Gateway 为 deterministic fixture
+- `fixture + fixture`: validates page loading, browser config loading, and the
+  public client workflow
+- `gateway fixture + primus sdk`: validates real zkTLS SDK initialization and the
+  main attestation path in the browser while keeping Gateway deterministic and
+  fixture-backed
 
-推荐启动方式：
+Recommended startup command:
 
 ```bash
 npm run dev:browser-harness -- --host 127.0.0.1 --port 4177
 ```
 
-## 执行策略
+## Execution Strategy
 
-在第一阶段，应优先使用确定性的 fixture 和 mocked transport。
+In the first phase, deterministic fixtures and mocked transport should be preferred.
 
-这样做会立刻带来三个收益：
+This immediately brings three benefits:
 
-- 在后端集成尚未稳定前，就能先验证 API 设计
-- agent 生成代码时能获得快速的通过/失败反馈
-- public contract 的变化会在一个集中位置被捕获
+- API design can be validated before backend integration stabilizes
+- Agents get fast pass/fail feedback while generating code
+- Public contract changes are caught in one concentrated place
 
-只有在 mocked happy path 稳定之后，项目才应加入真实联调用的 live integration harness。
+Only after the mocked happy path is stable should the project add a live integration
+harness.
 
-## Harness 契约
+## Harness Contract
 
-如果出现以下任一情况，第一个 harness 都应该失败：
+The first harness should fail if any of the following happens:
 
-- 示例代码不再可编译
-- `GET /v1/config`、`POST /v1/proof-requests`、`GET /v1/proof-requests/{proofRequestId}` 的方法或参数结构偏离规范
-- 解析后的响应泄漏出未经处理的原始未知 payload
-- 类型化状态流转变得含糊
-- 引入 breaking API change 却没有同步更新示例
+- Example code no longer compiles
+- The method or parameter shapes for `GET /v1/config`,
+  `POST /v1/proof-requests`, or `GET /v1/proof-requests/{proofRequestId}` drift
+  from the spec
+- Parsed responses leak raw unknown payloads without normalization
+- Typed state transitions become ambiguous
+- A breaking API change is introduced without updating the example
 
-## 最低必备产物
+## Minimum Required Artifacts
 
-在实现进一步展开之前，仓库中至少应包含：
+Before the implementation grows further, the repository should contain at least:
 
-1. 一个与 public API 保持一致的 README 示例
-2. 一个可运行的 example 文件
-3. 一个使用确定性 fixture 的端到端测试
-4. 一套共享的响应 fixture
+1. A README example consistent with the public API
+2. A runnable example file
+3. An end-to-end test using deterministic fixtures
+4. A shared set of response fixtures
 
-## 第一阶段退出标准
+## Phase-One Exit Criteria
 
-满足以下条件时，可视为第一阶段完成：
+The first phase can be considered complete when:
 
-- 最小示例可以运行
-- harness 能在本地通过
-- Gateway 三个核心接口的 public types 已稳定到可评审程度
-- 新增第二个 provider 或 identityProperty 时，不需要重新设计顶层 client 形状
+- The minimal example runs
+- The harness passes locally
+- The public types for the three core Gateway interfaces are stable enough for
+  review
+- Adding a second provider or identity property does not require redesigning the
+  top-level client shape
 
-## 本文档之后的建议下一步
+## Recommended Next Step After This Document
 
-实现 harness 所需的项目骨架：
+Implement the project skeleton required by the harness:
 
 - `package.json`
 - `tsconfig.json`
@@ -112,4 +140,5 @@ npm run dev:browser-harness -- --host 127.0.0.1 --port 4177
 - `examples/minimal.ts`
 - `tests/harness/minimal-sdk.test.ts`
 
-只要测试覆盖的是真实 Gateway public API，初期完全可以使用 fake transport。
+As long as the tests cover the real public Gateway API, the initial phase can rely
+entirely on fake transport.

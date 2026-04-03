@@ -293,11 +293,14 @@
       <div class="panel">
         <h1>Browser Harness</h1>
         <p>
-          这个页面用于浏览器环境下验证 <code>BnbZkIdClient</code> 的加载、配置读取和
-          <code>prove</code> 主流程：<strong>Fixture</strong> 为双 fixture；
-          <strong>BrevisFixture+PrimusSDK</strong> 的 Gateway 使用与
-          <code>GET /v1/config</code>、<code>POST/GET /v1/proof-requests</code> 对齐的静态 JSON，Primus 仍调 PADO；
-          <strong>Brevis+PrimusSDK</strong> 为真实 Gateway HTTP 8038 + Primus SDK。
+          This page verifies <code>BnbZkIdClient</code> loading, config resolution,
+          and the main <code>prove</code> flow in a browser environment:
+          <strong>Fixture</strong> uses fixtures for both sides;
+          <strong>BrevisFixture+PrimusSDK</strong> uses static Gateway JSON aligned
+          with <code>GET /v1/config</code> and
+          <code>POST/GET /v1/proof-requests</code> while Primus still talks to
+          PADO; <strong>Brevis+PrimusSDK</strong> uses the real Gateway HTTP 8038
+          endpoint together with the Primus SDK.
         </p>
         <div class="controls">
           <div class="field">
@@ -313,19 +316,26 @@
           </div>
           <div id="primus-sdk-fields" hidden>
             <div class="field">
-              <label for="brevis-provider">Provider（<strong>Brevis+PrimusSDK</strong>：<code>GET /v1/config</code>；<strong>BrevisFixture</strong>：<code>fixtures/config.json</code>）</label>
+              <label for="brevis-provider">Provider (<strong>Brevis+PrimusSDK</strong>: <code>GET /v1/config</code>; <strong>BrevisFixture</strong>: <code>fixtures/config.json</code>)</label>
               <select id="brevis-provider" disabled></select>
             </div>
             <p class="hint">
-              命名约定：<strong>应用侧</strong> <code>prove.provingParams.businessParams</code> 与
-              <strong>Gateway</strong> <code>GET /v1/config</code> 的
-              <code>properties[].businessParams</code>、<code>POST /v1/proof-requests</code> 的
-              <code>businessParams</code> 对齐；<code>provingParams</code> 整体进入 Primus
-              <code>additionParams</code>（亦可含其它预留 key）。<strong>Brevis+PrimusSDK</strong> 下选项来自当前 Gateway base 的实时
-              <code>GET /v1/config</code>（推荐 <code>npm run dev:browser-harness</code>，经
-              <code>/brevis-gateway/</code> 同源代理，避免 CORS；直连远端 Gateway 需对方开启 CORS）。
-              <strong>BrevisFixture</strong> 下选项仍与静态 <code>fixtures/config.json</code> 一致。
-              PADO 可走 <code>/pado-api/</code> 代理。仍需 Primus 浏览器扩展等环境。
+              Naming convention: on the <strong>application</strong> side,
+              <code>prove.provingParams.businessParams</code> aligns with the
+              <strong>Gateway</strong> values in
+              <code>GET /v1/config</code> <code>properties[].businessParams</code>
+              and <code>POST /v1/proof-requests</code> <code>businessParams</code>;
+              the full <code>provingParams</code> object is passed into Primus
+              <code>additionParams</code> and may also contain other reserved keys.
+              In <strong>Brevis+PrimusSDK</strong>, the options come from the live
+              <code>GET /v1/config</code> of the current Gateway base. Prefer
+              <code>npm run dev:browser-harness</code> so requests go through the
+              same-origin <code>/brevis-gateway/</code> proxy and avoid CORS; if you
+              connect to a remote Gateway directly, the server must enable CORS.
+              In <strong>BrevisFixture</strong>, the options still match static
+              <code>fixtures/config.json</code>. PADO can go through the
+              <code>/pado-api/</code> proxy. A Primus browser extension environment
+              is still required.
             </p>
           </div>
         </div>
@@ -342,7 +352,7 @@
         <div class="modal-header">
           <h2 id="json-detail-title">Detail</h2>
           <div class="modal-header-actions">
-            <button type="button" class="modal-copy" id="json-detail-copy">复制</button>
+            <button type="button" class="modal-copy" id="json-detail-copy">Copy</button>
             <button type="button" class="modal-close" data-modal-dismiss>Close</button>
           </div>
         </div>

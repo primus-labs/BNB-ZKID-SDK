@@ -1,152 +1,159 @@
-## 介绍
+## Introduction
 
-作为**BNB ZK ID framework**的sdk，给客户端应用（如：listdao）集成。
+This SDK belongs to the **BNB ZK ID framework** and is integrated into client
+applications such as `listdao`.
 
-它的职责是把“客户端应用调用 Primus zkTLS 能力”和“客户端应用调用 BNB ZK ID Gateway”这两段流程，收敛成一套稳定、清晰、可复用的 TypeScript 集成接口。
+Its responsibility is to consolidate two flows into one stable, clear, and reusable
+TypeScript integration interface:
+
+- client applications calling Primus zkTLS capabilities
+- client applications calling the BNB ZK ID Gateway
 
 ## Roles
 
 ### Application
 
-使用本 SDK 的业务应用（如：listdao）。
+Business applications that use this SDK, such as `listdao`.
 
 ### BNB ZK ID SDK
 
-就是本SDK。
+This SDK itself.
 
 ### Primus zktls-js-sdk
 
-负责发起 zkTLS attestation 相关流程，负责生成 attestation 结果。
+Responsible for starting the zkTLS attestation flow and producing the attestation
+result.
 
 ### BNB ZK ID Gateway
 
-负责接收 Proof Request，并返回 Proof Request 生命周期状态。
+Responsible for receiving proof requests and returning proof-request lifecycle
+status.
 
-## 主要流程
+## Main Flow
 
 ![bnb-zkid-client](./images/bnb-zkid-client.png)
 
-## 对外接口定义
+## Public Interface Definition
 
-定义一个BnbZkIdClient类，包含如下方法：
+Define a `BnbZkIdClient` class with the following methods:
 
 ### init
 
-初始化sdk。
+Initialize the SDK.
 
-* 参数：`appId`，注册到 BNB ZK ID framework 的 `appId`。
-* 成功返回：`success = true`。
-* 失败返回：`success = false`，并包含可选的错误信息。
+- Parameter: `appId`, the `appId` registered in the BNB ZK ID framework.
+- Success result: `success = true`.
+- Failure result: `success = false`, with optional error information.
 
 ### prove
 
-请求证明。
+Request a proof.
 
-* 参数：
-  * clientRequestId（string）：调用方传入的本地任务ID，用于长任务和并发任务跟踪。
-  
-  * userAddress（string）：用户地址。
-  
-  * identityPropertyId（string）：对应要证明的 identity property。
-  
-  * provingParams（可选，object）：需要传递的额外字段（比如：余额大于x，这里传x）。
-  
-    * binance
-  
+- Parameters:
+  - `clientRequestId` (`string`): local task ID provided by the caller for tracking
+    long-running or concurrent tasks
+  - `userAddress` (`string`): user wallet address
+  - `identityPropertyId` (`string`): the identity property to prove
+  - `provingParams` (optional, `object`): additional fields to pass through, for
+    example threshold inputs such as "balance greater than x"
+
+    - `binance`
+
       ```json
-      // 完成高级 KYC 认证（Level 2）且历史交易超过 50 笔
-      // 完成基础 KYC 认证（Level 1）或历史交易达 10～49 笔
-      //已绑定账号且有任意交易记录
-      // 未绑定
-      
+      // Advanced KYC completed (Level 2) and more than 50 historical trades
+      // Basic KYC completed (Level 1) or 10-49 historical trades
+      // Account bound and has any trading history
+      // Not bound
+
       {
         data: [1, 11, 51]
       }
       ```
-  
-    * okx
-  
+
+    - `okx`
+
       ```json
-      // 完成高级 KYC 认证（Level 2）且历史交易超过 50 笔
-      // 完成基础 KYC 认证（Level 1）或历史交易达 10～49 笔
-      // 已绑定账号且有任意交易记录
-      // 未绑定
-      
+      // Advanced KYC completed (Level 2) and more than 50 historical trades
+      // Basic KYC completed (Level 1) or 10-49 historical trades
+      // Account bound and has any trading history
+      // Not bound
+
       {
         data: [1, 11, 51]
       }
       ```
-  
-    * github
-  
+
+    - `github`
+
       ```json
-      // 账号使用超过 1 年，且过去一年贡献超过 50 次
-      // 账号使用超过 6 个月，或过去一年贡献达 20～49 次
-      // 已绑定账号      
-      // 未绑定
-      
+      // Account older than 1 year and more than 50 contributions in the past year
+      // Account older than 6 months or 20-49 contributions in the past year
+      // Account bound
+      // Not bound
+
       {
         contribution: [21, 51]
       }
       ```
-  
-    * steam
-  
+
+    - `steam`
+
       ```json
-      // 非受限账号，使用超过 1 年，游戏库价值超过 $50
-      // 非受限账号，使用超过 6 个月
-      // 受限账号，或不满足以上条件
-      
+      // Non-limited account, older than 1 year, game library value above $50
+      // Non-limited account, older than 6 months
+      // Limited account, or does not satisfy the above conditions
+
       {
-        limitedAccount: [5], // 所有交易总额
+        limitedAccount: [5],
         gameLibraryValue: [51]
       }
       ```
-  
-    * amazon
-  
+
+    - `amazon`
+
       ```json
-      // Prime 会员且账号使用超过 2 年
-      // 账号使用超过 1 年，或过去一年购买超过 20 单
-      // 已绑定账号且有历史购买记录
-      // 未绑定
-      
+      // Prime member and account older than 2 years
+      // Account older than 1 year or more than 20 orders in the past year
+      // Account bound and has purchase history
+      // Not bound
+
       {
         ordersVolume: [1, 21]
       }
       ```
-  
-      
-  
-  * options.onProgress（可选，function）：证明过程中的进度回调。
-  
-    `options.onProgress` 回调状态：
-  
-    * `initializing`：数据项证明请求成功。
-    * `data_verifying`：数据源页面已打开，zkTLS 证明中。
-    * `proof_generating`：zkTLS 证明已完成，zkVM 证明进行中。
-    * `on_chain_attested`：证明成功并已上链。
-    * `failed`：证明失败。
-  
-* 成功返回：`status = on_chain_attested`，并包含 `clientRequestId`、`walletAddress`、`providerId`、`identityPropertyId` 以及 `proofRequestId`。
 
-* 失败返回：`status = failed`，并包含 `clientRequestId`、可选的 `proofRequestId` 以及错误信息。
+  - `options.onProgress` (optional, `function`): progress callback during the prove
+    flow
 
-## 数据源变化处理
+    `options.onProgress` callback states:
 
-* identityPropertyId 对应的 zktls template id 会动态从服务端获取。数据源变化的时候，只要服务端修改对应列表就好了。
+    - `initializing`: the proof request for the data item was created successfully
+    - `data_verifying`: the data-source page is open and zkTLS proving is running
+    - `proof_generating`: zkTLS proving finished and zkVM proving is in progress
+    - `on_chain_attested`: proof succeeded and has been attested on-chain
+    - `failed`: proof failed
 
-## 安全性
+- Success result: `status = on_chain_attested`, plus `clientRequestId`,
+  `walletAddress`, `providerId`, `identityPropertyId`, and `proofRequestId`
+- Failure result: `status = failed`, plus `clientRequestId`, optional
+  `proofRequestId`, and error information
 
-* 源码安全：ai + 人工。
-  * 插件。
-  * SDK。
-* 业务流程和架构安全：人工 + ai。
+## Handling Data Source Changes
 
-## 性能
+- The zkTLS template id corresponding to `identityPropertyId` is retrieved
+  dynamically from the server. When data sources change, the server only needs to
+  update the corresponding mapping list.
 
-## 稳定性
+## Security
 
-* zktls-core-sdk 自动化脚本测试。
-* 加上插件的自动化脚本测试。
+- Source-code security: AI + human review
+  - plugin
+  - SDK
+- Business-flow and architecture security: human review + AI
 
+## Performance
+
+## Stability
+
+- Automated script testing for `zktls-core-sdk`
+- Automated script testing with the plugin included

@@ -1,45 +1,53 @@
-# SDK 规范
+# SDK Spec
 
-## 目标
+## Goal
 
-定义这个 TypeScript SDK 的第一版公开契约。
+Define the first public contract for this TypeScript SDK.
 
-这份规范会刻意保持收敛。它的作用是为实现和评审建立锚点，而不是提前预测所有未来功能。
+This spec intentionally stays narrow. Its job is to anchor implementation and review,
+not to predict every future feature in advance.
 
-当前阶段以 contract-first 为准：先冻结方法签名、输入输出类型和状态模型，再进入具体实现。
+The current phase is contract-first: freeze method signatures, input/output types,
+and the status model before moving on to concrete implementation.
 
-本文档从属于 `docs/architecture.md`。如果两者发生冲突，应以总架构文档为准。
+This document is subordinate to `docs/architecture.md`. If the two conflict, the
+architecture document wins.
 
-## 目标用户
+## Target Users
 
-目标用户是需要集成 BNB ZKID、但不希望了解过多底层协议细节的 TypeScript 应用开发者。
+The target users are TypeScript application developers who need to integrate BNB
+ZKID but do not want to understand too many low-level protocol details.
 
-## 主工作流
+## Main Workflow
 
-SDK 第一版应优先优化一条真实的端到端主路径：
+The first version of the SDK should optimize for one real end-to-end main path:
 
-1. 调用 `GET /v1/config` 拉取支持的 provider、identityProperty 和 schema。
-2. 通过 Primus `zktls-js-sdk` 生成 zkTLS attestation 结果。
-3. 组装 `POST /v1/proof-requests` 请求体并提交。
-4. 通过 `GET /v1/proof-requests/{proofRequestId}` 轮询状态，直到 `on_chain_attested` 或 `failed`。
+1. Call `GET /v1/config` to fetch supported providers, identity properties, and
+   schemas.
+2. Generate a zkTLS attestation result through Primus `zktls-js-sdk`.
+3. Assemble and submit the `POST /v1/proof-requests` request body.
+4. Poll `GET /v1/proof-requests/{proofRequestId}` until the status reaches
+   `on_chain_attested` or `failed`.
 
-## 成功标准
+## Success Criteria
 
-如果开发者能够以如下方式完成主工作流，就说明 SDK 设计是成功的：
+The SDK design is successful if a developer can complete the main workflow with the
+following properties:
 
-- 只用较少代码即可接入
-- Gateway 的请求和响应对象有明确映射规范
-- zkTLS 结果与 Gateway 输入的拼装方式清晰
-- 运行时错误清晰可理解
-- 不需要直接操作底层 HTTP 细节
+- integration requires only a small amount of code
+- Gateway request and response objects have a clear mapping contract
+- the composition from zkTLS results to Gateway input is clear
+- runtime errors are understandable
+- low-level HTTP details do not need to be handled directly
 
 ## Public API
 
-对外只暴露 `BnbZkIdClient` 类，以及该类相关输入输出类型。
+Only expose the `BnbZkIdClient` class and the related input/output types.
 
-`GatewayClient`、Primus adapter、workflow helper 都属于内部架构概念，不作为当前对外 public surface。
+`GatewayClient`, the Primus adapter, and workflow helpers are internal architecture
+concepts and are not part of the current public surface.
 
-具体形状应尽量接近下面这个版本：
+The concrete shape should stay close to the following:
 
 ```ts
 export interface BnbZkIdError {
@@ -61,7 +69,7 @@ export interface InitInput {
 
 export interface InitSuccessResult {
   success: true;
-  /** `GET /v1/config` 的 `providers`（Brevis wire：`id`、`properties[].id`、可选 `description` / `businessParams`）。 */
+  /** `GET /v1/config` `providers` (Brevis wire: `id`, `properties[].id`, optional `description` / `businessParams`). */
   providers: BnbZkIdGatewayConfigProviderWire[];
 }
 
@@ -153,16 +161,28 @@ export declare class BnbZkIdClient implements BnbZkIdClientMethods {
 }
 ```
 
-## `provingParams` 规则
+## `provingParams` Rules
 
-`provingParams` 类型为 `ProvingParams`（与字段同名）：整体序列化进 Primus `additionParams.provingParams`；其中 **`businessParams`** 与 Gateway 的 `businessParams` 对齐（数据源分档等）。
+`provingParams` uses the `ProvingParams` type and is serialized as a whole into
+Primus `additionParams.provingParams`. Within it, **`businessParams`** aligns with
+Gateway `businessParams` for provider-specific tiering and similar constraints.
 
-- `businessParams` 内 key 多为 provider-specific 字段，例如 `contribution`、`ordersVolume`；值为阈值数组等，由低到高表达分档边界
-- 还可包含其它 key（预留 zktls 扩展），与 `businessParams` 一起进入 `additionParams.provingParams`
-- 若不需要显式业务阈值，可省略整个 `provingParams`，或只传扩展字段不传 `businessParams`（此时 Gateway 侧 `businessParams` 仍可使用 `GET /v1/config` 默认值）
-- **校验**：仅当调用方提供 **`provingParams.businessParams`** 时，SDK 将其与 `GET /v1/config` 对应当前 `identityPropertyId` 的 `properties[].businessParams` 做深度相等比较；不一致或配置中缺少 `businessParams` 时，`prove` 抛出 `BnbZkIdProveError`（`proveCode` `00003`）
+- Keys inside `businessParams` are usually provider-specific, such as
+  `contribution` or `ordersVolume`; values are typically threshold arrays ordered
+  from low to high tiers
+- Other keys may also be included for future zkTLS extensions and are passed into
+  `additionParams.provingParams` together with `businessParams`
+- If explicit business thresholds are not needed, the caller may omit the entire
+  `provingParams` object, or pass only extension fields without `businessParams` (in
+  that case the Gateway-side `businessParams` may still use the defaults from
+  `GET /v1/config`)
+- **Validation**: only when the caller provides
+  **`provingParams.businessParams`**, the SDK compares it by deep equality with the
+  `properties[].businessParams` configured for the current `identityPropertyId` in
+  `GET /v1/config`; if they do not match, or the config does not include
+  `businessParams`, `prove` throws `BnbZkIdProveError` (`proveCode` `00003`)
 
-示例：
+Example:
 
 ```ts
 const input: ProveInput = {
@@ -177,115 +197,177 @@ const input: ProveInput = {
 };
 ```
 
-在 Primus 集成层，`provingParams` 不应直接暴露为第三方 SDK 原始配置。
+At the Primus integration layer, `provingParams` should not be exposed directly as
+raw third-party SDK configuration.
 
-当前收敛后的内部规则是：
+The current narrowed internal rules are:
 
-- SDK 运行时根据 `identityPropertyId` 从 Primus server 解析 `templateId`
-- `provingParams.businessParams` 作为 Gateway `POST /v1/proof-requests` 体里 `businessParams` 的主要来源（可与 config 默认合并逻辑见实现）
-- `clientRequestId`、`identityPropertyId`、`provingParams`（整体对象）进入 Primus `additionParams`
+- At runtime the SDK resolves `templateId` from the Primus server based on
+  `identityPropertyId`
+- `provingParams.businessParams` is the primary source of `businessParams` in the
+  Gateway `POST /v1/proof-requests` body (with any merge logic against config
+  defaults left to the implementation)
+- `clientRequestId`, `identityPropertyId`, and the full `provingParams` object enter
+  Primus `additionParams`
 
-这样 public contract 继续保持业务领域命名，而 Primus template 解析细节留在内部。
+This keeps the public contract expressed in business-domain terms while leaving
+Primus template resolution details internal.
 
-## 内部参考 Contract
+## Internal Reference Contract
 
-下面这些结构不是当前 public surface 的组成部分，但它们描述了 SDK 未来内部需要对齐的 Gateway 协议对象：
+The following structures are not part of the current public surface, but they
+describe the Gateway protocol objects the SDK will need to align with internally.
 
-与 BNB ZK ID Framework Gateway 规范对齐的 HTTP 契约（`POST /v1/proof-requests`、`GET /v1/proof-requests/{proofRequestId}`）以源码 **`src/gateway/types.ts`** 为准，主要包括：
+For the HTTP contract aligned with the BNB ZK ID Framework Gateway spec
+(`POST /v1/proof-requests` and `GET /v1/proof-requests/{proofRequestId}`), use the
+source of truth in **`src/gateway/types.ts`**, including:
 
 - `GatewayCreateProofRequestInput` / `GatewayCreateProofRequestResult`
 - `GatewayProofRequestStatusResult`
-- `GatewayProofStatus`、public **`BnbZkIdFrameworkError`**（即内部 `GatewayError`）、`GatewayPropertyInformation` 等
+- `GatewayProofStatus`, public **`BnbZkIdFrameworkError`** (the internal
+  `GatewayError`), `GatewayPropertyInformation`, and related types
 
-`prove` 成功时仅返回 `ProveSuccessResult`（`status: "on_chain_attested"` 等）；网关返回的 **`onchain_attested`** 与历史 **`on_chain_attested`** 会在 workflow 中一并识别。失败时统一 `throw BnbZkIdProveError`（见「prove 错误码」）。
+On success, `prove` returns only `ProveSuccessResult`
+(`status: "on_chain_attested"` and related fields). Gateway responses using either
+**`onchain_attested`** or the legacy **`on_chain_attested`** are both recognized by
+the workflow. On failure, the SDK always throws `BnbZkIdProveError` (see "prove
+error codes").
 
-## API 设计原则
+## API Design Principles
 
-- 对外只暴露一个稳定入口类，不把底层 Gateway 集成细节泄漏给业务应用。
-- 优先使用产品领域名词，而不是后端实现细节命名。
-- 第一版的方法数量要尽量少。
-- 可选字段必须是真正可选，并明确说明出现条件。
-- 避免在 public contract 中出现泛化的 `any` 或不透明的 `object`。
-- Primus 集成层与 Gateway 层要解耦，避免把第三方 SDK 细节直接暴露进 public API。
+- Expose only one stable entry class to callers and do not leak low-level Gateway
+  integration details to business applications
+- Prefer product-domain terminology over backend implementation terminology
+- Keep the number of v1 methods as small as possible
+- Optional fields must be truly optional and their presence conditions must be
+  documented clearly
+- Avoid broad `any` and opaque `object` in the public contract
+- Keep the Primus integration layer decoupled from the Gateway layer and avoid
+  exposing third-party SDK details directly in the public API
 
-## 配置规则
+## Configuration Rules
 
-第一版 public API 暂不通过构造函数暴露配置对象。
+The first version of the public API does not expose a configuration object through
+the constructor.
 
-与 Gateway、鉴权、运行时环境相关的接入参数，后续应在真实实现阶段重新评估放置位置，再决定是否进入 public contract。
+Parameters related to Gateway, authentication, or runtime environment should be
+re-evaluated in the real implementation phase before deciding whether they belong in
+the public contract.
 
-在当前实现骨架中，为了保持 `new BnbZkIdClient()` 不变，运行时配置默认来自 SDK 内置配置，而不是构造函数参数。
+In the current implementation skeleton, runtime configuration comes from SDK
+built-in configuration instead of constructor parameters so that
+`new BnbZkIdClient()` remains unchanged.
 
-其中 zkTLS SDK 自身使用的 `appId` 不再写死在 SDK 内置配置里，而是运行时从模板接口返回的
-`result.<app-node>.zkTlsAppId` 动态解析。
+The zkTLS SDK's own `appId` is no longer hard-coded in the built-in SDK
+configuration. It is resolved dynamically at runtime from
+`result.<app-node>.zkTlsAppId` returned by the template API.
 
-当前实现会在 `init({ appId })` 阶段先解析 app 级配置并初始化 Primus，避免把这一步推迟到首个
-`prove(...)` 调用。
+The current implementation resolves app-level configuration and initializes Primus
+during `init({ appId })` to avoid delaying that work until the first `prove(...)`
+call.
 
-当前内置配置还需要提供 Primus server template resolver，例如：
+The current built-in configuration still needs to provide Primus server template
+resolver fields such as:
 
 - `primus.templateResolver.baseUrl`
 - `primus.templateResolver.resolveTemplatePath`
 - `primus.signer.baseUrl`
 - `primus.signer.signPath`
 
-当前实现会请求公开模板接口，并先解析 app 级节点，再读取其中的 zkTLS app id 与 provider 字段，例如：
+The current implementation requests the public template API, resolves the app-level
+node first, and then reads the zkTLS app id and provider fields from it, for
+example:
 
 - `listdao -> result.brevisListaDAO.zkTlsAppId`
 - `github_account_age -> result.brevisListaDAO.githubIdentityPropertyId`
 
-如果远端 app 节点名或字段名与默认规则不一致，可通过
-`primus.templateResolver.appResponseKeyMap` 和 `primus.templateResolver.responseKeyMap` 覆盖。
+If the remote app node name or field names do not match the default rule, they can
+be overridden by `primus.templateResolver.appResponseKeyMap` and
+`primus.templateResolver.responseKeyMap`.
 
-对于 zkTLS 请求签名，当前实现支持通过服务端 signer 完成；签名接口接收
-`{ appId, data }` JSON 请求体，其中 `appId` 就是动态解析出的 `zkTlsAppId`，并返回
-`result.appSignature`。
+For zkTLS request signing, the current implementation supports a server-side signer.
+The signing API accepts a JSON body `{ appId, data }`, where `appId` is the
+dynamically resolved `zkTlsAppId`, and returns `result.appSignature`.
 
-本地测试和 harness 可以通过外部 override 覆盖这套默认配置：
+Local tests and the harness can override this default configuration via external
+config:
 
-- Node 环境使用 `BNB_ZKID_CONFIG_PATH`
-- 浏览器 harness 使用 `globalThis.__BNB_ZKID_CONFIG_URL__`
+- Node uses `BNB_ZKID_CONFIG_PATH`
+- The browser harness uses `globalThis.__BNB_ZKID_CONFIG_URL__`
 
-但这些 override 机制不应成为发布态 SDK 的主要接入方式。
+But these override mechanisms should not become the primary integration path for the
+published SDK.
 
-## 错误模型
+## Error Model
 
-`init` 在 **`appId` 缺失、类型非 `string` 或 trim 后为空** 时**抛出** `BnbZkIdProveError`（`proveCode` **`00003`**，`message` **`Invalid parameters`**，`details.message` / `details.field` 指向参数问题）；其余配置类失败仍返回 `InitResult`（`success: false` 时带 `BnbZkIdError`，如 appId 不在 Gateway `appIds` 列表）。
+`init` **throws** `BnbZkIdProveError` when `appId` is missing, not a `string`, or
+empty after `trim()` (`proveCode` **`00003`**, `message` **`Invalid parameters`**,
+and `details.message` / `details.field` point to the parameter problem). Other
+configuration failures still return `InitResult` (`success: false` with
+`BnbZkIdError`, for example when the appId is not in the Gateway `appIds` list).
 
-`prove` 失败时**一律抛出** `BnbZkIdProveError`（继承 `Error`），字段：
+Any `prove` failure **always throws** `BnbZkIdProveError` (which extends `Error`)
+with these fields:
 
-- `code` / `proveCode`：`00000` | `00001` | `00002` | `00003`
-- `message`：与 `proveCode` 对应的固定英文说明（见下表）
-- `details`：参数类错误（含 `init` 与 `prove` 的 **00003**）带 **`message`**（人类可读说明）与 **`field`**（出错字段名，如 `appId`、`userAddress`、`identityPropertyId`、`provingParams.businessParams`）；可选 **`value`**（如非法 `identityPropertyId`）。其它阶段：`details.primus`（zkTLS）；`details.brevis`（Gateway）
-- `clientRequestId` / `proofRequestId`（若已知）
+- `code` / `proveCode`: `00000` | `00001` | `00002` | `00003`
+- `message`: fixed English explanation corresponding to the `proveCode` (see table
+  below)
+- `details`: parameter errors (including **00003** from both `init` and `prove`)
+  include **`message`** (human-readable description) and **`field`** (the field
+  name, such as `appId`, `userAddress`, `identityPropertyId`,
+  `provingParams.businessParams`); optionally **`value`** (for example an invalid
+  `identityPropertyId`). Other phases use `details.primus` (zkTLS) and
+  `details.brevis` (Gateway)
+- `clientRequestId` / `proofRequestId` if known
 
-### prove 错误码
+### prove Error Codes
 
-| `code` | 含义 |
-|--------|------|
-| `00000` | `Failed to initialize`（例如未成功 `init` 就调用 `prove`） |
-| `00001` | `Failed to generate zkTLS proof`（Primus / zktls-js-sdk 阶段） |
-| `00002` | `Failed to generate zkVM proof`（Gateway：`POST`/`GET` proof-requests 及成功载荷校验） |
-| `00003` | `Invalid parameters`（`init` 的 `appId`；`prove` 的输入类型、`userAddress` 格式、`identityPropertyId` 是否在 `GET /v1/config` `providers[].properties[].id`、`provingParams` / `businessParams` 与配置一致性等） |
+| `code` | Meaning |
+|--------|---------|
+| `00000` | `Failed to initialize` (for example, calling `prove` before `init` succeeds) |
+| `00001` | `Failed to generate zkTLS proof` (Primus / `zktls-js-sdk` stage) |
+| `00002` | `Failed to generate zkVM proof` (Gateway `POST`/`GET` proof-requests and success-payload validation) |
+| `00003` | `Invalid parameters` (`appId` in `init`; input type in `prove`, `userAddress` format, whether `identityPropertyId` exists in `GET /v1/config` `providers[].properties[].id`, and `provingParams` / `businessParams` consistency with configuration) |
 
-`00001` 时 `details.primus`：zkTLS SDK 业务错误按带 `code` / `message`（及可选 `data`）的对象序列化（与 `@superorange/zka-js-sdk` 的 `ZkAttestationError` 对齐，不依赖 `instanceof`）；否则为 `cause`（`serializeErrorForProveDetails` 形状）。
+For `00001`, `details.primus` serializes zkTLS SDK business errors as objects with
+`code` / `message` (and optional `data`) to stay aligned with
+`@superorange/zka-js-sdk` `ZkAttestationError` without relying on `instanceof`.
+Otherwise it falls back to `cause` using the `serializeErrorForProveDetails` shape.
 
-`00002` 时 `details.brevis`：轮询 `GET /v1/proof-requests/{id}` 进入终态失败时带 **`status`**（响应里的 `status` 字段）。Framework **`error`** 体仍扁平写入（`category`、`code`、`message` 等，与 **`BnbZkIdFrameworkError`** 对齐）；**`failure`** 体规范嵌套为 **`failure: { reason, detail }`**。纯 status 终态无 `error`/`failure` 时为 `code` / `message` 兜底。轮询超过 **`src/config/proof-request-polling.ts`** 中 **`PROOF_REQUEST_POLL_MAX_DURATION_MS`**（默认 10 分钟）时，`details.brevis` 为 **`code`：`TIMEOUT`**、**`message`：`timeout`**，并带 `phase`：`pollProofRequest`、`maxDurationMs`、`elapsedMs` 等。轮询间隔为同一文件中的 **`PROOF_REQUEST_POLL_INTERVAL_MS`**（默认 3s）。Transport / 其它轮询异常等为 `phase`、`proofRequestId`（若有）、`cause` 等。Primus / zktls-js-sdk 使用 **`details.primus`**，其 `code` 与 Framework 命名空间不同。
+For `00002`, `details.brevis` includes **`status`** when polling
+`GET /v1/proof-requests/{id}` reaches a failed terminal state. The Framework
+**`error`** body remains flattened (`category`, `code`, `message`, and related
+fields aligned with **`BnbZkIdFrameworkError`**), while the **`failure`** body is
+normalized to **`failure: { reason, detail }`**. If a terminal status has neither
+`error` nor `failure`, `code` / `message` fallback values are used. When polling
+exceeds **`PROOF_REQUEST_POLL_MAX_DURATION_MS`** in
+**`src/config/proof-request-polling.ts`** (default 10 minutes),
+`details.brevis` becomes **`code`: `TIMEOUT`**, **`message`: `timeout`**, together
+with `phase: pollProofRequest`, `maxDurationMs`, `elapsedMs`, and related metadata.
+The poll interval comes from the same file's **`PROOF_REQUEST_POLL_INTERVAL_MS`**
+(default 3 seconds). Transport and other polling failures include `phase`,
+`proofRequestId` when available, `cause`, and related metadata. Primus /
+`zktls-js-sdk` uses **`details.primus`**, and its `code` namespace is distinct from
+the Framework namespace.
 
-`BnbZkIdFrameworkErrorCategory` 枚举了规范中的确定性 `category`（`policy_rejected`、`zktls_invalid`、`schema_invalid`、`binding_conflict`、`internal_error`）；服务端若下发新类别，类型上仍兼容 `string`。
+`BnbZkIdFrameworkErrorCategory` enumerates the spec's stable `category` values
+(`policy_rejected`, `zktls_invalid`, `schema_invalid`, `binding_conflict`,
+`internal_error`), while still remaining type-compatible with future server-defined
+categories through `string`.
 
-## 运行时支持
+## Runtime Support
 
-第一版运行时目标需要明确：
+The first-version runtime target should be explicit:
 
-- 面向现代 TypeScript 使用者
-- 优先支持 ESM
-- 在确定构建工具前，先决定是否需要支持 CJS
-- 在共享逻辑中避免依赖 Node 专属全局对象
+- modern TypeScript users
+- ESM-first
+- decide later whether CJS support is needed before the build strategy is finalized
+- avoid depending on Node-only globals in shared logic
 
-## 使用示例
+## Usage Example
 
-README 和 examples 中的示例，复杂度应尽量保持在这个级别：
+Examples in the README and `examples/` should stay roughly at this level of
+complexity:
 
 ```ts
 import { BnbZkIdClient, BnbZkIdProveError } from "bnb-zkid-sdk";
@@ -332,14 +414,16 @@ try {
 }
 ```
 
-## 延后决策
+## Deferred Decisions
 
-在产品契约更清晰之前，以下问题先保持开放：
+Keep the following questions open until the product contract is clearer:
 
-- `prove(...)` 是否直接内部依赖 Primus adapter，还是允许调用方手动注入结果
-- `clientRequestId` 是否保持必填，还是允许 SDK 自动生成
-- 高层 helper 是否应直接内置 Primus `zktls-js-sdk` 的默认 proof 序列化规则
-- 多链或多网络抽象
-- transport 或 signer 的插件体系
-- 批量操作
-- 除首个必要流程外的本地密码学辅助能力
+- whether `prove(...)` should directly depend on the Primus adapter internally, or
+  allow callers to inject results manually
+- whether `clientRequestId` should remain required or be auto-generated by the SDK
+- whether high-level helpers should embed the default proof serialization rule for
+  Primus `zktls-js-sdk`
+- multi-chain or multi-network abstractions
+- a plugin system for transport or signer
+- batch operations
+- local cryptographic helper capabilities beyond the first required workflow

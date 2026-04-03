@@ -261,10 +261,10 @@ async function refreshBrevisHarnessCatalog(): Promise<void> {
     rebuildBrevisProviderSelect();
     const corsHint =
       modeSelectElement.value === "primus-sdk"
-        ? "开发模式请使用 `npm run dev:browser-harness`（Vite 将 `/brevis-gateway` 代理到 Gateway，避免浏览器 CORS）。若直连 Gateway，需服务端返回 `Access-Control-Allow-Origin` 等头。"
+        ? "In dev mode, use `npm run dev:browser-harness` (Vite proxies `/brevis-gateway` to Gateway to avoid browser CORS). If you connect to Gateway directly, the server must return headers such as `Access-Control-Allow-Origin`."
         : "";
     writeLog(
-      `Brevis 下拉数据加载失败 — ${describeError(err)}${corsHint ? ` ${corsHint}` : ""}`
+      `Failed to load Brevis provider options - ${describeError(err)}${corsHint ? ` ${corsHint}` : ""}`
     );
   } finally {
     updateModeUi();
@@ -323,7 +323,7 @@ function appendHarnessOutcome(success: boolean): void {
   dot.className = `status-dot status-dot--${success ? "success" : "failure"}`;
   dot.setAttribute("aria-hidden", "true");
   const label = document.createElement("span");
-  label.textContent = success ? "成功：证明流程已完成" : "失败：流程未成功完成";
+  label.textContent = success ? "Success: prove flow completed" : "Failure: prove flow did not complete successfully";
   row.append(dot, label);
   logElement.appendChild(row);
 }
@@ -343,9 +343,9 @@ async function copyJsonDetailToClipboard(): Promise<void> {
     ta.remove();
   }
   const prev = jsonDetailCopyButtonEl.textContent;
-  jsonDetailCopyButtonEl.textContent = "已复制";
+  jsonDetailCopyButtonEl.textContent = "Copied";
   window.setTimeout(() => {
-    jsonDetailCopyButtonEl.textContent = prev ?? "复制";
+    jsonDetailCopyButtonEl.textContent = prev ?? "Copy";
   }, 1500);
 }
 
@@ -448,7 +448,7 @@ function buildLiveSdkConfig(): BrowserHarnessConfigFile {
   };
 }
 
-/** Gateway 三接口与 Brevis 对齐的静态 JSON；下拉选项仍读 `fixtures/config.json`，与 fixture configPath 一致。Primus 走真实 SDK + PADO。 */
+/** Static JSON aligned with the three Gateway interfaces; provider options still come from `fixtures/config.json`, matching the fixture configPath. Primus uses the real SDK + PADO. */
 function buildBrevisFixtureGatewayWithLivePrimusConfig(): BrowserHarnessConfigFile {
   return {
     gateway: {
@@ -529,7 +529,7 @@ runButton.addEventListener("click", async () => {
       (!brevisHarnessCatalogLoaded || brevisHarnessCatalog.length === 0)
     ) {
       writeLog(
-        "需要 Provider 列表的模式：请先看到下拉框有选项且日志无 GET /v1/config 错误（开发请走 Vite 代理）。"
+        "This mode requires a provider list: wait until the dropdown has options and the log shows no GET /v1/config error. In development, use the Vite proxy."
       );
       harnessSucceeded = false;
       return;
