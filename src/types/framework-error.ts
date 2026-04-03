@@ -18,7 +18,7 @@ export type BnbZkIdFrameworkErrorCategory =
  * Aligns with the Framework contract: stable `code`, deterministic optional `category`,
  * human `detail` (and optional `message` on some gateways).
  *
- * When {@link import("../errors/prove-error.js").BnbZkIdProveError} has `proveCode` `00002`, a Gateway
+ * When {@link import("../errors/prove-error.js").BnbZkIdProveError} uses zkVM-range codes (`10001`–`10003`), a Gateway
  * Framework failure often nests the same fields under `details.brevis` (workflow may set a single
  * human-readable `message` from `detail ?? message` for display).
  *

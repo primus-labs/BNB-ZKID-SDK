@@ -37,12 +37,12 @@ function proveErrContext(clientRequestId: string | undefined): { clientRequestId
 }
 
 /**
- * Throws {@link import("../errors/prove-error.js").BnbZkIdProveError} `00003` / `Invalid parameters` when
+ * Throws {@link import("../errors/prove-error.js").BnbZkIdProveError} `00007` / `Invalid parameters` when
  * `appId` is missing or not a non-empty string.
  */
 export function assertInitInputValidOrThrow(input: InitInput): void {
   if (typeof input.appId !== "string" || input.appId.trim().length === 0) {
-    throw createBnbZkIdProveError("00003", {
+    throw createBnbZkIdProveError("00007", {
       message: "appId must be a non-empty string.",
       field: "appId"
     });
@@ -50,7 +50,7 @@ export function assertInitInputValidOrThrow(input: InitInput): void {
 }
 
 /**
- * Validates runtime `ProveInput` and config alignment; throws `00003` with `details.message` / `details.field`.
+ * Validates runtime `ProveInput` and config alignment; throws `00007` with `details.message` / `details.field`.
  */
 export function assertProveInputValidOrThrow(
   proveInput: unknown,
@@ -58,7 +58,7 @@ export function assertProveInputValidOrThrow(
 ): asserts proveInput is ProveInput {
   if (!provingParamsRootObject(proveInput)) {
     throw createBnbZkIdProveError(
-      "00003",
+      "00007",
       {
         message: "prove input must be a plain object.",
         field: "proveInput"
@@ -74,7 +74,7 @@ export function assertProveInputValidOrThrow(
 
   if (typeof clientRequestId !== "string" || clientRequestId.trim().length === 0) {
     throw createBnbZkIdProveError(
-      "00003",
+      "00007",
       {
         message: "clientRequestId must be a non-empty string.",
         field: "clientRequestId"
@@ -87,7 +87,7 @@ export function assertProveInputValidOrThrow(
 
   if (typeof userAddress !== "string" || !isStandardEvmWalletAddress(userAddress)) {
     throw createBnbZkIdProveError(
-      "00003",
+      "00007",
       {
         message:
           "userAddress must be a valid EVM wallet address (0x followed by 40 hexadecimal characters).",
@@ -99,7 +99,7 @@ export function assertProveInputValidOrThrow(
 
   if (typeof identityPropertyId !== "string" || identityPropertyId.trim().length === 0) {
     throw createBnbZkIdProveError(
-      "00003",
+      "00007",
       {
         message: "identityPropertyId must be a non-empty string.",
         field: "identityPropertyId"
@@ -111,7 +111,7 @@ export function assertProveInputValidOrThrow(
   const idTrim = identityPropertyId.trim();
   if (!isIdentityPropertyIdInProvidersWire(configProvidersWire, idTrim)) {
     throw createBnbZkIdProveError(
-      "00003",
+      "00007",
       {
         message:
           "identityPropertyId is not listed under GET /v1/config providers[].properties[].id for this Gateway.",
@@ -125,7 +125,7 @@ export function assertProveInputValidOrThrow(
   if (provingParams !== undefined && provingParams !== null) {
     if (!provingParamsRootObject(provingParams)) {
       throw createBnbZkIdProveError(
-        "00003",
+        "00007",
         {
           message: "provingParams must be a plain object when provided.",
           field: "provingParams"
@@ -137,7 +137,7 @@ export function assertProveInputValidOrThrow(
     const explicitBusiness = pp.businessParams;
     if (explicitBusiness !== undefined && !isBusinessParamsObject(explicitBusiness)) {
       throw createBnbZkIdProveError(
-        "00003",
+        "00007",
         {
           message: "provingParams.businessParams must be a plain object when provided.",
           field: "provingParams.businessParams"
@@ -152,7 +152,7 @@ export function assertProveInputValidOrThrow(
       );
       if (expected === undefined) {
         throw createBnbZkIdProveError(
-          "00003",
+          "00007",
           {
             message:
               "provingParams.businessParams was provided but GET /v1/config has no businessParams for this identityPropertyId.",
@@ -163,7 +163,7 @@ export function assertProveInputValidOrThrow(
       }
       if (!jsonDeepEqual(explicitBusiness, expected)) {
         throw createBnbZkIdProveError(
-          "00003",
+          "00007",
           {
             message:
               "provingParams.businessParams must exactly match GET /v1/config properties[].businessParams for this identityPropertyId.",

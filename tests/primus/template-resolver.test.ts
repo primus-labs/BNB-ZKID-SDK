@@ -157,7 +157,7 @@ test("http primus template resolver reads zktlsTemplateId and attestation option
   }
 });
 
-test("http primus template resolver TEMP: hardcodes bodyParams and query _start/_end/t (limit coerced)", async () => {
+test("http primus template resolver preserves additionParams.needUpdateRequests from payload", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async () =>
     new Response(
@@ -212,16 +212,25 @@ test("http primus template resolver TEMP: hardcodes bodyParams and query _start/
       identityPropertyId: "binanceIdentityPropertyId"
     });
 
-    const nu = resolved.additionParams?.needUpdateRequests;
-    assert.ok(Array.isArray(nu) && nu.length >= 2);
-    const body = (nu[0] as { bodyParams?: Record<string, unknown> }).bodyParams;
-    const query = (nu[1] as { queryParams?: Record<string, unknown> }).queryParams;
-    assert.equal(body?.startTime, 1757838071320);
-    assert.equal(body?.endTime, 1773390071320);
-    assert.equal(query?._start, 1757838520216);
-    assert.equal(query?._end, 1773390520216);
-    assert.equal(query?.limit, 100);
-    assert.equal(query?.t, 1773390520216);
+    assert.deepEqual(resolved.additionParams, {
+      needUpdateRequests: [
+        {
+          bodyParams: {
+            startTime: "1759222655324",
+            endTime: "1774947455324",
+            rows: 100
+          }
+        },
+        {
+          queryParams: {
+            _start: "1759222655324",
+            _end: "1774947455324",
+            limit: "100",
+            t: "1774947455324"
+          }
+        }
+      ]
+    });
   } finally {
     globalThis.fetch = originalFetch;
   }

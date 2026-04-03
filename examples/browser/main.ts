@@ -21,6 +21,17 @@ if (!(globalThis as GlobalWithConfig).Buffer) {
 const BREVIS_GATEWAY_DIRECT_URL = "http://44.226.158.196:8038";
 
 /**
+ * Chain-level app id (PADO templates bucket / Brevis app). Same value for live init and
+ * browser fixtures so Gateway init and proof-status payloads stay aligned.
+ */
+const BROWSER_HARNESS_APP_ID =
+  "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C";
+
+/** GitHub on-chain property id (Brevis `properties[].id`) for full fixture mode. */
+const BROWSER_HARNESS_FIXTURE_GITHUB_PROPERTY_ID =
+  "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff";
+
+/**
  * When `true` and `npm run dev:browser-harness`, Gateway + PADO calls use same-origin
  * `/brevis-gateway/` and `/pado-api/` (Vite proxy). When `false`, browser hits
  * {@link BREVIS_GATEWAY_DIRECT_URL} / api-dev.padolabs.org directly (needs CORS on those hosts).
@@ -286,7 +297,7 @@ function harnessUsesBrevisProviderPicker(): boolean {
 
 function resolveBrowserHarnessIdentityPropertyId(): string {
   if (modeSelectElement.value === "fixture") {
-    return "github_account_age";
+    return BROWSER_HARNESS_FIXTURE_GITHUB_PROPERTY_ID;
   }
   const selected = getSelectedBrevisRow();
   const fallback = brevisHarnessCatalog[0]?.identityPropertyId;
@@ -548,11 +559,10 @@ runButton.addEventListener("click", async () => {
     }
     const client = new BnbZkIdClient();
     const initResult = await client.init({
-      appId: "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C" // TODO
+      appId: BROWSER_HARNESS_APP_ID
     });
 
     writeLog(`init: ${JSON.stringify(initResult)}`);
-    debugger
     if (!initResult.success) {
       harnessSucceeded = false;
       return;
@@ -567,7 +577,6 @@ runButton.addEventListener("click", async () => {
       identityPropertyId: resolveBrowserHarnessIdentityPropertyId(),
       ...(provingParams === undefined ? {} : { provingParams })
     };
-    debugger
 
     const proveResult = await client.prove(
       proveInput,

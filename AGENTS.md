@@ -63,10 +63,9 @@ npm test
 
 This should:
 
-- build the repo
-- copy shared fixtures into `dist/`
-- run the harness tests
-- verify that the minimal example still executes
+- build the publishable library into `dist/` (compiled `src/` only)
+- build test+example output into `dist-test/` (not published)
+- run the harness tests and the minimal example against repo-root `fixtures/`
 
 ## When Adding New Work
 

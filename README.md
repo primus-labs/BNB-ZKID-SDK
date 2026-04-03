@@ -102,7 +102,7 @@ try {
   );
   console.log(proveResult.status, proveResult.walletAddress);
 } catch (error) {
-  // `BnbZkIdProveError`: code 00000-00003, message; in the prove flow,
+  // `BnbZkIdProveError`: codes 00000-00007 and 10000-10003, table `message`; in the prove flow,
   // `details.primus` / `details.brevis` describe the stage-specific failure.
   console.error(error);
 }
@@ -149,7 +149,7 @@ app id from `result.<app-node>.zkTlsAppId`, then reads the template id from
 `github_account_age -> result.brevisListaDAO.githubIdentityPropertyId`.
 
 If `init({ appId })` receives an empty or invalid `appId`, it first throws
-`BnbZkIdProveError` (`00003` / `Invalid parameters`, with `details.field` and
+`BnbZkIdProveError` (`00007` / `Invalid parameters`, with `details.field` and
 related metadata pointing to `appId`). Otherwise it validates the Gateway appId,
 prefetches the app-level Primus configuration, and initializes the Primus runtime.
 On success the result includes `providers` (matching the `providers` wire returned
@@ -157,7 +157,7 @@ by `GET /v1/config`). A later `prove(...)` call only needs to resolve the matchi
 template id and execute the proving flow. If the caller provides
 `provingParams.businessParams`, it must be deeply equal to the configured
 `businessParams` for that `identityPropertyId`, otherwise `prove` fails with
-`00003`.
+`00007`.
 
 ## Browser Harness
 

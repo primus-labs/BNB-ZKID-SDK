@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   createBnbZkIdProveError,
   serializeErrorForProveDetails
@@ -137,7 +139,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
 
     if (!this.initializedAppId) {
       throw createBnbZkIdProveError(
-        "00000",
+        "00001",
         { reason: "init must succeed before prove can run." },
         { clientRequestId }
       );
@@ -151,7 +153,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     } catch (error) {
       if (error instanceof ConfigurationError) {
         throw createBnbZkIdProveError(
-          "00003",
+          "00007",
           { phase: "harness", cause: serializeErrorForProveDetails(error) },
           { clientRequestId }
         );
@@ -180,7 +182,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     } catch (error) {
       if (error instanceof ConfigurationError) {
         throw createBnbZkIdProveError(
-          "00002",
+          "10003",
           brevisDetails({
             phase: "pollProofRequest",
             cause: serializeErrorForProveDetails(error)
@@ -205,8 +207,9 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
         proofRequestId: created.proofRequestId
       });
 
+      const zkVmCode = status.status === "submission_failed" ? "10002" : "10003";
       throw createBnbZkIdProveError(
-        "00002",
+        zkVmCode,
         brevisDetails({
           code: "HARNESS_PROOF_FAILED",
           message: "Deterministic harness returned a failed proof request.",
@@ -218,7 +221,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
 
     if (!status.walletAddress) {
       throw createBnbZkIdProveError(
-        "00002",
+        "10003",
         brevisDetails({
           phase: "gateway_payload",
           reason: "Harness success payload is missing walletAddress."
@@ -229,7 +232,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
 
     if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
       throw createBnbZkIdProveError(
-        "00002",
+        "10003",
         brevisDetails({
           phase: "gateway_payload",
           reason: "Harness proof request is not in an on-chain attested state.",
@@ -251,7 +254,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       status.identityPropertyId?.trim();
     if (!identityPropertyId) {
       throw createBnbZkIdProveError(
-        "00002",
+        "10003",
         brevisDetails({
           phase: "gateway_payload",
           reason: "Harness success payload is missing identity property id."
@@ -266,7 +269,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       resolveProviderIdForIdentityPropertyId(gatewayConfig, identityPropertyId)?.trim();
     if (!providerId) {
       throw createBnbZkIdProveError(
-        "00002",
+        "10003",
         brevisDetails({
           phase: "gateway_payload",
           reason: "Harness success payload is missing providerId."
@@ -291,9 +294,25 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
 }
 
 async function readJsonFixture<T>(name: string): Promise<T> {
-  const file = new URL(`../../fixtures/${name}`, import.meta.url);
-  const content = await readFile(file, "utf8");
-  return JSON.parse(content) as T;
+  const harnessDir = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(harnessDir, "../../fixtures", name),
+    join(harnessDir, "../../../fixtures", name)
+  ];
+  let lastError: unknown;
+  for (const filePath of candidates) {
+    try {
+      const content = await readFile(filePath, "utf8");
+      return JSON.parse(content) as T;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw new ConfigurationError("Unable to load harness fixture JSON.", {
+    name,
+    tried: candidates,
+    cause: lastError instanceof Error ? lastError.message : String(lastError)
+  });
 }
 
 async function loadHarnessFixtures(): Promise<HarnessFixtures> {

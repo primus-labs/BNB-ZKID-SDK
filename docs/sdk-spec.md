@@ -131,7 +131,19 @@ export interface BnbZkIdClientMethods {
 }
 
 export declare class BnbZkIdProveError extends Error {
-  readonly proveCode: "00000" | "00001" | "00002" | "00003";
+  readonly proveCode:
+    | "00000"
+    | "00001"
+    | "00002"
+    | "00003"
+    | "00004"
+    | "00005"
+    | "00006"
+    | "00007"
+    | "10000"
+    | "10001"
+    | "10002"
+    | "10003";
   readonly code: string;
   readonly details: Record<string, unknown>;
   readonly clientRequestId?: string;
@@ -180,7 +192,7 @@ Gateway `businessParams` for provider-specific tiering and similar constraints.
   **`provingParams.businessParams`**, the SDK compares it by deep equality with the
   `properties[].businessParams` configured for the current `identityPropertyId` in
   `GET /v1/config`; if they do not match, or the config does not include
-  `businessParams`, `prove` throws `BnbZkIdProveError` (`proveCode` `00003`)
+  `businessParams`, `prove` throws `BnbZkIdProveError` (`proveCode` `00007`)
 
 Example:
 
@@ -301,18 +313,21 @@ published SDK.
 ## Error Model
 
 `init` **throws** `BnbZkIdProveError` when `appId` is missing, not a `string`, or
-empty after `trim()` (`proveCode` **`00003`**, `message` **`Invalid parameters`**,
+empty after `trim()` (`proveCode` **`00007`**, `message` **`Invalid parameters`**,
 and `details.message` / `details.field` point to the parameter problem). Other
 configuration failures still return `InitResult` (`success: false` with
-`BnbZkIdError`, for example when the appId is not in the Gateway `appIds` list).
+`BnbZkIdError` using the same numeric `code` / table `message` as `prove` failures,
+for example **`00001`** when the appId is not in the Gateway `appIds` list or
+template resolution fails). Primus `init` failures use the unified table (`code`
+mirrors outer `proveCode`; details under `details.primus`).
 
 Any `prove` failure **always throws** `BnbZkIdProveError` (which extends `Error`)
 with these fields:
 
-- `code` / `proveCode`: `00000` | `00001` | `00002` | `00003`
+- `code` / `proveCode`: `00000`–`00007` and `10000`–`10003` (see table)
 - `message`: fixed English explanation corresponding to the `proveCode` (see table
   below)
-- `details`: parameter errors (including **00003** from both `init` and `prove`)
+- `details`: parameter errors (including **00007** from both `init` and `prove`)
   include **`message`** (human-readable description) and **`field`** (the field
   name, such as `appId`, `userAddress`, `identityPropertyId`,
   `provingParams.businessParams`); optionally **`value`** (for example an invalid
@@ -324,31 +339,37 @@ with these fields:
 
 | `code` | Meaning |
 |--------|---------|
-| `00000` | `Failed to initialize` (for example, calling `prove` before `init` succeeds) |
-| `00001` | `Failed to generate zkTLS proof` (Primus / `zktls-js-sdk` stage) |
-| `00002` | `Failed to generate zkVM proof` (Gateway `POST`/`GET` proof-requests and success-payload validation) |
-| `00003` | `Invalid parameters` (`appId` in `init`; input type in `prove`, `userAddress` format, whether `identityPropertyId` exists in `GET /v1/config` `providers[].properties[].id`, and `provingParams` / `businessParams` consistency with configuration) |
+| `00000` | `Not detected the Primus Extension` (zkTLS wire `00006` → outer) |
+| `00001` | `Failed to initialize` (prove before `init`, Gateway/template init failures, or Primus init without a mappable wire code) |
+| `00002` | `A verification process is in progress. Please try again later.` (zkTLS wire `00003`) |
+| `00003` | `The user closes or cancels the verification process.` (zkTLS wire `00004`) |
+| `00004` | `Target data missing...` (zkTLS wire `00013`) |
+| `00005` | `Unstable internet connection. Please try again.` (zkTLS wire `10001`–`10004`) |
+| `00006` | `Failed to generate zkTLS proof` (other zkTLS / prove-stage failures) |
+| `00007` | `Invalid parameters` (`appId` in `init`; `prove` input shape, `userAddress`, `identityPropertyId` in config, `provingParams` / `businessParams` alignment) |
+| `10000` | `This address has pending proof for identityPropertyId.` (zkTLS wire `-210001`) |
+| `10001` | `This address is already bound to another account.` (`POST /v1/proof-requests` `error.category` **`binding_conflict`**) |
+| `10002` | `Failed to onChain` (poll terminal **`submission_failed`**) |
+| `10003` | `Failed to generate zkVM proof` (other Gateway create/poll/payload failures, **`TIMEOUT`**, non–`binding_conflict` Framework errors) |
 
-For `00001`, `details.primus` serializes zkTLS SDK business errors as objects with
-`code` / `message` (and optional `data`) to stay aligned with
-`@superorange/zka-js-sdk` `ZkAttestationError` without relying on `instanceof`.
-Otherwise it falls back to `cause` using the `serializeErrorForProveDetails` shape.
+For zkTLS-range codes **`00000`–`00007`** and **`10000`**, `details.primus` carries the
+SDK payload; wire `code` values are a different namespace from Framework **`category`**
+/ **`code`**.
 
-For `00002`, `details.brevis` includes **`status`** when polling
-`GET /v1/proof-requests/{id}` reaches a failed terminal state. The Framework
-**`error`** body remains flattened (`category`, `code`, `message`, and related
-fields aligned with **`BnbZkIdFrameworkError`**), while the **`failure`** body is
-normalized to **`failure: { reason, detail }`**. If a terminal status has neither
-`error` nor `failure`, `code` / `message` fallback values are used. When polling
-exceeds **`PROOF_REQUEST_POLL_MAX_DURATION_MS`** in
+For **`10001`–`10003`**, `details.brevis` carries Gateway / Framework context. It includes
+**`status`** when polling `GET /v1/proof-requests/{id}` reaches a failed terminal state
+(**`10002`** only when `status` is **`submission_failed`**; otherwise terminal poll
+failures use **`10003`**). The Framework **`error`** body remains flattened (`category`,
+`code`, `message`, and related fields aligned with **`BnbZkIdFrameworkError`**), while
+the **`failure`** body is normalized to **`failure: { reason, detail }`**. If a terminal
+status has neither `error` nor `failure`, `code` / `message` fallback values are used.
+When polling exceeds **`PROOF_REQUEST_POLL_MAX_DURATION_MS`** in
 **`src/config/proof-request-polling.ts`** (default 10 minutes),
-`details.brevis` becomes **`code`: `TIMEOUT`**, **`message`: `timeout`**, together
-with `phase: pollProofRequest`, `maxDurationMs`, `elapsedMs`, and related metadata.
-The poll interval comes from the same file's **`PROOF_REQUEST_POLL_INTERVAL_MS`**
-(default 3 seconds). Transport and other polling failures include `phase`,
-`proofRequestId` when available, `cause`, and related metadata. Primus /
-`zktls-js-sdk` uses **`details.primus`**, and its `code` namespace is distinct from
-the Framework namespace.
+`details.brevis` becomes **`code`: `TIMEOUT`**, **`message`: `timeout`**, together with
+`phase: pollProofRequest`, `maxDurationMs`, `elapsedMs`, and related metadata. The poll
+interval comes from the same file's **`PROOF_REQUEST_POLL_INTERVAL_MS`** (default 3
+seconds). Transport and other polling failures include `phase`, `proofRequestId` when
+available, `cause`, and related metadata.
 
 `BnbZkIdFrameworkErrorCategory` enumerates the spec's stable `category` values
 (`policy_rejected`, `zktls_invalid`, `schema_invalid`, `binding_conflict`,

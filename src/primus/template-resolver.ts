@@ -342,74 +342,6 @@ class HttpPrimusTemplateResolver implements PrimusTemplateResolver {
   }
 }
 
-/**
- * TEMP (PADO `/public/identity/templates` testing): under `needUpdateRequests`, hardcode
- * `bodyParams.startTime`/`endTime` and `queryParams._start`/`_end`/`t`; coerce `queryParams.limit`
- * if present. Remove this block when the API
- * is fixed — flip to `false` or delete the helper + call site in `extractIdentityTemplateEntry`.
- */
-const TEMP_COERCE_PADO_TEMPLATE_NEED_UPDATE_NUMBERS = true;
-
-/** TEMP: fixed window for `needUpdateRequests[].bodyParams` (remove with flag above). */
-const TEMP_PADO_NEED_UPDATE_BODY_START_TIME_MS = 1757838071320;
-const TEMP_PADO_NEED_UPDATE_BODY_END_TIME_MS = 1773390071320;
-
-/** TEMP: fixed query window for `needUpdateRequests[].queryParams` (remove with flag above). */
-const TEMP_PADO_NEED_UPDATE_QUERY_START_MS = 1757838520216;
-const TEMP_PADO_NEED_UPDATE_QUERY_END_MS = 1773390520216;
-const TEMP_PADO_NEED_UPDATE_QUERY_T_MS = 1773390520216;
-
-function coerceJsonNumberLoose(value: unknown): unknown {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === "string" && value.trim() !== "") {
-    const n = Number(value);
-    if (Number.isFinite(n)) {
-      return n;
-    }
-  }
-  return value;
-}
-
-/** Mutates `additionParams` in place (must be a fresh clone). */
-function tempNormalizePadoNeedUpdateRequestNumericFields(additionParams: Record<string, unknown>): void {
-  const needUpdateRequests = additionParams.needUpdateRequests;
-  if (!Array.isArray(needUpdateRequests)) {
-    return;
-  }
-  for (const entry of needUpdateRequests) {
-    if (typeof entry !== "object" || entry === null) {
-      continue;
-    }
-    const row = entry as Record<string, unknown>;
-    const bodyParams = row.bodyParams;
-    if (typeof bodyParams === "object" && bodyParams !== null && !Array.isArray(bodyParams)) {
-      const b = bodyParams as Record<string, unknown>;
-      b.startTime = TEMP_PADO_NEED_UPDATE_BODY_START_TIME_MS;
-      b.endTime = TEMP_PADO_NEED_UPDATE_BODY_END_TIME_MS;
-    }
-    const queryParams = row.queryParams;
-    if (typeof queryParams === "object" && queryParams !== null && !Array.isArray(queryParams)) {
-      const q = queryParams as Record<string, unknown>;
-      q._start = TEMP_PADO_NEED_UPDATE_QUERY_START_MS;
-      q._end = TEMP_PADO_NEED_UPDATE_QUERY_END_MS;
-      q.t = TEMP_PADO_NEED_UPDATE_QUERY_T_MS;
-      if ("limit" in q) {
-        q.limit = coerceJsonNumberLoose(q.limit);
-      }
-    }
-  }
-}
-
-function cloneAdditionParamsForResult(raw: Record<string, unknown>): Record<string, unknown> {
-  try {
-    return structuredClone(raw) as Record<string, unknown>;
-  } catch {
-    return JSON.parse(JSON.stringify(raw)) as Record<string, unknown>;
-  }
-}
-
 function extractIdentityTemplateEntry(
   raw: unknown,
   context: { appId: string; identityPropertyId: string; responseKeys: string[] }
@@ -453,13 +385,7 @@ function extractIdentityTemplateEntry(
     result.allJsonResponseFlag = o.allJsonResponseFlag;
   }
   if (typeof o.additionParams === "object" && o.additionParams !== null && !Array.isArray(o.additionParams)) {
-    if (TEMP_COERCE_PADO_TEMPLATE_NEED_UPDATE_NUMBERS) {
-      const ap = cloneAdditionParamsForResult(o.additionParams as Record<string, unknown>);
-      tempNormalizePadoNeedUpdateRequestNumericFields(ap);
-      result.additionParams = ap as PrimusAdditionParams;
-    } else {
-      result.additionParams = o.additionParams as PrimusAdditionParams;
-    }
+    result.additionParams = o.additionParams as PrimusAdditionParams;
   }
 
   return result;

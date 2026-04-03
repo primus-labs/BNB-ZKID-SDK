@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createConfiguredBnbZkIdClient } from "../../src/client/configured-client.js";
-import { BnbZkIdProveError } from "../../src/errors/prove-error.js";
+import { BnbZkIdProveError, getDefaultProveErrorMessage } from "../../src/errors/prove-error.js";
 import { extractPublicProvidersWireFromConfigRaw } from "../../src/gateway/normalize-config.js";
 import type {
   GatewayClient,
@@ -275,7 +275,7 @@ test("configured client runs init and prove through primus and gateway workflow"
   assert.equal(proveResult.status, "on_chain_attested");
 });
 
-test("configured client throws 00003 when provingParams do not match config businessParams", async () => {
+test("configured client throws 00007 when provingParams do not match config businessParams", async () => {
   const gatewayClient = new FakeGatewayClient();
   const client = createConfiguredBnbZkIdClient({
     gatewayClient,
@@ -299,7 +299,7 @@ test("configured client throws 00003 when provingParams do not match config busi
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+      assert.equal((err as BnbZkIdProveError).proveCode, "00007");
       assert.equal((err as BnbZkIdProveError).message, "Invalid parameters");
       assert.equal((err as BnbZkIdProveError).details.field, "provingParams.businessParams");
       assert.ok(typeof (err as BnbZkIdProveError).details.message === "string");
@@ -308,7 +308,7 @@ test("configured client throws 00003 when provingParams do not match config busi
   );
 });
 
-test("configured client throws 00003 when init appId is empty", async () => {
+test("configured client throws 00007 when init appId is empty", async () => {
   const client = createConfiguredBnbZkIdClient({
     gatewayClient: new FakeGatewayClient(),
     primusAdapter: new FakePrimusAdapter(),
@@ -317,13 +317,61 @@ test("configured client throws 00003 when init appId is empty", async () => {
 
   await assert.rejects(async () => client.init({ appId: "   " }), (err: unknown) => {
     assert.ok(err instanceof BnbZkIdProveError);
-    assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+    assert.equal((err as BnbZkIdProveError).proveCode, "00007");
     assert.equal((err as BnbZkIdProveError).details.field, "appId");
     return true;
   });
 });
 
-test("configured client throws 00003 when userAddress is not a valid EVM address", async () => {
+class PrimusAdapterInitThrows implements PrimusZkTlsAdapter {
+  constructor(private readonly thrown: unknown) {}
+
+  async init(): Promise<string | boolean> {
+    throw this.thrown;
+  }
+
+  async collectAttestationBundle(): Promise<PrimusAttestationBundle> {
+    throw new Error("not used");
+  }
+}
+
+test("configured client returns init failure when primus init throws plain sdk object (e.g. 00006)", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new PrimusAdapterInitThrows({ code: "00006" }),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  const initResult = await client.init({ appId: "brevisListaDAO" });
+  assert.equal(initResult.success, false);
+  if (initResult.success) {
+    assert.fail("expected init failure");
+  }
+  assert.equal(initResult.error?.code, "00000");
+  assert.equal(initResult.error?.message, getDefaultProveErrorMessage("00000"));
+  const primus = initResult.error?.details?.primus as { code?: string } | undefined;
+  assert.equal(primus?.code, "00006");
+});
+
+test("configured client returns init failure when primus init throws Error", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new PrimusAdapterInitThrows(new Error("network down")),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  const initResult = await client.init({ appId: "brevisListaDAO" });
+  assert.equal(initResult.success, false);
+  if (initResult.success) {
+    assert.fail("expected init failure");
+  }
+  assert.equal(initResult.error?.code, "00001");
+  assert.equal(initResult.error?.message, getDefaultProveErrorMessage("00001"));
+  const primus = initResult.error?.details?.primus as { cause?: { message?: string } } | undefined;
+  assert.equal(primus?.cause?.message, "network down");
+});
+
+test("configured client throws 00007 when userAddress is not a valid EVM address", async () => {
   const client = createConfiguredBnbZkIdClient({
     gatewayClient: new FakeGatewayClient(),
     primusAdapter: new FakePrimusAdapter(),
@@ -340,14 +388,14 @@ test("configured client throws 00003 when userAddress is not a valid EVM address
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+      assert.equal((err as BnbZkIdProveError).proveCode, "00007");
       assert.equal((err as BnbZkIdProveError).details.field, "userAddress");
       return true;
     }
   );
 });
 
-test("configured client throws 00003 when identityPropertyId is not in GET /v1/config providers wire", async () => {
+test("configured client throws 00007 when identityPropertyId is not in GET /v1/config providers wire", async () => {
   const client = createConfiguredBnbZkIdClient({
     gatewayClient: new FakeGatewayClient(),
     primusAdapter: new FakePrimusAdapter(),
@@ -364,7 +412,7 @@ test("configured client throws 00003 when identityPropertyId is not in GET /v1/c
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal((err as BnbZkIdProveError).proveCode, "00003");
+      assert.equal((err as BnbZkIdProveError).proveCode, "00007");
       assert.equal((err as BnbZkIdProveError).details.field, "identityPropertyId");
       assert.equal((err as BnbZkIdProveError).details.value, "unknown_property_id");
       return true;
@@ -372,7 +420,7 @@ test("configured client throws 00003 when identityPropertyId is not in GET /v1/c
   );
 });
 
-test("configured client throws 00000 when prove runs before init", async () => {
+test("configured client throws 00001 when prove runs before init", async () => {
   const client = createConfiguredBnbZkIdClient({
     gatewayClient: new FakeGatewayClient(),
     primusAdapter: new FakePrimusAdapter(),
@@ -388,14 +436,14 @@ test("configured client throws 00000 when prove runs before init", async () => {
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal(err.proveCode, "00000");
+      assert.equal(err.proveCode, "00001");
       assert.equal(err.clientRequestId, "prove-task-001");
       return true;
     }
   );
 });
 
-test("configured client throws 00002 when gateway poll returns terminal error", async () => {
+test("configured client throws 10003 when gateway poll returns terminal error", async () => {
   const gatewayClient = new FakeGatewayClient();
   gatewayClient.statusResult = {
     proofRequestId: "proof-request-001",
@@ -430,7 +478,7 @@ test("configured client throws 00002 when gateway poll returns terminal error", 
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal(err.proveCode, "00002");
+      assert.equal(err.proveCode, "10003");
       assert.equal(err.proofRequestId, "proof-request-001");
       const brevis = err.details.brevis as Record<string, unknown>;
       assert.equal(brevis.status, "failed");
@@ -441,7 +489,7 @@ test("configured client throws 00002 when gateway poll returns terminal error", 
   );
 });
 
-test("configured client throws 00002 when gateway poll returns prover_failed with failure object", async () => {
+test("configured client throws 10003 when gateway poll returns prover_failed with failure object", async () => {
   const gatewayClient = new FakeGatewayClient();
   gatewayClient.statusResult = {
     proofRequestId: "proof-request-001",
@@ -474,7 +522,7 @@ test("configured client throws 00002 when gateway poll returns prover_failed wit
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal(err.proveCode, "00002");
+      assert.equal(err.proveCode, "10003");
       const brevis = err.details.brevis as Record<string, unknown>;
       assert.equal(brevis.status, "prover_failed");
       assert.deepEqual(brevis.failure, {
@@ -486,7 +534,7 @@ test("configured client throws 00002 when gateway poll returns prover_failed wit
   );
 });
 
-test("configured client throws 00002 when createProofRequest returns gateway error body", async () => {
+test("configured client throws 10003 when createProofRequest returns gateway error body", async () => {
   const gatewayClient = new FakeGatewayClient();
   gatewayClient.createProofRequest = async (input) => {
     gatewayClient.createdInputs.push(input);
@@ -518,7 +566,7 @@ test("configured client throws 00002 when createProofRequest returns gateway err
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal(err.proveCode, "00002");
+      assert.equal(err.proveCode, "10003");
       assert.equal(err.message, "Failed to generate zkVM proof");
       const brevis = err.details.brevis as Record<string, unknown>;
       assert.equal(brevis.category, "policy_rejected");
@@ -529,7 +577,7 @@ test("configured client throws 00002 when createProofRequest returns gateway err
   );
 });
 
-test("configured client throws 00002 with zkVM outer message when create returns zktls_invalid", async () => {
+test("configured client throws 10003 with zkVM outer message when create returns zktls_invalid", async () => {
   const gatewayClient = new FakeGatewayClient();
   gatewayClient.createProofRequest = async (input) => {
     gatewayClient.createdInputs.push(input);
@@ -561,7 +609,7 @@ test("configured client throws 00002 with zkVM outer message when create returns
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal((err as BnbZkIdProveError).proveCode, "00002");
+      assert.equal((err as BnbZkIdProveError).proveCode, "10003");
       assert.equal((err as BnbZkIdProveError).message, "Failed to generate zkVM proof");
       assert.deepEqual((err as BnbZkIdProveError).details, {
         brevis: {

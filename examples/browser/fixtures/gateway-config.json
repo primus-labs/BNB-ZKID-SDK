@@ -1,23 +1,57 @@
 {
-  "appIds": ["brevisListaDAO"],
   "providers": [
     {
-      "providerId": "github",
-      "identityProperties": [
+      "id": "0x07a17bd3c7c8d7b88e93a4d9007e3bc230b0a586a434de0bed6500e9f343deb7",
+      "description": "GitHub",
+      "properties": [
         {
-          "identityPropertyId": "github_account_age",
-          "schemaVersion": "1.0.0"
+          "id": "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff",
+          "description": "GitHub account creation + contribution",
+          "businessParams": { "contribution": [21, 51] }
         }
       ]
     },
     {
-      "providerId": "binance",
-      "identityProperties": [
+      "id": "0x099e8cf4d817a6e4eec62bff4cdef05faa4a00fcde8d7e99f5090708d23ad9b2",
+      "description": "Binance",
+      "properties": [
         {
-          "identityPropertyId": "binanceIdentityPropertyId",
-          "schemaVersion": "1.0.0"
+          "id": "0xa8b86ba89172f269976e3ef2dafed6de381b92a6d19a2ab848273b6f8db69c7c",
+          "description": "Binance KYC + trade count",
+          "businessParams": { "contribution": [21, 51] }
+        }
+      ]
+    },
+    {
+      "id": "0x916a4e1d9663cd29f23da1f15fdd5a0908ceed01f5fe580407b2aa4509077dda",
+      "description": "Steam",
+      "properties": [
+        {
+          "id": "0xab7ca68fb0d5fb64b53a938930b00a040af3d9a819756883d9bea6367ab84c08",
+          "description": "Steam special score"
+        }
+      ]
+    },
+    {
+      "id": "0xb5cc0e0322dd67209d90babc2c95e7c381be7d675597a0d03e9dd4b60cfa8758",
+      "description": "Amazon",
+      "properties": [
+        {
+          "id": "0xc8e54ecd3ffce098897c6ed6f58d818d83ef46ecb043158d8929433b505ba944",
+          "description": "Amazon Prime status + years"
+        }
+      ]
+    },
+    {
+      "id": "0xd6b6d5e0aacce0469a313983d889ed10d0bb7c9545af0285a19b4ff094b4041d",
+      "description": "OKX",
+      "properties": [
+        {
+          "id": "0x289d4fed0b3ecb26e711e6d1200b46f1d67f2da4847b03f99aa8584706933195",
+          "description": "OKX KYC + trade count"
         }
       ]
     }
-  ]
+  ],
+  "error": null
 }

@@ -11,6 +11,7 @@
     "templateResolver": {
       "mode": "static",
       "templateIds": {
+        "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff": "github-template",
         "github_account_age": "github-template"
       }
     }

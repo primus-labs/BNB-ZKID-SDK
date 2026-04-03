@@ -1,4 +1,5 @@
 import { SdkError } from "./sdk-error.js";
+import type { BnbZkIdError } from "../types/public.js";
 
 /** `@superorange/zka-js-sdk` / legacy Primus `ZkAttestationError` (not always `instanceof Error`). */
 function isZkAttestationLike(
@@ -11,19 +12,122 @@ function isZkAttestationLike(
   return typeof o.code === "string" && typeof o.message === "string";
 }
 
-/** Top-level `prove` failure codes surfaced in `catch` (`BnbZkIdProveError.code`). */
-export type BnbZkIdProveErrorCode = "00000" | "00001" | "00002" | "00003";
+/** Top-level `prove` / unified machine codes (`BnbZkIdProveError` / aligned `init` failures). */
+export type BnbZkIdProveErrorCode =
+  | "00000"
+  | "00001"
+  | "00002"
+  | "00003"
+  | "00004"
+  | "00005"
+  | "00006"
+  | "00007"
+  | "10000"
+  | "10001"
+  | "10002"
+  | "10003";
 
 const PROVE_ERROR_MESSAGES: Record<BnbZkIdProveErrorCode, string> = {
-  "00000": "Failed to initialize",
-  "00001": "Failed to generate zkTLS proof",
-  "00002": "Failed to generate zkVM proof",
-  "00003": "Invalid parameters"
+  "00000": "Not detected the Primus Extension",
+  "00001": "Failed to initialize",
+  "00002": "A verification process is in progress. Please try again later.",
+  "00003": "The user closes or cancels the verification process.",
+  "00004":
+    "Target data missing. Please check whether the data json path in the request URL’s response aligns with your template.",
+  "00005": "Unstable internet connection. Please try again.",
+  "00006": "Failed to generate zkTLS proof",
+  "00007": "Invalid parameters",
+  "10000": "This address has pending proof for identityPropertyId.",
+  "10001": "This address is already bound to another account.",
+  "10002": "Failed to onChain",
+  "10003": "Failed to generate zkVM proof"
 };
+// const PROVE_ERROR_MESSAGES: Record<BnbZkIdProveErrorCode, string> = {
+//   "00000": 'Not detected the Primus Extension', // (zktlssdk-00006)
+//   "00001": "Failed to initialize",
+//   '00002': 'A verification process is in progress. Please try again later.',// (zktlssdk-00003)
+//   '00003': 'The user closes or cancels the verification process.',// zktlssdk-00004)
+//   '00004': 'Target data missing. Please check whether the data json path in the request URL’s response aligns with your template.',// (zktlssdk-00013)
+//   '00005':'Unstable internet connection. Please try again.',// (zktlssdk-10001,10002,10003,10004)
+//   "00006": "Failed to generate zkTLS proof",
+//   "00007": "Invalid parameters",
+//   '10000': 'This address has pending proof for identityPropertyId.',// (zktlssdk-210001)
+//   "10001": 'This address is already bound to another account.',// (POST /v1/proof-requests response.error.category:binding_conflict)
+//   "10002": 'Failed to onChain',// (GET /v1/proof-requests/{proofRequestId} response.status: submission_failed
+//   "10003": "Failed to generate zkVM proof",
+// };
+
+/** Normalize zktls-js-sdk `code` (string or finite number). */
+export function normalizePrimusSdkWireCode(raw: unknown): string | undefined {
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return String(raw);
+  }
+  if (typeof raw === "string") {
+    const t = raw.trim();
+    return t === "" ? undefined : t;
+  }
+  return undefined;
+}
+
+/** Reads `.code` from a thrown object, if present. */
+export function extractPrimusWireCodeFromUnknown(err: unknown): string | undefined {
+  if (typeof err !== "object" || err === null) {
+    return undefined;
+  }
+  const o = err as Record<string, unknown>;
+  if (!("code" in o)) {
+    return undefined;
+  }
+  return normalizePrimusSdkWireCode(o.code);
+}
+
+/**
+ * Maps a Primus / zktls-js-sdk wire `code` to the SDK outer {@link BnbZkIdProveErrorCode}.
+ * Unlisted non-empty codes fall through to `00006` (generic zkTLS failure).
+ */
+export function mapPrimusWireCodeToOuterProveCode(wire: string): BnbZkIdProveErrorCode {
+  switch (wire) {
+    case "00006":
+      return "00000";
+    case "00003":
+      return "00002";
+    case "00004":
+      return "00003";
+    case "00013":
+      return "00004";
+    case "10001":
+    case "10002":
+    case "10003":
+    case "10004":
+      return "00005";
+    case "-210001":
+      return "10000";
+    default:
+      return "00006";
+  }
+}
+
+/** Outer code for `prove` zkTLS stage from an unknown thrown value (no wire code → `00006`). */
+export function outerProveCodeForPrimusProveFailure(err: unknown): BnbZkIdProveErrorCode {
+  const wire = extractPrimusWireCodeFromUnknown(err);
+  if (wire === undefined) {
+    return "00006";
+  }
+  return mapPrimusWireCodeToOuterProveCode(wire);
+}
+
+/** Outer code for `init` Primus failure (no wire code → `00001`). */
+export function outerProveCodeForPrimusInitFailure(err: unknown): BnbZkIdProveErrorCode {
+  const wire = extractPrimusWireCodeFromUnknown(err);
+  if (wire === undefined) {
+    return "00001";
+  }
+  return mapPrimusWireCodeToOuterProveCode(wire);
+}
 
 /** Thrown when {@link import("../types/public.js").BnbZkIdClientMethods.prove} fails. Success returns `ProveSuccessResult` only. */
 export class BnbZkIdProveError extends Error {
-  /** One of `00000`–`00003`. */
+  /** Stable machine-readable code (see {@link BnbZkIdProveErrorCode}). */
   override readonly name = "BnbZkIdProveError";
   readonly proveCode: BnbZkIdProveErrorCode;
   /**
@@ -76,6 +180,23 @@ export class BnbZkIdProveError extends Error {
 
 export function getDefaultProveErrorMessage(code: BnbZkIdProveErrorCode): string {
   return PROVE_ERROR_MESSAGES[code];
+}
+
+/**
+ * Maps an `init`-time failure from `@primuslabs/zktls-js-sdk` into {@link BnbZkIdError} for
+ * `init` failure results (plain objects and non-{@link Error} throws are normalized here).
+ * Outer `code` / `message` use the unified table; SDK payload under `details.primus`.
+ */
+export function bnbZkIdErrorFromPrimusInitFailure(err: unknown): BnbZkIdError {
+  const primus = serializePrimusStageDetails(err);
+  const outer = outerProveCodeForPrimusInitFailure(err);
+  return {
+    code: outer,
+    message: getDefaultProveErrorMessage(outer),
+    details: {
+      primus
+    }
+  };
 }
 
 export function createBnbZkIdProveError(
@@ -136,6 +257,20 @@ export function serializePrimusStageDetails(err: unknown): Record<string, unknow
       out.data = err.data;
     }
     return out;
+  }
+  if (typeof err === "object" && err !== null && !Array.isArray(err)) {
+    const o = err as Record<string, unknown>;
+    const code = typeof o.code === "string" ? o.code.trim() : "";
+    if (code !== "") {
+      const out: Record<string, unknown> = { code };
+      if (typeof o.message === "string" && o.message.trim() !== "") {
+        out.message = o.message.trim();
+      }
+      if (o.data !== undefined) {
+        out.data = o.data;
+      }
+      return out;
+    }
   }
   return { cause: serializeErrorForProveDetails(err) };
 }

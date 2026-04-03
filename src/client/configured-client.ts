@@ -1,4 +1,9 @@
-import { createBnbZkIdProveError } from "../errors/prove-error.js";
+import {
+  bnbZkIdErrorFromPrimusInitFailure,
+  createBnbZkIdProveError,
+  getDefaultProveErrorMessage,
+  serializeErrorForProveDetails
+} from "../errors/prove-error.js";
 import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import type { GatewayClient, GatewayConfig } from "../gateway/types.js";
 import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
@@ -39,17 +44,39 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       return {
         success: false,
         error: {
-          code: "CONFIGURATION_ERROR",
-          message: "appId is not enabled by the Gateway config.",
-          details: { appId }
+          code: "00001",
+          message: getDefaultProveErrorMessage("00001"),
+          details: {
+            reason: "appId_not_enabled",
+            appId
+          }
         }
       };
     }
 
-    const primusAppConfig = await this.options.primusTemplateResolver.resolveAppConfig({
-      appId
-    });
-    await this.options.primusAdapter.init(primusAppConfig.zktlsAppId);
+    let primusAppConfig;
+    try {
+      primusAppConfig = await this.options.primusTemplateResolver.resolveAppConfig({
+        appId
+      });
+    } catch (err) {
+      return {
+        success: false,
+        error: {
+          code: "00001",
+          message: getDefaultProveErrorMessage("00001"),
+          details: { cause: serializeErrorForProveDetails(err) }
+        }
+      };
+    }
+    try {
+      await this.options.primusAdapter.init(primusAppConfig.zktlsAppId);
+    } catch (err) {
+      return {
+        success: false,
+        error: bnbZkIdErrorFromPrimusInitFailure(err)
+      };
+    }
     this.initializedAppId = appId;
     this.gatewayConfig = gatewayConfig;
     this.gatewayConfigProvidersWire = providers;
@@ -63,8 +90,8 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
   async prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult> {
     if (!this.initializedAppId || !this.gatewayConfig || !this.gatewayConfigProvidersWire) {
       throw createBnbZkIdProveError(
-        "00000",
-        { reason: "init must succeed before prove can run." },
+        "00001",
+        { reason: "init_must_succeed_before_prove" },
         { clientRequestId: input.clientRequestId }
       );
     }

@@ -22,8 +22,8 @@ export class BnbZkIdClient implements BnbZkIdClientMethods {
   async prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult> {
     if (!this.runtimeClientPromise) {
       throw createBnbZkIdProveError(
-        "00000",
-        { reason: "init must succeed before prove can run." },
+        "00001",
+        { reason: "init_must_succeed_before_prove" },
         { clientRequestId: input.clientRequestId }
       );
     }
