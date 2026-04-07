@@ -34,7 +34,7 @@ The following items are part of the current public surface:
 
 ## Quick Start And Integration Example
 
-## Prerequisites
+### Prerequisites
 
 Installing the Primus extension test package is only required during the current testing phase. If you have installed the official version of the Primus extension, you need to stop this process first.
 
@@ -56,7 +56,7 @@ If this SDK is distributed to your integration as the package `@primuslabs/bnb-z
 npm install @primuslabs/bnb-zkid-sdk
 ```
 
-## Demo Link
+### Demo Link
 
 https://github.com/primus-labs/BNB-ZKID-SDK-Demo
 
