@@ -1,6 +1,6 @@
 # BNB-ZKID-SDK
 
-## Product And Capability Overview
+## Product and Capability Overview
 
 `@primuslabs/bnb-zkid-sdk` is a TypeScript SDK for application developers who want a single integration surface for the BNB ZK ID flow.
 
@@ -21,7 +21,7 @@ At a high level, the SDK helps an application:
 4. Submit the proof request to the BNB ZK ID Gateway, and run **zkVM** proof.
 5. Poll the proof request until the final result is attested or failed.
 
-### What Is Public And Stable
+### What Is Public and Stable
 
 The following items are part of the current public surface:
 
@@ -32,7 +32,7 @@ The following items are part of the current public surface:
   `BnbZkIdGatewayConfigProviderWire` and
   `BnbZkIdGatewayConfigPropertyWire`
 
-## Quick Start And Integration Example
+## Quick Start and Integration Example
 
 ### Prerequisites
 
@@ -56,7 +56,7 @@ If this SDK is distributed to your integration as the package `@primuslabs/bnb-z
 npm install @primuslabs/bnb-zkid-sdk
 ```
 
-### Demo Link
+### Example Link
 
 https://github.com/primus-labs/BNB-ZKID-SDK-Demo
 
@@ -315,7 +315,7 @@ interface ProveSuccessResult {
   `on_chain_attested` are accepted internally, but the public success result always
   normalizes to `status: "on_chain_attested"`.
 
-## Error Codes And Exception Handling
+## Error Codes and Exception Handling
 
 ### Error Model Summary
 
