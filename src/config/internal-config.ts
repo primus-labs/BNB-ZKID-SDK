@@ -1,6 +1,8 @@
 import type { BnbZkIdConfigFile } from "./types.js";
 
-const INTERNAL_GATEWAY_BASE_URL = "https://your-gateway-host.example.com";
+const INTERNAL_GATEWAY_BASE_URL = "https://explorer-gateway.brevis.network";
+// const INTERNAL_GATEWAY_BASE_URL = "http://44.226.158.196:8038";
+const INTERNAL_PADOLABS_BASE_URL = "https://api-dev.padolabs.org";
 
 export const INTERNAL_BNB_ZKID_CONFIG: BnbZkIdConfigFile = {
   gateway: {
@@ -11,12 +13,12 @@ export const INTERNAL_BNB_ZKID_CONFIG: BnbZkIdConfigFile = {
     mode: "sdk",
     templateResolver: {
       mode: "server",
-      baseUrl: "https://api-dev.padolabs.org",
+      baseUrl: INTERNAL_PADOLABS_BASE_URL,
       resolveTemplatePath: "/public/identity/templates"
     },
     signer: {
       mode: "server",
-      baseUrl: "https://api-dev.padolabs.org",
+      baseUrl: INTERNAL_PADOLABS_BASE_URL,
       signPath: "/developer-center/app-sign-by-app-id"
     }
   }

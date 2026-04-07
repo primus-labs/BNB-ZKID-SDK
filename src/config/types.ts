@@ -55,6 +55,11 @@ export interface BnbZkIdConfigFile {
   primus: BnbZkIdPrimusRuntimeConfig;
 }
 
+export interface BnbZkIdConfigOverrideFile {
+  gateway?: Record<string, unknown>;
+  primus?: Record<string, unknown>;
+}
+
 export interface LoadedBnbZkIdConfig {
   configPath: string;
   configDir: string;

@@ -308,7 +308,9 @@ config:
 - The browser harness uses `globalThis.__BNB_ZKID_CONFIG_URL__`
 
 But these override mechanisms should not become the primary integration path for the
-published SDK.
+published SDK. They now act as partial overrides merged onto the embedded defaults,
+so tests and debug flows can change only the fields they need, such as
+`gateway.baseUrl`.
 
 ## Error Model
 
@@ -391,7 +393,7 @@ Examples in the README and `examples/` should stay roughly at this level of
 complexity:
 
 ```ts
-import { BnbZkIdClient, BnbZkIdProveError } from "bnb-zkid-sdk";
+import { BnbZkIdClient, BnbZkIdProveError } from "@superorange/bnbzkid-js-sdk";
 
 const client = new BnbZkIdClient();
 
@@ -400,6 +402,14 @@ const initResult = await client.init({
 });
 if (!initResult.success) {
   console.error(initResult.error);
+  process.exit(1);
+}
+
+const providers = initResult.providers;
+const identityPropertyId = providers[0]?.properties[0]?.id;
+
+if (!identityPropertyId) {
+  throw new Error("No identity property is available for this appId.");
 }
 
 try {
@@ -407,12 +417,7 @@ try {
     {
       clientRequestId: "prove-task-001",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678",
-      identityPropertyId: "github_account_age",
-      provingParams: {
-        businessParams: {
-          contribution: [21, 51],
-        },
-      },
+      identityPropertyId,
     },
     {
       onProgress(event) {
@@ -420,12 +425,7 @@ try {
       },
     }
   );
-  console.log(proveResult.status);
-  console.log(
-    proveResult.walletAddress,
-    proveResult.providerId,
-    proveResult.identityPropertyId
-  );
+  console.log(proveResult.status, proveResult.walletAddress);
 } catch (error) {
   if (error instanceof BnbZkIdProveError) {
     console.error(error.code, error.message, error.details);

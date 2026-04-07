@@ -275,6 +275,41 @@ test("configured client runs init and prove through primus and gateway workflow"
   assert.equal(proveResult.status, "on_chain_attested");
 });
 
+test("configured client fills businessParams from init config when prove input omits them", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  const primusAdapter = new FakePrimusAdapter();
+  const primusTemplateResolver = new FakePrimusTemplateResolver();
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter,
+    primusTemplateResolver
+  });
+
+  await client.init({
+    appId: "brevisListaDAO"
+  });
+
+  await client.prove({
+    clientRequestId: "prove-task-implicit-business-params",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    identityPropertyId: "github_account_age",
+    provingParams: {
+      locale: "en-US"
+    }
+  });
+
+  assert.equal(primusAdapter.collectedInputs.length, 1);
+  assert.deepEqual(primusAdapter.collectedInputs[0]?.additionParams?.provingParams, {
+    locale: "en-US",
+    businessParams: {
+      contribution: [21, 51]
+    }
+  });
+  assert.deepEqual(gatewayClient.createdInputs[0]?.businessParams, {
+    contribution: [21, 51]
+  });
+});
+
 test("configured client throws 00007 when provingParams do not match config businessParams", async () => {
   const gatewayClient = new FakeGatewayClient();
   const client = createConfiguredBnbZkIdClient({

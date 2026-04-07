@@ -74,40 +74,29 @@ interface BrevisHarnessRow {
 const brevisHarnessCatalog: BrevisHarnessRow[] = [];
 let brevisHarnessCatalogLoaded = false;
 
-interface BrowserHarnessConfigFile {
-  gateway:
-    | {
-        mode: "fixture";
-        configPath: string;
-        createProofRequestPath: string;
-        proofRequestStatusPath: string;
-      }
-    | {
-        mode: "http";
-        baseUrl: string;
-      };
-  primus:
-    | {
-        mode: "fixture";
-        bundlePath: string;
-        templateResolver: {
-          mode: "static";
-          templateIds: Record<string, string>;
-        };
-      }
-    | {
-        mode: "sdk";
-        templateResolver: {
-          mode: "server";
-          baseUrl: string;
-          resolveTemplatePath: string;
-        };
-        signer: {
-          mode: "server";
-          baseUrl: string;
-          signPath: string;
-        };
-      };
+interface BrowserHarnessConfigOverrideFile {
+  gateway?: {
+    mode?: "fixture" | "http";
+    baseUrl?: string;
+    configPath?: string;
+    createProofRequestPath?: string;
+    proofRequestStatusPath?: string;
+  };
+  primus?: {
+    mode?: "fixture" | "sdk";
+    bundlePath?: string;
+    templateResolver?: {
+      mode?: "static" | "server";
+      templateIds?: Record<string, string>;
+      baseUrl?: string;
+      resolveTemplatePath?: string;
+    };
+    signer?: {
+      mode?: "server";
+      baseUrl?: string;
+      signPath?: string;
+    };
+  };
 }
 
 const runButton = document.querySelector<HTMLButtonElement>("#run-harness");
@@ -421,7 +410,7 @@ function resolveFixtureUrl(pathname: string): string {
   return new URL(pathname, window.location.href).toString();
 }
 
-function buildLivePrimusSdkBlock(): BrowserHarnessConfigFile["primus"] {
+function buildLivePrimusSdkOverride(): NonNullable<BrowserHarnessConfigOverrideFile["primus"]> {
   if (INTERNAL_BNB_ZKID_CONFIG.primus.mode !== "sdk") {
     throw new Error("Embedded config must provide a sdk primus config for browser live mode.");
   }
@@ -435,32 +424,28 @@ function buildLivePrimusSdkBlock(): BrowserHarnessConfigFile["primus"] {
   }
 
   return {
-    mode: "sdk",
     templateResolver: {
-      mode: "server",
       baseUrl: resolvePadolabsBaseUrlForDev(INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.baseUrl),
       resolveTemplatePath: INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.resolveTemplatePath
     },
     signer: {
-      mode: "server",
       baseUrl: resolvePadolabsBaseUrlForDev(INTERNAL_BNB_ZKID_CONFIG.primus.signer.baseUrl),
       signPath: INTERNAL_BNB_ZKID_CONFIG.primus.signer.signPath
     }
   };
 }
 
-function buildLiveSdkConfig(): BrowserHarnessConfigFile {
+function buildLiveSdkConfig(): BrowserHarnessConfigOverrideFile {
   return {
     gateway: {
-      mode: "http",
       baseUrl: resolveBrevisGatewayBaseUrl()
     },
-    primus: buildLivePrimusSdkBlock()
+    primus: buildLivePrimusSdkOverride()
   };
 }
 
 /** Static JSON aligned with the three Gateway interfaces; provider options still come from `fixtures/config.json`, matching the fixture configPath. Primus uses the real SDK + PADO. */
-function buildBrevisFixtureGatewayWithLivePrimusConfig(): BrowserHarnessConfigFile {
+function buildBrevisFixtureGatewayWithLivePrimusConfig(): BrowserHarnessConfigOverrideFile {
   return {
     gateway: {
       mode: "fixture",
@@ -468,7 +453,10 @@ function buildBrevisFixtureGatewayWithLivePrimusConfig(): BrowserHarnessConfigFi
       createProofRequestPath: resolveFixtureUrl("./fixtures/brevis-v1-proof-requests-post.json"),
       proofRequestStatusPath: resolveFixtureUrl("./fixtures/brevis-v1-proof-requests-get.json")
     },
-    primus: buildLivePrimusSdkBlock()
+    primus: {
+      mode: "sdk",
+      ...buildLivePrimusSdkOverride()
+    }
   };
 }
 
@@ -545,6 +533,7 @@ runButton.addEventListener("click", async () => {
       harnessSucceeded = false;
       return;
     }
+    // Harness-only override: normal SDK consumers should rely on embedded defaults instead.
     (globalThis as GlobalWithConfig).__BNB_ZKID_CONFIG_URL__ = prepareConfigUrl();
     writeLog(`mode: ${modeSelectElement.value}`);
     if (harnessUsesBrevisProviderPicker()) {
