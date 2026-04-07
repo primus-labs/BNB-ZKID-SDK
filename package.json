@@ -1,5 +1,5 @@
 {
-  "name": "bnb-zkid-sdk",
+  "name": "@primuslabs/bnb-zkid-sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
