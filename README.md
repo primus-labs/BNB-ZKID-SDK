@@ -21,7 +21,7 @@ At a high level, the SDK helps an application:
 4. Submit the proof request to the BNB ZK ID Gateway, and run **zkVM** proof.
 5. Poll the proof request until the final result is attested or failed.
 
-### What Is Public and Stable
+### What is Public and Stable
 
 The following items are part of the current public surface:
 
