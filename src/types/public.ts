@@ -12,6 +12,11 @@ export type {
 export interface BnbZkIdError {
   code: string;
   message: string;
+  /**
+   * Optional structured context. For `code` **`00001`** from init or prove-before-init,
+   * `reason` is one of: `appId_not_enabled`, `template_resolve_failed`,
+   * `primus_init_failed`, `init_must_succeed_before_prove`.
+   */
   details?: Record<string, unknown>;
 }
 
@@ -72,6 +77,9 @@ export interface ProveProgressEvent {
 }
 
 export interface ProveOptions {
+  /**
+   * Progress callbacks; on any `prove` failure the SDK invokes this once with `status: "failed"` before throwing.
+   */
   onProgress?: (event: ProveProgressEvent) => void;
   /**
    * When true, forwarded to `@superorange/zka-js-sdk` `generateRequestParams` options so the extension

@@ -101,6 +101,7 @@ export interface ProveProgressEvent {
 }
 
 export interface ProveOptions {
+  /** If set, invoked for each progress step; on any `prove` failure the SDK calls this once with `status: "failed"` before throwing. */
   onProgress?: (event: ProveProgressEvent) => void;
   closeDataSourceOnProofComplete?: boolean;
 }
@@ -314,14 +315,22 @@ so tests and debug flows can change only the fields they need, such as
 
 ## Error Model
 
+For a full breakdown of `details.primus`, `details.brevis`, and `init` vs `prove`
+failure shapes, see [`error-reference.md`](./error-reference.md).
+
 `init` **throws** `BnbZkIdProveError` when `appId` is missing, not a `string`, or
 empty after `trim()` (`proveCode` **`00007`**, `message` **`Invalid parameters`**,
 and `details.message` / `details.field` point to the parameter problem). Other
 configuration failures still return `InitResult` (`success: false` with
 `BnbZkIdError` using the same numeric `code` / table `message` as `prove` failures,
 for example **`00001`** when the appId is not in the Gateway `appIds` list or
-template resolution fails). Primus `init` failures use the unified table (`code`
-mirrors outer `proveCode`; details under `details.primus`).
+template resolution fails). For those **`00001`** outcomes—and for **`prove`
+before a successful `init`**—`details.reason` discriminates the case:
+**`appId_not_enabled`**, **`template_resolve_failed`**, **`primus_init_failed`**, or
+**`init_must_succeed_before_prove`**. Init failures that carry Primus context keep it
+under **`details.primus`** (`code` mirrors outer `proveCode` when mappable). Calling
+**`prove`** before init still uses **`00001`** but sets **`message`** to the
+prove-before-init string (not the generic table line for **`00001`**).
 
 Any `prove` failure **always throws** `BnbZkIdProveError` (which extends `Error`)
 with these fields:
@@ -342,7 +351,7 @@ with these fields:
 | `code` | Meaning |
 |--------|---------|
 | `00000` | `Not detected the Primus Extension` (zkTLS wire `00006` → outer) |
-| `00001` | `Failed to initialize` (prove before `init`, Gateway/template init failures, or Primus init without a mappable wire code) |
+| `00001` | `Failed to initialize` for init-time Gateway/template/Primus failures; **`prove` before `init`** uses the same code with a dedicated message and **`details.reason`**: **`init_must_succeed_before_prove`** |
 | `00002` | `A verification process is in progress. Please try again later.` (zkTLS wire `00003`) |
 | `00003` | `The user closes or cancels the verification process.` (zkTLS wire `00004`) |
 | `00004` | `Target data missing...` (zkTLS wire `00013`) |
@@ -358,20 +367,32 @@ For zkTLS-range codes **`00000`–`00007`** and **`10000`**, `details.primus` ca
 SDK payload; wire `code` values are a different namespace from Framework **`category`**
 / **`code`**.
 
-For **`10001`–`10003`**, `details.brevis` carries Gateway / Framework context. It includes
-**`status`** when polling `GET /v1/proof-requests/{id}` reaches a failed terminal state
-(**`10002`** only when `status` is **`submission_failed`**; otherwise terminal poll
-failures use **`10003`**). The Framework **`error`** body remains flattened (`category`,
-`code`, `message`, and related fields aligned with **`BnbZkIdFrameworkError`**), while
-the **`failure`** body is normalized to **`failure: { reason, detail }`**. If a terminal
-status has neither `error` nor `failure`, `code` / `message` fallback values are used.
+For **`10001`–`10003`**, `details.brevis` carries Gateway / Framework context. **`POST
+/v1/proof-requests`** failures that surface a Framework **`error`** (including HTTP
+4xx/5xx bodies parsed by the client) use **`phase`: `createProofRequest`**, the
+flattened Framework fields, and when applicable **`httpStatus`** / **`pathname`** /
+**`url`** (same shape as GET query failures). Per Gateway semantics, top-level **`error`**
+on a proof-request **GET** is an **API/query failure** (for example unknown id), while
+**`failure`** is **lifecycle terminal failure** on an otherwise successful GET. The SDK
+maps GET **`error`** to **`phase`: `getProofRequestStatus`**, optional wire **`status`**
+when the server included it, and **`httpStatus`** / **`pathname`** / **`url`** when the
+failure came from a non-OK HTTP response with a Framework body. When polling reaches a
+**failed terminal lifecycle** (wire **`status`** such as **`prover_failed`** /
+**`packaging_failed`** / **`submission_failed`** / **`internal_error`**, etc.), **`details.brevis`**
+includes **`phase`: `pollProofRequestTerminal`**, wire **`status`**, normalized **`failure`**
+when present, or `code` / `message` fallback (**`10002`** only when **`status`** is
+**`submission_failed`**; otherwise **`10003`**). The Framework **`error`** object is flattened
+(`category`, `code`, `message`, and related fields aligned with **`BnbZkIdFrameworkError`**);
+lifecycle **`failure`** is normalized to **`failure: { reason, detail }`**. If a terminal
+lifecycle status has no `failure` payload, `code` / `message` fallback values are used.
 When polling exceeds **`PROOF_REQUEST_POLL_MAX_DURATION_MS`** in
 **`src/config/proof-request-polling.ts`** (default 10 minutes),
 `details.brevis` becomes **`code`: `TIMEOUT`**, **`message`: `timeout`**, together with
-`phase: pollProofRequest`, `maxDurationMs`, `elapsedMs`, and related metadata. The poll
+`phase: pollProofRequest`, `maxDurationMs`, `elapsedMs`, and related metadata (no duplicate
+`proofRequestId` here — use the error object's top-level **`proofRequestId`** when set). The poll
 interval comes from the same file's **`PROOF_REQUEST_POLL_INTERVAL_MS`** (default 3
-seconds). Transport and other polling failures include `phase`, `proofRequestId` when
-available, `cause`, and related metadata.
+seconds). Transport and other polling failures include `phase`, `cause`, and related metadata;
+**`proofRequestId`** when known remains on **`BnbZkIdProveError.proofRequestId`** / `toJSON()`.
 
 `BnbZkIdFrameworkErrorCategory` enumerates the spec's stable `category` values
 (`policy_rejected`, `zktls_invalid`, `schema_invalid`, `binding_conflict`,

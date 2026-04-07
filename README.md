@@ -19,6 +19,7 @@ Current focus:
 
 - [Architecture](./docs/architecture.md)
 - [SDK Spec](./docs/sdk-spec.md)
+- [Error reference](./docs/error-reference.md)
 - [Harness Guide](./docs/harness.md)
 - [Docs Index](./docs/index.md)
 

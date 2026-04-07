@@ -192,8 +192,11 @@ interface InitFailureResult {
 - `init` must succeed before `prove(...)` is called.
 - If `appId` is empty or invalid, `init` throws `BnbZkIdProveError` with code
   `00007`.
-- If the Gateway rejects the `appId`, or Primus initialization fails, `init`
-  returns `success: false`.
+- If the Gateway rejects the `appId`, template resolution fails, or Primus
+  initialization fails, `init` returns `success: false` with `BnbZkIdError`.
+  For `code` **`00001`**, use **`error.details.reason`** to tell cases apart
+  (for example `appId_not_enabled` vs `primus_init_failed`). See
+  [`error-reference.md`](./error-reference.md) §2.
 - On success, the client stores the initialized app context for later `prove(...)`
   calls.
 
@@ -251,7 +254,7 @@ interface ProveOptions {
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
-| `onProgress` | `(event) => void` | No | Callback invoked when the prove workflow changes status. |
+| `onProgress` | `(event) => void` | No | Invoked on status transitions; on **any** failure, called once with `status: "failed"` before the thrown error. |
 | `closeDataSourceOnProofComplete` | `boolean` | No | Forwarded to the underlying zkTLS browser flow so the data-source tab may be closed after proof completion. |
 
 ### Progress Event
@@ -278,8 +281,8 @@ Typical progress order:
 3. `proof_generating`
 4. `on_chain_attested`
 
-If the Gateway reaches a terminal failure, the callback may emit `failed` before
-the SDK throws an error.
+On **any** `prove` failure, the SDK calls `onProgress` once with `status: "failed"`
+before throwing (including invalid input and Gateway terminal errors).
 
 ### Success Result
 
@@ -304,6 +307,12 @@ interface ProveSuccessResult {
   normalizes to `status: "on_chain_attested"`.
 
 ## Error Codes And Exception Handling
+
+**Split between docs:** this section stays a short integration guide (how to catch
+errors, code table, common patterns). The exhaustive list of `details` keys,
+`brevis.phase` values, and init vs prove shapes lives in
+[`error-reference.md`](./error-reference.md). Update that file when error
+construction changes; keep this section accurate only at summary level.
 
 ### Error Model Summary
 
@@ -331,7 +340,13 @@ Important notes:
 
 - `code` is an alias of `proveCode`.
 - `details.primus` is used for zkTLS and Primus-stage failures.
-- `details.brevis` is used for Gateway and proof-lifecycle failures.
+- `details.brevis` is used for Gateway and proof-lifecycle failures (nested object
+  under `details`; see [`error-reference.md`](./error-reference.md) §8).
+- For **`00001`**, **`details.reason`** discriminates init-order and init-time
+  failures (`appId_not_enabled`, `template_resolve_failed`,
+  `primus_init_failed`, **`init_must_succeed_before_prove`** when
+  **`prove`** ran before a successful **`init`**). The prove-before-init case
+  uses a **dedicated `message`**, not the default table line for `00001`.
 - `clientRequestId` is included when the failure is associated with a specific
   prove call.
 - `proofRequestId` is included when the Gateway had already created a proof
@@ -342,7 +357,7 @@ Important notes:
 | Code | Default message | Typical meaning | Retry guidance |
 | --- | --- | --- | --- |
 | `00000` | `Not detected the Primus Extension` | Primus extension or required browser runtime is missing. | Retry only after the required browser environment is installed and available. |
-| `00001` | `Failed to initialize` | SDK initialization failed, including calling `prove` before a successful `init`, unsupported `appId`, or app-level setup failure. | Check app configuration first. Retry only after the root cause is fixed. |
+| `00001` | Usually `Failed to initialize`; **exception:** calling `prove` before a successful `init` uses a dedicated message (code stays `00001`). | Init-time Gateway / template / Primus failures, or prove-before-init. Use **`details.reason`** to branch. | Check app configuration and call order. Retry only after the root cause is fixed. |
 | `00002` | `A verification process is in progress. Please try again later.` | Primus reported that another verification flow is already active. | Retry later. |
 | `00003` | `The user closes or cancels the verification process.` | The user cancelled or closed the verification flow. | Safe to retry when the user is ready. |
 | `00004` | `Target data missing. Please check whether the data json path in the request URL's response aligns with your template.` | The zkTLS template could not extract the expected data from the target source. | Retry only after fixing the template or data source. |
@@ -387,17 +402,20 @@ Typical validation fields include:
 #### Gateway Failure
 
 When the Gateway returns a framework or proof-lifecycle failure, the SDK throws a
-`BnbZkIdProveError` with `details.brevis`.
+`BnbZkIdProveError` with `details.brevis`. The inner object usually includes
+**`phase`** (for example `createProofRequest`, `getProofRequestStatus`,
+`pollProofRequest`, `pollProofRequestTerminal`). Other keys depend on that phase;
+do not assume every field exists on every failure.
 
-Typical fields under `details.brevis` include:
+Fields that often appear (not exhaustive):
 
-- `category`
-- `code`
-- `message`
-- `status`
-- `failure`
-- `phase`
-- `rawDetails`
+- `category`, `code`, `message` (Framework-style, especially on create / GET error
+  bodies)
+- `httpStatus`, `pathname`, `url` when the failure came from an HTTP client path
+- `status`, `failure` on terminal poll outcomes
+- `rawDetails` when the Gateway nested extra diagnostics under Framework `error.details`
+
+Full matrix: [`error-reference.md`](./error-reference.md) §8.
 
 #### Primus Failure
 

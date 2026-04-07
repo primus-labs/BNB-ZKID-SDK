@@ -182,6 +182,31 @@ export function getDefaultProveErrorMessage(code: BnbZkIdProveErrorCode): string
   return PROVE_ERROR_MESSAGES[code];
 }
 
+/** Shared `details.reason` for `init` / prove-ordering failures (align `InitResult.error` with thrown prove errors). */
+export const INIT_FAILURE_REASON_APP_ID_NOT_ENABLED = "appId_not_enabled" as const;
+export const INIT_FAILURE_REASON_TEMPLATE_RESOLVE = "template_resolve_failed" as const;
+export const INIT_FAILURE_REASON_PRIMUS_INIT = "primus_init_failed" as const;
+export const INIT_FAILURE_REASON_PROVE_BEFORE_INIT = "init_must_succeed_before_prove" as const;
+
+/**
+ * Clearer than table `00001` alone: `prove()` ran before a successful `init()`.
+ * Prefer over {@link getDefaultProveErrorMessage}(`"00001"`) for this case only.
+ */
+export const MESSAGE_PROVE_BEFORE_INIT = "Call init() successfully before prove().";
+
+/**
+ * `prove()` before `init`: same outer code as other init failures (`00001`), explicit `details.reason`, and a dedicated message.
+ */
+export function createProveBeforeInitError(clientRequestId: string): BnbZkIdProveError {
+  return createBnbZkIdProveError(
+    "00001",
+    {
+      reason: INIT_FAILURE_REASON_PROVE_BEFORE_INIT
+    },
+    { clientRequestId, messageOverride: MESSAGE_PROVE_BEFORE_INIT }
+  );
+}
+
 /**
  * Maps an `init`-time failure from `@primuslabs/zktls-js-sdk` into {@link BnbZkIdError} for
  * `init` failure results (plain objects and non-{@link Error} throws are normalized here).
@@ -194,6 +219,7 @@ export function bnbZkIdErrorFromPrimusInitFailure(err: unknown): BnbZkIdError {
     code: outer,
     message: getDefaultProveErrorMessage(outer),
     details: {
+      reason: INIT_FAILURE_REASON_PRIMUS_INIT,
       primus
     }
   };

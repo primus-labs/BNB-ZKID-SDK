@@ -1,4 +1,5 @@
-import { SdkError } from "../errors/sdk-error.js";
+import { GATEWAY_API_ERROR_CODE, SdkError } from "../errors/sdk-error.js";
+import { flatDetailsFromFrameworkError } from "./framework-error-flat.js";
 import { joinBaseUrlAndPath } from "../util/join-base-url.js";
 import { emitGatewayCreateProofRequestDebug } from "./debug.js";
 import {
@@ -48,12 +49,51 @@ function parseCreateProofRequestResponse(
     return {
       proofRequestId,
       status,
-      error: body.error as GatewayError
+      error: body.error as GatewayError,
+      httpRequest: {
+        httpStatus: response.status,
+        pathname,
+        url
+      }
     };
   }
 
   throw new SdkError("Gateway request failed.", "TRANSPORT_ERROR", {
-    status: response.status,
+    httpStatus: response.status,
+    pathname,
+    url
+  });
+}
+
+/**
+ * Non-OK `GET /v1/proof-requests/{id}` may still return a Framework `{ error: { category, code, message|detail } }` body.
+ * Surface that as {@link GATEWAY_API_ERROR_CODE} instead of a bare `TRANSPORT_ERROR`.
+ */
+function parseGetProofRequestStatusResponse(
+  response: Response,
+  body: unknown,
+  pathname: string,
+  url: string
+): GatewayProofRequestStatusResult {
+  if (response.ok) {
+    return body as GatewayProofRequestStatusResult;
+  }
+
+  if (isRecord(body) && body.error != null && looksLikeGatewayProofRequestError(body.error)) {
+    const wireStatus =
+      typeof body.status === "string" ? (body.status as GatewayProofStatus) : undefined;
+    throw new SdkError("Gateway proof request query failed.", GATEWAY_API_ERROR_CODE, {
+      phase: "getProofRequestStatus",
+      httpStatus: response.status,
+      pathname,
+      url,
+      ...(wireStatus !== undefined ? { status: wireStatus } : {}),
+      ...flatDetailsFromFrameworkError(body.error as GatewayError)
+    });
+  }
+
+  throw new SdkError("Gateway request failed.", "TRANSPORT_ERROR", {
+    httpStatus: response.status,
     pathname,
     url
   });
@@ -111,7 +151,7 @@ class HttpGatewayClient implements GatewayClient {
       body = await response.json();
     } catch {
       throw new SdkError("Gateway returned a non-JSON response.", "TRANSPORT_ERROR", {
-        status: response.status,
+        httpStatus: response.status,
         pathname,
         url: url.toString()
       });
@@ -123,12 +163,22 @@ class HttpGatewayClient implements GatewayClient {
   async getProofRequestStatus(
     proofRequestId: string
   ): Promise<GatewayProofRequestStatusResult> {
-    return this.requestJson<GatewayProofRequestStatusResult>(
-      `/v1/proof-requests/${encodeURIComponent(proofRequestId)}`,
-      {
-        method: "GET"
-      }
-    );
+    const pathname = `/v1/proof-requests/${encodeURIComponent(proofRequestId)}`;
+    const url = this.resolveRequestUrl(pathname);
+    const response = await fetch(url, { method: "GET" });
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new SdkError("Gateway returned a non-JSON response.", "TRANSPORT_ERROR", {
+        httpStatus: response.status,
+        pathname,
+        url: url.toString()
+      });
+    }
+
+    return parseGetProofRequestStatusResponse(response, body, pathname, url.toString());
   }
 
   private resolveRequestUrl(pathname: string): URL {
@@ -140,7 +190,7 @@ class HttpGatewayClient implements GatewayClient {
     const response = await fetch(url, init);
     if (!response.ok) {
       throw new SdkError("Gateway request failed.", "TRANSPORT_ERROR", {
-        status: response.status,
+        httpStatus: response.status,
         pathname,
         url: url.toString()
       });

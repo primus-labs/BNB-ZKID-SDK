@@ -37,21 +37,7 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 4175,
-    proxy: {
-      // Same-origin in dev; browser never hits foreign origins (no CORS preflight failures).
-      "/brevis-gateway": {
-        target: "http://44.226.158.196:8038",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/brevis-gateway/, "")
-      },
-      "/pado-api": {
-        target: "https://api-dev.padolabs.org",
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/pado-api/, "")
-      }
-    }
+    port: 4175
   },
   preview: {
     host: "127.0.0.1",

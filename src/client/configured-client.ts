@@ -1,7 +1,10 @@
 import {
   bnbZkIdErrorFromPrimusInitFailure,
   createBnbZkIdProveError,
+  createProveBeforeInitError,
   getDefaultProveErrorMessage,
+  INIT_FAILURE_REASON_APP_ID_NOT_ENABLED,
+  INIT_FAILURE_REASON_TEMPLATE_RESOLVE,
   serializeErrorForProveDetails
 } from "../errors/prove-error.js";
 import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
@@ -47,7 +50,7 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
           code: "00001",
           message: getDefaultProveErrorMessage("00001"),
           details: {
-            reason: "appId_not_enabled",
+            reason: INIT_FAILURE_REASON_APP_ID_NOT_ENABLED,
             appId
           }
         }
@@ -65,7 +68,10 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
         error: {
           code: "00001",
           message: getDefaultProveErrorMessage("00001"),
-          details: { cause: serializeErrorForProveDetails(err) }
+          details: {
+            reason: INIT_FAILURE_REASON_TEMPLATE_RESOLVE,
+            cause: serializeErrorForProveDetails(err)
+          }
         }
       };
     }
@@ -89,11 +95,12 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
 
   async prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult> {
     if (!this.initializedAppId || !this.gatewayConfig || !this.gatewayConfigProvidersWire) {
-      throw createBnbZkIdProveError(
-        "00001",
-        { reason: "init_must_succeed_before_prove" },
-        { clientRequestId: input.clientRequestId }
-      );
+      const err = createProveBeforeInitError(input.clientRequestId);
+      await options?.onProgress?.({
+        status: "failed",
+        clientRequestId: err.clientRequestId ?? input.clientRequestId.trim()
+      });
+      throw err;
     }
 
     return executeProveWorkflow({
