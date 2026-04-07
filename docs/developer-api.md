@@ -50,7 +50,7 @@ import { BnbZkIdClient, BnbZkIdProveError } from "@primuslabs/bnb-zkid-sdk";
 const client = new BnbZkIdClient();
 
 const initResult = await client.init({
-  appId: "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C" // for test appId
+  appId: "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C" // example test appId; it must be registered in the BNB ZK ID Framework On-chain Identity Registry: https://github.com/brevis-network/brevis-zk-id-contracts
 });
 
 if (!initResult.success) {
@@ -237,14 +237,8 @@ interface ProvingParams {
 Rules:
 
 - `provingParams` must be a plain object when provided.
-- `provingParams.businessParams` must be a plain object when provided.
-- If `provingParams.businessParams` is provided, it must exactly match the
-  `businessParams` configured for that `identityPropertyId` in
-  `initResult.providers`.
-- If `provingParams.businessParams` is omitted, the SDK uses the Gateway config
-  default when one exists.
 - Other `provingParams` fields are reserved for future zkTLS extensions and are
-  passed through as-is.
+  passed through as-is. 
 
 ### Options
 
@@ -351,7 +345,7 @@ Important notes:
 | `00001` | `Failed to initialize` | SDK initialization failed, including calling `prove` before a successful `init`, unsupported `appId`, or app-level setup failure. | Check app configuration first. Retry only after the root cause is fixed. |
 | `00002` | `A verification process is in progress. Please try again later.` | Primus reported that another verification flow is already active. | Retry later. |
 | `00003` | `The user closes or cancels the verification process.` | The user cancelled or closed the verification flow. | Safe to retry when the user is ready. |
-| `00004` | `Target data missing. Please check whether the data json path in the request URL’s response aligns with your template.` | The zkTLS template could not extract the expected data from the target source. | Retry only after fixing the template or data source. |
+| `00004` | `Target data missing. Please check whether the data json path in the request URL's response aligns with your template.` | The zkTLS template could not extract the expected data from the target source. | Retry only after fixing the template or data source. |
 | `00005` | `Unstable internet connection. Please try again.` | Network-level failure reported by the zkTLS stage. | Usually safe to retry. |
 | `00006` | `Failed to generate zkTLS proof` | Generic Primus or zkTLS proving failure. | Retry after reviewing `details.primus`. |
 | `00007` | `Invalid parameters` | Public input validation failed. | Do not retry until the request payload is corrected. |
@@ -415,65 +409,3 @@ Typical fields under `details.primus` include:
 - `code`
 - `message`
 - `data`
-
-## FAQ / Limitations
-
-### Do I Need To Call `init(...)` Before `prove(...)`?
-
-Yes. `prove(...)` requires a previously successful `init(...)`. Calling `prove(...)`
-first throws `BnbZkIdProveError` code `00001`.
-
-### Can I Skip `provingParams.businessParams`?
-
-Yes. If the selected identity property has configured default `businessParams`, the
-SDK will use the Gateway config value when you omit it.
-
-If you do provide `provingParams.businessParams`, it must exactly match the
-configured value for that identity property.
-
-### Is There A Low-Level Public Gateway Client?
-
-No. The current public API is intentionally facade-only. Low-level Gateway client
-shapes are internal and may change without being part of the package root contract.
-
-### Does `prove(...)` Return A Failure Result?
-
-No. On success it returns `ProveSuccessResult`. On failure it throws
-`BnbZkIdProveError`.
-
-### Is Live Transport Mandatory For Local Development?
-
-No. This repository includes a deterministic fixture-backed harness for examples and
-tests. That harness is internal to the repository and is not part of the package
-public API.
-
-### Does The SDK Support Browser Integration?
-
-Yes. The SDK is browser-oriented, and the public `prove(...)` options include the
-browser-related `closeDataSourceOnProofComplete` flag.
-
-For browser config override, define `globalThis.__BNB_ZKID_CONFIG_URL__` before
-creating the client.
-
-### Are All Backend Payloads Exposed Directly?
-
-No. The SDK normalizes remote payloads before exposing public results. Integrators
-should rely on the public result types and `BnbZkIdProveError`, not on internal
-Gateway payload details.
-
-### Is The Public Surface Expected To Stay Small?
-
-Yes. The current design goal is to keep the external contract small and explicit:
-
-- one public client
-- one initialization method
-- one main proof method
-- typed progress events
-- typed error surface
-
-### What Is The Current Delivery Phase?
-
-This repository is still in a contract-first and harness-driven phase. The public
-facade and typed workflow are the main integration surface, while low-level
-transport internals and repository harness code are intentionally kept out of the
-public API.
