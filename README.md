@@ -411,7 +411,7 @@ Typical fields under `details.brevis` include:
 - `phase`
 - `rawDetails`
 
-#### Primus Failure
+#### zkTLS Failure
 
 When the zkTLS stage fails, the SDK throws a `BnbZkIdProveError` with
 `details.primus`.
