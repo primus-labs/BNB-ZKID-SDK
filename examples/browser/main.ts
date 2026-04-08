@@ -18,7 +18,7 @@ if (!(globalThis as GlobalWithConfig).Buffer) {
 }
 
 /** Brevis Gateway origin (browser will call `GET ${base}/v1/config` etc.). */
-const BREVIS_GATEWAY_DIRECT_URL = "https://explorer-gateway.brevis.network";
+const BREVIS_GATEWAY_DIRECT_URL = "https://zk-id.brevis.network";
 
 /**
  * Chain-level app id (PADO templates bucket / Brevis app). Same value for live init and
