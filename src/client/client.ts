@@ -1,4 +1,4 @@
-import { createBnbZkIdProveError } from "../errors/prove-error.js";
+import { createProveBeforeInitError } from "../errors/prove-error.js";
 import { createRuntimeConfiguredClient } from "./runtime-client.js";
 import type {
   BnbZkIdClientMethods,
@@ -21,11 +21,12 @@ export class BnbZkIdClient implements BnbZkIdClientMethods {
 
   async prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult> {
     if (!this.runtimeClientPromise) {
-      throw createBnbZkIdProveError(
-        "00001",
-        { reason: "init_must_succeed_before_prove" },
-        { clientRequestId: input.clientRequestId }
-      );
+      const err = createProveBeforeInitError(input.clientRequestId);
+      await options?.onProgress?.({
+        status: "failed",
+        clientRequestId: err.clientRequestId ?? input.clientRequestId.trim()
+      });
+      throw err;
     }
 
     const runtimeClient = await this.runtimeClientPromise;

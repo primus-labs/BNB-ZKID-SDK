@@ -55,13 +55,22 @@ export interface GatewayCreateProofRequestInput {
   businessParams?: Record<string, unknown> | null;
 }
 
+/** HTTP context when the SDK parsed a proof-requests response from a non-OK status (Framework JSON body). */
+export interface GatewayProofRequestHttpContext {
+  httpStatus: number;
+  pathname: string;
+  url: string;
+}
+
 /**
  * `POST /v1/proof-requests` JSON per Framework: `proofRequestId`, `status`, `error` only.
+ * `httpRequest` is SDK-only: set when `error` was read from an HTTP 4xx/5xx Framework body.
  */
 export interface GatewayCreateProofRequestResult {
   proofRequestId: string;
   status: GatewayProofStatus;
   error?: GatewayError | null;
+  httpRequest?: GatewayProofRequestHttpContext;
 }
 
 /** `identityProperty` on `GET /v1/proof-requests/{id}` (Framework). */

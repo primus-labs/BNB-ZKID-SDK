@@ -18,7 +18,7 @@ if (!(globalThis as GlobalWithConfig).Buffer) {
 }
 
 /** Brevis Gateway origin (browser will call `GET ${base}/v1/config` etc.). */
-const BREVIS_GATEWAY_DIRECT_URL = "http://44.226.158.196:8038";
+const BREVIS_GATEWAY_DIRECT_URL = "https://zk-id.brevis.network";
 
 /**
  * Chain-level app id (PADO templates bucket / Brevis app). Same value for live init and
@@ -31,33 +31,8 @@ const BROWSER_HARNESS_APP_ID =
 const BROWSER_HARNESS_FIXTURE_GITHUB_PROPERTY_ID =
   "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff";
 
-/**
- * When `true` and `npm run dev:browser-harness`, Gateway + PADO calls use same-origin
- * `/brevis-gateway/` and `/pado-api/` (Vite proxy). When `false`, browser hits
- * {@link BREVIS_GATEWAY_DIRECT_URL} / api-dev.padolabs.org directly (needs CORS on those hosts).
- */
-const BREVIS_GATEWAY_USE_DEV_PROXY = true;
-
 function resolveBrevisGatewayBaseUrl(): string {
-  if (import.meta.env.DEV && BREVIS_GATEWAY_USE_DEV_PROXY) {
-    return new URL("/brevis-gateway/", window.location.origin).href;
-  }
   return BREVIS_GATEWAY_DIRECT_URL;
-}
-
-/** In dev + proxy mode, PADO templates/signer go through `/pado-api/` → api-dev.padolabs.org. */
-function resolvePadolabsBaseUrlForDev(original: string): string {
-  if (!import.meta.env.DEV || !BREVIS_GATEWAY_USE_DEV_PROXY) {
-    return original;
-  }
-  try {
-    if (new URL(original).origin === "https://api-dev.padolabs.org") {
-      return new URL("/pado-api/", window.location.origin).href;
-    }
-  } catch {
-    /* ignore */
-  }
-  return original;
 }
 
 /**
@@ -221,10 +196,7 @@ async function loadBrevisHarnessCatalogFromFixture(): Promise<void> {
   populateBrevisHarnessCatalogFromWirePayload(data);
 }
 
-/**
- * Live catalog from `GET {gatewayBase}v1/config` (same base as {@link resolveBrevisGatewayBaseUrl}).
- * In dev with {@link BREVIS_GATEWAY_USE_DEV_PROXY}, requests are same-origin via `/brevis-gateway/` → no CORS.
- */
+/** Live catalog from `GET {gatewayBase}v1/config` (same base as {@link resolveBrevisGatewayBaseUrl}). */
 async function loadBrevisHarnessCatalogFromGateway(): Promise<void> {
   const base = resolveBrevisGatewayBaseUrl();
   const configUrl = new URL("v1/config", base).toString();
@@ -261,7 +233,7 @@ async function refreshBrevisHarnessCatalog(): Promise<void> {
     rebuildBrevisProviderSelect();
     const corsHint =
       modeSelectElement.value === "primus-sdk"
-        ? "In dev mode, use `npm run dev:browser-harness` (Vite proxies `/brevis-gateway` to Gateway to avoid browser CORS). If you connect to Gateway directly, the server must return headers such as `Access-Control-Allow-Origin`."
+        ? "Browser calls Gateway directly. If GET /v1/config is blocked, ensure the server returns CORS headers such as `Access-Control-Allow-Origin`."
         : "";
     writeLog(
       `Failed to load Brevis provider options - ${describeError(err)}${corsHint ? ` ${corsHint}` : ""}`
@@ -425,11 +397,11 @@ function buildLivePrimusSdkOverride(): NonNullable<BrowserHarnessConfigOverrideF
 
   return {
     templateResolver: {
-      baseUrl: resolvePadolabsBaseUrlForDev(INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.baseUrl),
+      baseUrl: INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.baseUrl,
       resolveTemplatePath: INTERNAL_BNB_ZKID_CONFIG.primus.templateResolver.resolveTemplatePath
     },
     signer: {
-      baseUrl: resolvePadolabsBaseUrlForDev(INTERNAL_BNB_ZKID_CONFIG.primus.signer.baseUrl),
+      baseUrl: INTERNAL_BNB_ZKID_CONFIG.primus.signer.baseUrl,
       signPath: INTERNAL_BNB_ZKID_CONFIG.primus.signer.signPath
     }
   };
@@ -528,7 +500,7 @@ runButton.addEventListener("click", async () => {
       (!brevisHarnessCatalogLoaded || brevisHarnessCatalog.length === 0)
     ) {
       writeLog(
-        "This mode requires a provider list: wait until the dropdown has options and the log shows no GET /v1/config error. In development, use the Vite proxy."
+        "This mode requires a provider list: wait until the dropdown has options and the log shows no GET /v1/config error."
       );
       harnessSucceeded = false;
       return;
@@ -560,8 +532,8 @@ runButton.addEventListener("click", async () => {
     const provingParams = resolveBrowserHarnessProvingParams();
     const proveInput: ProveInput = {
       clientRequestId: new Date().getTime().toString(),
-      // userAddress: "0xA91ba9Eb139d90C55a8F04a31d894De0aBbf5a51", // steam
-      userAddress: "0xB12a1f7035FdCBB4cC5Fa102C01346BD45439Adf",// binance  okx github
+      userAddress: "0xA91ba9Eb139d90C55a8F04a31d894De0aBbf5a51", // steam
+      // userAddress: "0xB12a1f7035FdCBB4cC5Fa102C01346BD45439Adf",// binance  okx github
       // userAddress: "0x8F0D4188307496926d785fB00E08Ed772f3be890",// amazon
       identityPropertyId: resolveBrowserHarnessIdentityPropertyId(),
       ...(provingParams === undefined ? {} : { provingParams })

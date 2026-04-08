@@ -328,14 +328,11 @@
               the full <code>provingParams</code> object is passed into Primus
               <code>additionParams</code> and may also contain other reserved keys.
               In <strong>Brevis+PrimusSDK</strong>, the options come from the live
-              <code>GET /v1/config</code> of the current Gateway base. Prefer
-              <code>npm run dev:browser-harness</code> so requests go through the
-              same-origin <code>/brevis-gateway/</code> proxy and avoid CORS; if you
-              connect to a remote Gateway directly, the server must enable CORS.
+              <code>GET /v1/config</code> of the current Gateway base and browser
+              requests go directly to Gateway; the server must enable CORS.
               In <strong>BrevisFixture</strong>, the options still match static
-              <code>fixtures/config.json</code>. PADO can go through the
-              <code>/pado-api/</code> proxy. A Primus browser extension environment
-              is still required.
+              <code>fixtures/config.json</code>. A Primus browser extension
+              environment is still required.
             </p>
           </div>
         </div>

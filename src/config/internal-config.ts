@@ -1,6 +1,6 @@
 import type { BnbZkIdConfigFile } from "./types.js";
 
-const INTERNAL_GATEWAY_BASE_URL = "https://explorer-gateway.brevis.network";
+const INTERNAL_GATEWAY_BASE_URL = "https://zk-id.brevis.network";
 // const INTERNAL_GATEWAY_BASE_URL = "http://44.226.158.196:8038";
 const INTERNAL_PADOLABS_BASE_URL = "https://api-dev.padolabs.org";
 

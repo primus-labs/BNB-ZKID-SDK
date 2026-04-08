@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createConfiguredBnbZkIdClient } from "../../src/client/configured-client.js";
-import { BnbZkIdProveError, getDefaultProveErrorMessage } from "../../src/errors/prove-error.js";
+import {
+  BnbZkIdProveError,
+  getDefaultProveErrorMessage,
+  INIT_FAILURE_REASON_PRIMUS_INIT,
+  INIT_FAILURE_REASON_PROVE_BEFORE_INIT,
+  MESSAGE_PROVE_BEFORE_INIT
+} from "../../src/errors/prove-error.js";
 import { extractPublicProvidersWireFromConfigRaw } from "../../src/gateway/normalize-config.js";
 import type {
   GatewayClient,
@@ -384,6 +390,7 @@ test("configured client returns init failure when primus init throws plain sdk o
   }
   assert.equal(initResult.error?.code, "00000");
   assert.equal(initResult.error?.message, getDefaultProveErrorMessage("00000"));
+  assert.equal(initResult.error?.details?.reason, INIT_FAILURE_REASON_PRIMUS_INIT);
   const primus = initResult.error?.details?.primus as { code?: string } | undefined;
   assert.equal(primus?.code, "00006");
 });
@@ -402,6 +409,7 @@ test("configured client returns init failure when primus init throws Error", asy
   }
   assert.equal(initResult.error?.code, "00001");
   assert.equal(initResult.error?.message, getDefaultProveErrorMessage("00001"));
+  assert.equal(initResult.error?.details?.reason, INIT_FAILURE_REASON_PRIMUS_INIT);
   const primus = initResult.error?.details?.primus as { cause?: { message?: string } } | undefined;
   assert.equal(primus?.cause?.message, "network down");
 });
@@ -472,6 +480,11 @@ test("configured client throws 00001 when prove runs before init", async () => {
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "00001");
+      assert.equal(err.message, MESSAGE_PROVE_BEFORE_INIT);
+      assert.equal(
+        (err as BnbZkIdProveError).details.reason,
+        INIT_FAILURE_REASON_PROVE_BEFORE_INIT
+      );
       assert.equal(err.clientRequestId, "prove-task-001");
       return true;
     }
@@ -516,6 +529,7 @@ test("configured client throws 10003 when gateway poll returns terminal error", 
       assert.equal(err.proveCode, "10003");
       assert.equal(err.proofRequestId, "proof-request-001");
       const brevis = err.details.brevis as Record<string, unknown>;
+      assert.equal(brevis.phase, "getProofRequestStatus");
       assert.equal(brevis.status, "failed");
       assert.equal(brevis.code, "REMOTE_FAILURE");
       assert.equal(brevis.message, "proof generation failed");
@@ -559,6 +573,7 @@ test("configured client throws 10003 when gateway poll returns prover_failed wit
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "10003");
       const brevis = err.details.brevis as Record<string, unknown>;
+      assert.equal(brevis.phase, "pollProofRequestTerminal");
       assert.equal(brevis.status, "prover_failed");
       assert.deepEqual(brevis.failure, {
         reason: "PROVER_CRASHED",
@@ -604,6 +619,7 @@ test("configured client throws 10003 when createProofRequest returns gateway err
       assert.equal(err.proveCode, "10003");
       assert.equal(err.message, "Failed to generate zkVM proof");
       const brevis = err.details.brevis as Record<string, unknown>;
+      assert.equal(brevis.phase, "createProofRequest");
       assert.equal(brevis.category, "policy_rejected");
       assert.equal(brevis.code, "STEAM_POLICY_CHECK_FAILED");
       assert.equal(brevis.message, "steam special policy not satisfied");
@@ -648,6 +664,7 @@ test("configured client throws 10003 with zkVM outer message when create returns
       assert.equal((err as BnbZkIdProveError).message, "Failed to generate zkVM proof");
       assert.deepEqual((err as BnbZkIdProveError).details, {
         brevis: {
+          phase: "createProofRequest",
           category: "zktls_invalid",
           code: "ZKTLS_VERIFICATION_FAILED",
           message: "zkTls verification failed"

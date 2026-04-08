@@ -211,6 +211,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       throw createBnbZkIdProveError(
         zkVmCode,
         brevisDetails({
+          phase: "pollProofRequestTerminal",
           code: "HARNESS_PROOF_FAILED",
           message: "Deterministic harness returned a failed proof request.",
           status: status.status

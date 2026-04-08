@@ -1,3 +1,6 @@
+/** Gateway proof-request GET / poll body: Framework top-level `error` (API/query), not lifecycle `failure`. */
+export const GATEWAY_API_ERROR_CODE = "GATEWAY_API_ERROR" as const;
+
 export class SdkError extends Error {
   readonly code: string;
   readonly details: Record<string, unknown> | undefined;
