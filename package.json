@@ -1,9 +1,8 @@
 {
   "name": "@primuslabs/bnb-zkid-sdk",
   "version": "0.1.0-beta.2",
-  "private": true,
   "type": "module",
-  "description": "Design-stage TypeScript SDK skeleton for BNB ZKID.",
+  "description": "TypeScript SDK for BNB ZKID.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -22,6 +21,7 @@
     "dev:browser-harness": "vite --config vite.browser-harness.config.ts",
     "example:minimal": "npm run build && npm run build:test && node dist-test/examples/minimal.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "publish": "npm publish --access public",
     "test": "npm run build && npm run build:test && node --test dist-test/tests/config/load-config.test.js dist-test/tests/gateway/business-params.test.js dist-test/tests/gateway/http-create-proof-request.test.js dist-test/tests/gateway/normalize-config.test.js dist-test/tests/harness/minimal-sdk.test.js dist-test/tests/primus/adapter.test.js dist-test/tests/primus/normalize-zktls-private-data.test.js dist-test/tests/primus/request-signer.test.js dist-test/tests/primus/template-resolver.test.js dist-test/tests/workflow/collect-primus-attestation.test.js dist-test/tests/workflow/collect-primus-attestation-from-resolver.test.js dist-test/tests/client/configured-client.test.js dist-test/tests/client/public-client.test.js"
   },
   "devDependencies": {
