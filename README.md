@@ -38,7 +38,7 @@ The following items are part of the current public surface:
 
 Installing the Primus extension test package is only required during the current testing phase. If you have installed the official version of the Primus extension, you need to stop this process first.
 
-* Download the [Primus extension test package](https://github.com/primus-labs/BNB-ZKID-SDK/blob/main/extension/PRIMUS-0.3.47.zip) and unzip.
+* Download the [Primus extension test package](https://github.com/primus-labs/BNB-ZKID-SDK/blob/main/extension/PRIMUS-0.3.48.zip) and unzip.
 
 * Access `chrome://extensions/`
 
