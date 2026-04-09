@@ -54,8 +54,9 @@ Request a proof.
     long-running or concurrent tasks
   - `userAddress` (`string`): user wallet address
   - `identityPropertyId` (`string`): the identity property to prove
-  - `provingParams` (optional, `object`): additional fields to pass through, for
-    example threshold inputs such as "balance greater than x"
+  - `provingParams` (optional, `object`): threshold inputs for Gateway `businessParams`
+    (and optional `jumpToUrl` for Primus `additionParams`), for example tiers such as
+    "balance greater than x"
 
     - `binance`
 

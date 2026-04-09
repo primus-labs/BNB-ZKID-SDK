@@ -176,19 +176,21 @@ export declare class BnbZkIdClient implements BnbZkIdClientMethods {
 
 ## `provingParams` Rules
 
-`provingParams` uses the `ProvingParams` type and is serialized as a whole into
-Primus `additionParams.provingParams`. Within it, **`businessParams`** aligns with
-Gateway `businessParams` for provider-specific tiering and similar constraints.
+`provingParams` uses the `ProvingParams` type. **`businessParams`** aligns with Gateway
+`businessParams` for provider-specific tiering: it is validated against `GET /v1/config`
+when provided and is used for the Gateway `POST /v1/proof-requests` body — it is **not**
+copied into Primus `additionParams`.
+
+If **`jumpToUrl`** is set to a non-empty string, the SDK sets top-level Primus
+`additionParams.jumpToUrl` for zkTLS runtimes that consume it.
 
 - Keys inside `businessParams` are usually provider-specific, such as
   `contribution` or `ordersVolume`; values are typically threshold arrays ordered
   from low to high tiers
-- Other keys may also be included for future zkTLS extensions and are passed into
-  `additionParams.provingParams` together with `businessParams`
 - If explicit business thresholds are not needed, the caller may omit the entire
-  `provingParams` object, or pass only extension fields without `businessParams` (in
-  that case the Gateway-side `businessParams` may still use the defaults from
-  `GET /v1/config`)
+  `provingParams` object, or pass only `jumpToUrl` / other documented keys without
+  `businessParams` (in that case the Gateway-side `businessParams` may still use the
+  defaults from `GET /v1/config`)
 - **Validation**: only when the caller provides
   **`provingParams.businessParams`**, the SDK compares it by deep equality with the
   `properties[].businessParams` configured for the current `identityPropertyId` in
@@ -210,8 +212,9 @@ const input: ProveInput = {
 };
 ```
 
-At the Primus integration layer, `provingParams` should not be exposed directly as
-raw third-party SDK configuration.
+At the Primus integration layer, only **`jumpToUrl`** from `provingParams` is merged into
+`additionParams` (at the root); template resolver `additionParams` and workflow keys such as
+`appId` remain as today.
 
 The current narrowed internal rules are:
 
@@ -220,8 +223,8 @@ The current narrowed internal rules are:
 - `provingParams.businessParams` is the primary source of `businessParams` in the
   Gateway `POST /v1/proof-requests` body (with any merge logic against config
   defaults left to the implementation)
-- `clientRequestId`, `identityPropertyId`, and the full `provingParams` object enter
-  Primus `additionParams`
+- Primus `additionParams` include `clientRequestId`, `identityPropertyId`, merged template /
+  workflow fields, and optional root **`jumpToUrl`** — not `provingParams` / `businessParams`
 
 This keeps the public contract expressed in business-domain terms while leaving
 Primus template resolution details internal.

@@ -31,6 +31,9 @@ const BROWSER_HARNESS_APP_ID =
 const BROWSER_HARNESS_FIXTURE_GITHUB_PROPERTY_ID =
   "0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff";
 
+/** Hoisted to Primus `additionParams.jumpToUrl` when the harness provider is Amazon. */
+const BROWSER_HARNESS_AMAZON_JUMP_TO_URL = "https://www.amazon.ca";
+
 function resolveBrevisGatewayBaseUrl(): string {
   return BREVIS_GATEWAY_DIRECT_URL;
 }
@@ -249,6 +252,16 @@ function getSelectedBrevisRow(): BrevisHarnessRow | undefined {
   );
 }
 
+function isAmazonHarnessRow(row: BrevisHarnessRow | undefined): boolean {
+  if (row === undefined) {
+    return false;
+  }
+  if (row.providerId.trim().toLowerCase() === "0xb5cc0e0322dd67209d90babc2c95e7c381be7d675597a0d03e9dd4b60cfa8758") {
+    return true;
+  }
+  return row.providerDescription.trim().toLowerCase().includes("amazon");
+}
+
 function harnessUsesBrevisProviderPicker(): boolean {
   return (
     modeSelectElement.value === "primus-sdk" ||
@@ -273,12 +286,22 @@ function resolveBrowserHarnessIdentityPropertyId(): string {
   );
 }
 
-function resolveBrowserHarnessProvingParams(): ProveInput["provingParams"] {
+function resolveBrowserHarnessProvingParams(): ProveInput["provingParams"] | undefined {
   if (modeSelectElement.value === "fixture") {
     return undefined;
   }
-  const businessParams = cloneGatewayBusinessParamsForRequest(getSelectedBrevisRow()?.businessParams);
-  return businessParams === undefined ? undefined : { businessParams };
+  const row = getSelectedBrevisRow();
+  const businessParams = cloneGatewayBusinessParamsForRequest(row?.businessParams);
+  const jumpToUrl = isAmazonHarnessRow(row) ? BROWSER_HARNESS_AMAZON_JUMP_TO_URL : undefined;
+
+  if (businessParams === undefined && jumpToUrl === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...(businessParams === undefined ? {} : { businessParams }),
+    ...(jumpToUrl === undefined ? {} : { jumpToUrl })
+  };
 }
 
 function writeLog(line: string): void {

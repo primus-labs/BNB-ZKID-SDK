@@ -233,7 +233,7 @@ interface ProveInput {
 | `clientRequestId` | `string` | Yes | Client-defined request identifier used for correlation and logging. |
 | `userAddress` | `string` | Yes | EVM wallet address. Must be `0x` followed by 40 hex characters. |
 | `identityPropertyId` | `string` | Yes | Identity property to prove, such as `github_account_age`. |
-| `provingParams` | `ProvingParams` | No | Optional object forwarded into the zkTLS proving flow. |
+| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`. |
 
 ### `ProvingParams`
 
@@ -249,8 +249,9 @@ interface ProvingParams {
 Rules:
 
 - `provingParams` must be a plain object when provided.
-- Other `provingParams` fields are reserved for future zkTLS extensions and are
-  passed through as-is. 
+- `businessParams` is validated against `GET /v1/config` when present and is used for
+  the Gateway request body, not for Primus `additionParams`.
+- `jumpToUrl`, when set to a non-empty string, is passed as Primus `additionParams.jumpToUrl`.
 
 ### Options
 
