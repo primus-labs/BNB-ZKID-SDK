@@ -325,8 +325,9 @@
               <strong>Gateway</strong> values in
               <code>GET /v1/config</code> <code>properties[].businessParams</code>
               and <code>POST /v1/proof-requests</code> <code>businessParams</code>;
-              the full <code>provingParams</code> object is passed into Primus
-              <code>additionParams</code> and may also contain other reserved keys.
+              it is not copied into Primus <code>additionParams</code>. Optional
+              <code>jumpToUrl</code> in <code>provingParams</code> is sent as root
+              <code>additionParams.jumpToUrl</code> when set.
               In <strong>Brevis+PrimusSDK</strong>, the options come from the live
               <code>GET /v1/config</code> of the current Gateway base and browser
               requests go directly to Gateway; the server must enable CORS.

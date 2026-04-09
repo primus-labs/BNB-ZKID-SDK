@@ -33,7 +33,7 @@ class FakePrimusAdapter implements PrimusZkTlsAdapter {
   }
 }
 
-test("workflow forwards prove input into primus additionParams", async () => {
+test("workflow does not put prove provingParams into primus additionParams", async () => {
   const adapter = new FakePrimusAdapter();
 
   await collectPrimusAttestationForProveInput(adapter, {
@@ -80,15 +80,36 @@ test("workflow forwards prove input into primus additionParams", async () => {
     additionParams: {
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",
-      provingParams: {
-        businessParams: {
-          contribution: [21, 51]
-        },
-        extraPrimusField: "reserved"
-      },
       tenantId: "tenant-a"
     }
   });
+});
+
+test("workflow hoists provingParams.jumpToUrl to root of Primus additionParams", async () => {
+  const adapter = new FakePrimusAdapter();
+
+  await collectPrimusAttestationForProveInput(adapter, {
+    templateId: "github-template",
+    proveInput: {
+      clientRequestId: "prove-task-jump",
+      identityPropertyId: "github_account_age",
+      provingParams: {
+        businessParams: { contribution: [21, 51] },
+        jumpToUrl: "https://example.com/after-proof"
+      },
+      userAddress: "0x1234567890abcdef1234567890abcdef12345678"
+    }
+  });
+
+  assert(adapter.lastInput?.additionParams);
+  assert.equal(
+    (adapter.lastInput.additionParams as Record<string, unknown>).jumpToUrl,
+    "https://example.com/after-proof"
+  );
+  assert.equal(
+    (adapter.lastInput.additionParams as Record<string, unknown>).provingParams,
+    undefined
+  );
 });
 
 test("workflow applies resolver-provided template defaults (resolvedPrimusTemplateOptions)", async () => {

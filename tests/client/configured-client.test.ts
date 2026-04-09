@@ -250,12 +250,7 @@ test("configured client runs init and prove through primus and gateway workflow"
     additionParams: {
       appId: "brevisListaDAO",
       clientRequestId: "prove-task-001",
-      identityPropertyId: "github_account_age",
-      provingParams: {
-        businessParams: {
-          contribution: [21, 51]
-        }
-      }
+      identityPropertyId: "github_account_age"
     }
   });
   assert.equal(gatewayClient.createdInputs.length, 1);
@@ -305,11 +300,11 @@ test("configured client fills businessParams from init config when prove input o
   });
 
   assert.equal(primusAdapter.collectedInputs.length, 1);
-  assert.deepEqual(primusAdapter.collectedInputs[0]?.additionParams?.provingParams, {
-    locale: "en-US",
-    businessParams: {
-      contribution: [21, 51]
-    }
+  assert.equal(primusAdapter.collectedInputs[0]?.additionParams?.provingParams, undefined);
+  assert.deepEqual(primusAdapter.collectedInputs[0]?.additionParams, {
+    appId: "brevisListaDAO",
+    clientRequestId: "prove-task-implicit-business-params",
+    identityPropertyId: "github_account_age"
   });
   assert.deepEqual(gatewayClient.createdInputs[0]?.businessParams, {
     contribution: [21, 51]

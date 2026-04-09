@@ -102,11 +102,6 @@ test("resolver-based workflow resolves template id before collecting attestation
     additionParams: {
       clientRequestId: "prove-task-001",
       identityPropertyId: "github_account_age",
-      provingParams: {
-        businessParams: {
-          contribution: [21, 51]
-        }
-      },
       tenantId: "tenant-a"
     }
   });

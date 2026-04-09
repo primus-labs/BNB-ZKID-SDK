@@ -27,11 +27,16 @@ export interface BnbZkIdError {
 export type BusinessParams = Record<string, unknown>;
 
 /**
- * Carried on {@link ProveInput} as `provingParams` and serialized into Primus `additionParams.provingParams`.
- * `businessParams` is validated against `GET /v1/config` when present; other keys are forwarded as-is for future fields.
+ * Carried on {@link ProveInput} as `provingParams`. **`businessParams`** is validated against
+ * `GET /v1/config` when present and is used for the Gateway `POST /v1/proof-requests` body — it is
+ * **not** copied into Primus `additionParams`.
+ *
+ * When **`jumpToUrl`** is a non-empty string, the SDK sets top-level Primus `additionParams.jumpToUrl`
+ * for zkTLS runtimes that read it there.
  */
 export interface ProvingParams {
   businessParams?: BusinessParams;
+  jumpToUrl?: string;
   [key: string]: unknown;
 }
 
@@ -64,8 +69,9 @@ export interface ProveInput {
   userAddress: string;
   identityPropertyId: string;
   /**
-   * Optional bag for Primus `additionParams.provingParams`; `businessParams` mirrors Gateway and defaults from
-   * `GET /v1/config` when omitted.
+   * Optional thresholds / options: `businessParams` for Gateway alignment only; `jumpToUrl` (if set) is
+   * passed as Primus `additionParams.jumpToUrl`. Other keys are ignored by the default workflow unless
+   * documented otherwise.
    */
   provingParams?: ProvingParams;
 }
