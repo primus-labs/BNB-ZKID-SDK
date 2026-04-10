@@ -83,6 +83,9 @@ try {
       clientRequestId: "prove-task-001",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678", // user address
       identityPropertyId: "0xa8b86ba89172f269976e3ef2dafed6de381b92a6d19a2ab848273b6f8db69c7c", // the binance identityPropertyId for test
+      // provingParams: {
+      //  jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
+      // },
     },
     {
       onProgress(event) {
@@ -233,7 +236,7 @@ interface ProveInput {
 | `clientRequestId` | `string` | Yes | Client-defined request identifier used for correlation and logging. |
 | `userAddress` | `string` | Yes | EVM wallet address. Must be `0x` followed by 40 hex characters. |
 | `identityPropertyId` | `string` | Yes | Identity property to prove, such as `github_account_age`. |
-| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`. |
+| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`. To prove Amazon, you need to upload the opened website. |
 
 ### `ProvingParams`
 
@@ -244,6 +247,11 @@ interface ProvingParams {
   businessParams?: BusinessParams;
   [key: string]: unknown;
 }
+
+// Amazon can pass the opened URL like this:
+// provingParams: {
+//  jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
+// },
 ```
 
 Rules:
