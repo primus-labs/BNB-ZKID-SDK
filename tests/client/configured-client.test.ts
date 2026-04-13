@@ -433,7 +433,7 @@ test("configured client throws 00007 when userAddress is not a valid EVM address
   );
 });
 
-test("configured client throws 00007 when identityPropertyId is not in GET /v1/config providers wire", async () => {
+test("configured client throws 00007 when identityPropertyId is not in init().providers wire", async () => {
   const client = createConfiguredBnbZkIdClient({
     gatewayClient: new FakeGatewayClient(),
     primusAdapter: new FakePrimusAdapter(),

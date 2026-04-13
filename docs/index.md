@@ -7,6 +7,8 @@ This repository treats `docs/` as the record system for design and harness decis
 - [`architecture.md`](./architecture.md): top-level architecture, boundaries, and implementation order
 - [`sdk-spec.md`](./sdk-spec.md): public SDK contract and internal reference contract
 - [`harness.md`](./harness.md): first executable harness definition
+- [`error-reference.md`](./error-reference.md): field-by-field error and `details` structure
+- [`bnbzkidsdk-error.md`](./bnbzkidsdk-error.md): integration-facing error catalog with example `toJSON()`-style payloads
 - [`engineering-rules.md`](./engineering-rules.md): mechanical rules that keep the repo agent-readable
 
 ## Execution Plans

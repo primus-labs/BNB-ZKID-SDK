@@ -100,8 +100,7 @@ export async function executeProveWorkflow(
         throw createBnbZkIdProveError(
           "00007",
           {
-            message:
-              "identityPropertyId is not supported by the normalized Gateway configuration (no matching provider / property).",
+            message: "identityPropertyId is not listed in init().providers[].properties[].id.",
             field: "identityPropertyId"
           },
           { clientRequestId }

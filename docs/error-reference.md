@@ -7,6 +7,8 @@ page describes **structure** only; keep it aligned with `src/errors/`,
 `src/workflow/execute-prove.ts`, `src/client/configured-client.ts`, and
 `src/gateway/http-client.ts`.
 
+Integration-facing catalog with example **`toJSON()`-style objects**: [`bnbzkidsdk-error.md`](./bnbzkidsdk-error.md).
+
 ---
 
 ## 1. Two primary surfaces
@@ -92,8 +94,10 @@ Used for template resolve `cause`, `brevis.cause`, and similar.
 ## 7. `prove()` — validation and config alignment (`00007`)
 
 From `assertProveInputValidOrThrow` and from **`executeProveWorkflow`** when
-`identityPropertyId` does not match normalized Gateway config (`ConfigurationError`
-→ `00007`).
+`identityPropertyId` is not present on the normalized Gateway config
+(`ConfigurationError` → `00007`). The user-facing `details.message` for
+`identityPropertyId` matches the providers-wire check: **not listed in
+`init().providers[].properties[].id`**.
 
 | Common `details` | Notes |
 | --- | --- |

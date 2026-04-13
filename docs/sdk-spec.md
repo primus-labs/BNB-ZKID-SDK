@@ -319,7 +319,8 @@ so tests and debug flows can change only the fields they need, such as
 ## Error Model
 
 For a full breakdown of `details.primus`, `details.brevis`, and `init` vs `prove`
-failure shapes, see [`error-reference.md`](./error-reference.md).
+failure shapes, see [`error-reference.md`](./error-reference.md). For example
+payloads and end-to-end cases, see [`bnbzkidsdk-error.md`](./bnbzkidsdk-error.md).
 
 `init` **throws** `BnbZkIdProveError` when `appId` is missing, not a `string`, or
 empty after `trim()` (`proveCode` **`00007`**, `message` **`Invalid parameters`**,

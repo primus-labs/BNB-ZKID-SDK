@@ -553,10 +553,11 @@ runButton.addEventListener("click", async () => {
     }
 
     const provingParams = resolveBrowserHarnessProvingParams();
-    const proveInput: ProveInput = {
+    const proveInput: ProveInput = 
+    {
       clientRequestId: new Date().getTime().toString(),
-      userAddress: "0xA91ba9Eb139d90C55a8F04a31d894De0aBbf5a51", // steam
-      // userAddress: "0xB12a1f7035FdCBB4cC5Fa102C01346BD45439Adf",// binance  okx github
+      // userAddress: "0xA91ba9Eb139d90C55a8F04a31d894De0aBbf5a51", // steam
+      userAddress: "0xB12a1f7035FdCBB4cC5Fa102C01346BD45439Adf",// binance  okx github
       // userAddress: "0x8F0D4188307496926d785fB00E08Ed772f3be890",// amazon
       identityPropertyId: resolveBrowserHarnessIdentityPropertyId(),
       ...(provingParams === undefined ? {} : { provingParams })

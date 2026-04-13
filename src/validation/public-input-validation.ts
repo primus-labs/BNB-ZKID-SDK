@@ -114,7 +114,7 @@ export function assertProveInputValidOrThrow(
       "00007",
       {
         message:
-          "identityPropertyId is not listed under GET /v1/config providers[].properties[].id for this Gateway.",
+          "identityPropertyId is not listed in init().providers[].properties[].id.",
         field: "identityPropertyId",
         value: idTrim
       },
@@ -155,7 +155,7 @@ export function assertProveInputValidOrThrow(
           "00007",
           {
             message:
-              "provingParams.businessParams was provided but GET /v1/config has no businessParams for this identityPropertyId.",
+              "provingParams.businessParams was provided, but init().providers[].properties[] has no businessParams for this identityPropertyId.",
             field: "provingParams.businessParams"
           },
           proveErrContext(trimmedRequestId)
@@ -166,7 +166,7 @@ export function assertProveInputValidOrThrow(
           "00007",
           {
             message:
-              "provingParams.businessParams must exactly match GET /v1/config properties[].businessParams for this identityPropertyId.",
+              "provingParams.businessParams must exactly match init().providers[].properties[].businessParams for this identityPropertyId.",
             field: "provingParams.businessParams"
           },
           proveErrContext(trimmedRequestId)
