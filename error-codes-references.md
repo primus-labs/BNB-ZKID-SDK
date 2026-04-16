@@ -24,10 +24,10 @@ Example:
 
 | **Code Range**  | **Category**       | **Scope**                                                    |
 | --------------- | ------------------ | ------------------------------------------------------------ |
-| **00xxx**       | **SDK Core**       | Initialization, parameter validation, and environment checks. |
-| **10xxx/20xxx** | **zkTLS Stage**    | Issues related to zkTLS process and data attestation status. |
-| **30xxx**       | **zkVM Stage**     | Proof generation via zkVM and Gateway interaction.           |
-| **40xxx**       | **On-chain Stage** | Final proof submission to the BNB Chain.                     |
+| 00xxx       | SDK Core       | Initialization, parameter validation, and environment checks. |
+| 10xxx/20xxx | zkTLS Stage    | Issues related to zkTLS process and data attestation status. |
+| 30xxx      | zkVM Stage     | Proof generation via zkVM and Gateway interaction.           |
+| 40xxx       | On-chain Stage | Final proof submission to the BNB Chain.                     |
 
 
 
