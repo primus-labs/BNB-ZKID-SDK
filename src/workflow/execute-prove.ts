@@ -29,6 +29,14 @@ import type {
 import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
 import type { PrimusZkTlsAdapter } from "../primus/types.js";
 import { collectPrimusAttestationFromTemplateResolver } from "./collect-primus-attestation-from-resolver.js";
+import {
+  classifyGatewayApiDetailsError,
+  classifyGatewayThrownError,
+  classifyGatewayTerminalFailureCode,
+  isGatewayStatusOnChainAttested,
+  isGatewayStatusTerminalFailure
+} from "./gateway-error-mapping.js";
+import { normalizeGatewayAttestedStatusOrThrow } from "./gateway-success-normalizer.js";
 import { assertProveInputValidOrThrow } from "../validation/public-input-validation.js";
 import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import type {
@@ -276,7 +284,7 @@ export async function executeProveWorkflow(
   }
 
   if (gatewayStatusIsTerminalFailure(status)) {
-    const zkVmCode = classifyGatewayTerminalFailureCode(status);
+    const zkVmCode = classifyGatewayTerminalFailureCode(status.status);
     throw createBnbZkIdProveError(
       zkVmCode,
       brevisDetails(brevisDetailsFromPollTerminalStatus(status)),
@@ -284,32 +292,34 @@ export async function executeProveWorkflow(
     );
   }
 
-  if (!status.walletAddress) {
+  let normalized;
+  try {
+    normalized = normalizeGatewayAttestedStatusOrThrow(status);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "UNKNOWN_GATEWAY_PAYLOAD_ERROR";
+    const reason =
+      message === "MISSING_WALLET_ADDRESS"
+        ? "Gateway success payload is missing walletAddress."
+        : message === "MISSING_IDENTITY_PROPERTY_ID"
+          ? "Gateway success payload is missing identity property id (`identityProperty.id` or legacy fields)."
+          : message === "MISSING_PROVIDER_ID"
+            ? "Gateway success payload is missing providerId."
+            : message === "NOT_ONCHAIN_ATTESTED"
+              ? "Gateway success payload is not in an on-chain attested state."
+              : "Gateway success payload is invalid.";
     throw createBnbZkIdProveError(
       "30002",
       brevisDetails({
         phase: "gateway_payload",
-        reason: "Gateway success payload is missing walletAddress."
+        reason
       }),
       proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
     );
   }
 
-  const identityPropertyId = resolveProofIdentityPropertyId(status);
-  if (!identityPropertyId) {
-    throw createBnbZkIdProveError(
-      "30002",
-      brevisDetails({
-        phase: "gateway_payload",
-        reason:
-          "Gateway success payload is missing identity property id (`identityProperty.id` or legacy fields)."
-      }),
-      proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
-    );
-  }
-
+  const identityPropertyId = normalized.identityPropertyId;
   const providerId =
-    status.providerId?.trim() ||
+    normalized.providerId ||
     resolveProviderIdForIdentityPropertyId(input.gatewayConfig, identityPropertyId)?.trim();
   if (!providerId) {
     throw createBnbZkIdProveError(
@@ -331,7 +341,7 @@ export async function executeProveWorkflow(
   return {
     status: "on_chain_attested",
     clientRequestId,
-    walletAddress: status.walletAddress,
+    walletAddress: normalized.walletAddress,
     providerId,
     identityPropertyId,
     ...(proofRequestIdAfterCreate !== undefined ? { proofRequestId: proofRequestIdAfterCreate } : {})
@@ -365,35 +375,6 @@ function resolveProviderMapping(
   throw new ConfigurationError("Gateway config does not support identityPropertyId.", {
     identityPropertyId
   });
-}
-
-function classifyGatewayThrownError(error: unknown): "30004" | "30002" {
-  if (isNetworkLikeError(error)) {
-    return "30004";
-  }
-  return "30002";
-}
-
-function classifyGatewayApiDetailsError(details: Record<string, unknown>): "30001" | "30003" | "30002" {
-  if (details.category === "binding_conflict") {
-    return "30001";
-  }
-  if (details.status === "internal_error") {
-    return "30003";
-  }
-  return "30002";
-}
-
-function classifyGatewayTerminalFailureCode(
-  status: GatewayProofRequestStatusResult
-): "30003" | "40000" | "30002" {
-  if (status.status === "internal_error") {
-    return "30003";
-  }
-  if (status.status === "submission_failed") {
-    return "40000";
-  }
-  return "30002";
 }
 
 /** Primus template HTTP payload may use `primusTemplateResponseKey` (PADO) while Gateway uses on-chain ids. */
@@ -455,7 +436,7 @@ async function pollProofRequestUntilSettled(
       return status;
     }
 
-    if (gatewayStatusIsOnChainAttested(status.status)) {
+    if (isGatewayStatusOnChainAttested(status.status)) {
       return status;
     }
 
@@ -471,34 +452,11 @@ async function pollProofRequestUntilSettled(
   }
 }
 
-function gatewayStatusIsOnChainAttested(
-  status: GatewayProofRequestStatusResult["status"]
-): boolean {
-  return status === "onchain_attested" || status === "on_chain_attested";
-}
-
 function gatewayStatusIsTerminalFailure(status: GatewayProofRequestStatusResult): boolean {
   if (status.failure != null) {
     return true;
   }
-
-  const s = status.status;
-  return (
-    s === "failed" ||
-    s === "prover_failed" ||
-    s === "packaging_failed" ||
-    s === "submission_failed" ||
-    s === "internal_error"
-  );
-}
-
-function resolveProofIdentityPropertyId(status: GatewayProofRequestStatusResult): string | undefined {
-  const fromNested =
-    status.identityProperty?.id?.trim() || status.identityProperty?.identityPropertyId?.trim();
-  if (fromNested) {
-    return fromNested;
-  }
-  return status.identityPropertyId?.trim();
+  return isGatewayStatusTerminalFailure(status.status);
 }
 
 /** `GET /v1/proof-requests/{id}` terminal payload → `details.brevis` inner object (always includes wire `status`). */

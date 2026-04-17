@@ -8,6 +8,7 @@ import {
 } from "../errors/prove-error.js";
 import { ConfigurationError } from "../errors/sdk-error.js";
 import { resolveProviderIdForIdentityPropertyId } from "../gateway/status-identity.js";
+import { normalizeGatewayAttestedStatusOrThrow } from "../workflow/gateway-success-normalizer.js";
 import type {
   GatewayConfig,
   GatewayCreateProofRequestResult,
@@ -214,17 +215,6 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       );
     }
 
-    if (!status.walletAddress) {
-      throw createBnbZkIdProveError(
-        "30002",
-        brevisDetails({
-          phase: "gateway_payload",
-          reason: "Harness success payload is missing walletAddress."
-        }),
-        { clientRequestId }
-      );
-    }
-
     if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
       throw createBnbZkIdProveError(
         "30002",
@@ -243,16 +233,24 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       proofRequestId: created.proofRequestId
     });
 
-    const identityPropertyId =
-      status.identityProperty?.id?.trim() ||
-      status.identityProperty?.identityPropertyId?.trim() ||
-      status.identityPropertyId?.trim();
-    if (!identityPropertyId) {
+    let normalized;
+    try {
+      normalized = normalizeGatewayAttestedStatusOrThrow(status);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "UNKNOWN_GATEWAY_PAYLOAD_ERROR";
+      const reason =
+        message === "MISSING_WALLET_ADDRESS"
+          ? "Harness success payload is missing walletAddress."
+          : message === "MISSING_IDENTITY_PROPERTY_ID"
+            ? "Harness success payload is missing identity property id."
+            : message === "MISSING_PROVIDER_ID"
+              ? "Harness success payload is missing providerId."
+              : "Harness success payload is invalid.";
       throw createBnbZkIdProveError(
         "30002",
         brevisDetails({
           phase: "gateway_payload",
-          reason: "Harness success payload is missing identity property id."
+          reason
         }),
         { clientRequestId }
       );
@@ -260,8 +258,8 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
 
     const gatewayConfig = (await this.transport.getConfig()) as unknown as GatewayConfig;
     const providerId =
-      status.providerId?.trim() ||
-      resolveProviderIdForIdentityPropertyId(gatewayConfig, identityPropertyId)?.trim();
+      normalized.providerId ||
+      resolveProviderIdForIdentityPropertyId(gatewayConfig, normalized.identityPropertyId)?.trim();
     if (!providerId) {
       throw createBnbZkIdProveError(
         "30002",
@@ -276,9 +274,9 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     return {
       status: "on_chain_attested",
       clientRequestId,
-      walletAddress: status.walletAddress,
+      walletAddress: normalized.walletAddress,
       providerId,
-      identityPropertyId,
+      identityPropertyId: normalized.identityPropertyId,
       proofRequestId: created.proofRequestId
     };
   }
@@ -292,7 +290,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     const errorContext = clientRequestId === undefined ? undefined : { clientRequestId };
 
     if (proofRequestId === "") {
-      throw createBnbZkIdProveError("30002", { field: "proofRequestId" }, errorContext);
+      throw createBnbZkIdProveError("00007", { field: "proofRequestId" }, errorContext);
     }
 
     let status;
@@ -321,28 +319,19 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
       throw createBnbZkIdProveError("30002", {}, errorContext);
     }
-    if (!status.walletAddress) {
-      throw createBnbZkIdProveError("30002", {}, errorContext);
-    }
-
-    const identityPropertyId =
-      status.identityProperty?.id?.trim() ||
-      status.identityProperty?.identityPropertyId?.trim() ||
-      status.identityPropertyId?.trim();
-    if (!identityPropertyId) {
-      throw createBnbZkIdProveError("30002", {}, errorContext);
-    }
-    const providerId = status.providerId?.trim();
-    if (!providerId) {
+    let normalized;
+    try {
+      normalized = normalizeGatewayAttestedStatusOrThrow(status);
+    } catch {
       throw createBnbZkIdProveError("30002", {}, errorContext);
     }
 
     return {
       status: "on_chain_attested",
-      walletAddress: status.walletAddress,
-      providerId,
-      identityPropertyId,
-      ...(status.proofRequestId?.trim() ? { proofRequestId: status.proofRequestId.trim() } : {}),
+      walletAddress: normalized.walletAddress,
+      providerId: normalized.providerId,
+      identityPropertyId: normalized.identityPropertyId,
+      ...(normalized.proofRequestId !== undefined ? { proofRequestId: normalized.proofRequestId } : {}),
       ...(clientRequestId !== undefined ? { clientRequestId } : {})
     };
   }

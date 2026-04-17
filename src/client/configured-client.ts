@@ -10,6 +10,13 @@ import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
 import type { PrimusZkTlsAdapter } from "../primus/types.js";
 import { assertInitInputValidOrThrow } from "../validation/public-input-validation.js";
 import { executeProveWorkflow } from "../workflow/execute-prove.js";
+import {
+  classifyGatewayApiDetailsError,
+  classifyGatewayTerminalFailureCode,
+  isGatewayStatusOnChainAttested,
+  isGatewayStatusTerminalFailure
+} from "../workflow/gateway-error-mapping.js";
+import { normalizeGatewayAttestedStatusOrThrow } from "../workflow/gateway-success-normalizer.js";
 import type {
   BnbZkIdClientMethods,
   InitInput,
@@ -149,73 +156,40 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       );
     }
 
-    if (gatewayStatusIsTerminalFailure(status.status)) {
+    if (isGatewayStatusTerminalFailure(status.status)) {
       throw createBnbZkIdProveError(classifyGatewayTerminalFailureCode(status.status), {}, errorContext);
     }
 
-    if (!gatewayStatusIsOnChainAttested(status.status)) {
+    if (!isGatewayStatusOnChainAttested(status.status)) {
       throw createBnbZkIdProveError("30002", { status: status.status }, errorContext);
     }
-    if (!status.walletAddress) {
-      throw createBnbZkIdProveError("30002", { reason: "missing walletAddress" }, errorContext);
-    }
-
-    const identityPropertyId =
-      status.identityProperty?.id?.trim() ||
-      status.identityProperty?.identityPropertyId?.trim() ||
-      status.identityPropertyId?.trim();
-    if (!identityPropertyId) {
-      throw createBnbZkIdProveError("30002", { reason: "missing identityPropertyId" }, errorContext);
-    }
-
-    const providerId = status.providerId?.trim();
-    if (!providerId) {
-      throw createBnbZkIdProveError("30002", { reason: "missing providerId" }, errorContext);
+    let normalized;
+    try {
+      normalized = normalizeGatewayAttestedStatusOrThrow(status);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "UNKNOWN_GATEWAY_PAYLOAD_ERROR";
+      const reason =
+        message === "MISSING_WALLET_ADDRESS"
+          ? "missing walletAddress"
+          : message === "MISSING_IDENTITY_PROPERTY_ID"
+            ? "missing identityPropertyId"
+            : message === "MISSING_PROVIDER_ID"
+              ? "missing providerId"
+              : message === "NOT_ONCHAIN_ATTESTED"
+                ? "not on_chain_attested"
+                : "invalid gateway payload";
+      throw createBnbZkIdProveError("30002", { reason }, errorContext);
     }
 
     return {
       status: "on_chain_attested",
-      walletAddress: status.walletAddress,
-      providerId,
-      identityPropertyId,
-      ...(status.proofRequestId?.trim() ? { proofRequestId: status.proofRequestId.trim() } : {}),
+      walletAddress: normalized.walletAddress,
+      providerId: normalized.providerId,
+      identityPropertyId: normalized.identityPropertyId,
+      ...(normalized.proofRequestId !== undefined ? { proofRequestId: normalized.proofRequestId } : {}),
       ...(clientRequestId !== undefined ? { clientRequestId } : {})
     };
   }
-}
-
-function gatewayStatusIsOnChainAttested(status: string): boolean {
-  return status === "onchain_attested" || status === "on_chain_attested";
-}
-
-function gatewayStatusIsTerminalFailure(status: string): boolean {
-  return (
-    status === "failed" ||
-    status === "prover_failed" ||
-    status === "packaging_failed" ||
-    status === "submission_failed" ||
-    status === "internal_error"
-  );
-}
-
-function classifyGatewayTerminalFailureCode(status: string): "30003" | "40000" | "30002" {
-  if (status === "internal_error") {
-    return "30003";
-  }
-  if (status === "submission_failed") {
-    return "40000";
-  }
-  return "30002";
-}
-
-function classifyGatewayApiDetailsError(details: Record<string, unknown>): "30001" | "30003" | "30002" {
-  if (details.category === "binding_conflict") {
-    return "30001";
-  }
-  if (details.status === "internal_error") {
-    return "30003";
-  }
-  return "30002";
 }
 
 export function createConfiguredBnbZkIdClient(
