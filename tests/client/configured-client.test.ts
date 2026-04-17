@@ -26,6 +26,52 @@ import type {
   PrimusZkTlsAdapter
 } from "../../src/primus/types.js";
 
+const originalFetch = globalThis.fetch;
+let whitelistFetchHandler: (url: URL) => unknown | Promise<unknown> = () => ({
+  rc: 0,
+  mc: "SUCCESS",
+  msg: "",
+  result: true
+});
+
+test.beforeEach(() => {
+  whitelistFetchHandler = () => ({
+    rc: 0,
+    mc: "SUCCESS",
+    msg: "",
+    result: true
+  });
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const rawUrl =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    const url = new URL(rawUrl);
+    if (
+      url.origin === "https://api-dev.padolabs.org" &&
+      url.pathname === "/public/zkid/whitelist/check"
+    ) {
+      void init;
+      const payload = await whitelistFetchHandler(url);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => payload
+      } as Response;
+    }
+    if (originalFetch === undefined) {
+      throw new Error(`Unexpected fetch call in test: ${rawUrl}`);
+    }
+    return originalFetch(input as RequestInfo, init);
+  }) as typeof fetch;
+});
+
+test.after(() => {
+  globalThis.fetch = originalFetch;
+});
+
 class FakeGatewayClient implements GatewayClient {
   readonly config: GatewayConfig = {
     appIds: ["brevisListaDAO"],
@@ -749,6 +795,88 @@ test("configured client maps primus transport error to 30004", async () => {
       return true;
     }
   );
+});
+
+test("configured client maps whitelist blocked (rc=0,result=false) to 00006", async () => {
+  whitelistFetchHandler = () => ({
+    rc: 0,
+    mc: "SUCCESS",
+    msg: "",
+    result: false
+  });
+  const gatewayClient = new FakeGatewayClient();
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "whitelist-blocked",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "00006");
+      return true;
+    }
+  );
+});
+
+test("configured client maps whitelist network errors to 30004", async () => {
+  whitelistFetchHandler = () => {
+    const e = new Error("fetch failed");
+    (e as Error & { code?: string }).code = "ENOTFOUND";
+    throw e;
+  };
+  const gatewayClient = new FakeGatewayClient();
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+  await client.init({ appId: "brevisListaDAO" });
+
+  await assert.rejects(
+    async () =>
+      client.prove({
+        clientRequestId: "whitelist-network-error",
+        userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        identityPropertyId: "github_account_age"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "30004");
+      return true;
+    }
+  );
+});
+
+test("configured client ignores whitelist non-rc0 payload and continues prove flow", async () => {
+  whitelistFetchHandler = () => ({
+    rc: 1,
+    mc: "FAILED",
+    msg: "upstream unavailable",
+    result: false
+  });
+  const gatewayClient = new FakeGatewayClient();
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+  await client.init({ appId: "brevisListaDAO" });
+
+  const result = await client.prove({
+    clientRequestId: "whitelist-rc1-continue",
+    userAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    identityPropertyId: "github_account_age"
+  });
+  assert.equal(result.status, "on_chain_attested");
 });
 
 test("configured client queryProofResult returns attested result with clientRequestId when provided", async () => {

@@ -28,6 +28,7 @@ import type {
 } from "../gateway/types.js";
 import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
 import type { PrimusZkTlsAdapter } from "../primus/types.js";
+import type { WhitelistChecker, WhitelistCheckResponse } from "../whitelist/checker.js";
 import { collectPrimusAttestationFromTemplateResolver } from "./collect-primus-attestation-from-resolver.js";
 import {
   classifyGatewayApiDetailsError,
@@ -54,6 +55,7 @@ interface ExecuteProveWorkflowInput {
   gatewayClient: GatewayClient;
   primusAdapter: PrimusZkTlsAdapter;
   primusTemplateResolver: PrimusTemplateResolver;
+  whitelistChecker: WhitelistChecker;
   proveInput: ProveInput;
   options?: ProveOptions;
 }
@@ -68,6 +70,33 @@ function proveErrorContext(
 
 function brevisDetails(inner: Record<string, unknown>): Record<string, unknown> {
   return { brevis: inner };
+}
+
+async function checkWhitelistOrThrow(input: {
+  whitelistChecker: WhitelistChecker;
+  userAddress: string;
+  sourceAppId: string;
+  clientRequestId: string;
+}): Promise<void> {
+  let payload: WhitelistCheckResponse;
+  try {
+    payload = await input.whitelistChecker.check({
+      address: input.userAddress,
+      sourceAppId: input.sourceAppId
+    });
+  } catch (error) {
+    if (isNetworkLikeError(error)) {
+      throw createBnbZkIdProveError("30004", {}, { clientRequestId: input.clientRequestId });
+    }
+    throw error;
+  }
+
+  if (payload.rc === 0 && payload.result === true) {
+    return;
+  }
+  if (payload.rc === 0 && payload.result === false) {
+    throw createBnbZkIdProveError("00006", {}, { clientRequestId: input.clientRequestId });
+  }
 }
 
 /** `POST /v1/proof-requests` Framework `error` flatten helper for error-code classification. */
@@ -101,6 +130,12 @@ export async function executeProveWorkflow(
   try {
     assertProveInputValidOrThrow(input.proveInput, input.configProvidersWire);
     const clientRequestId = input.proveInput.clientRequestId.trim();
+    await checkWhitelistOrThrow({
+      whitelistChecker: input.whitelistChecker,
+      userAddress: input.proveInput.userAddress,
+      sourceAppId: input.appId,
+      clientRequestId
+    });
 
     try {
       resolveProviderMapping(input.gatewayConfig, input.proveInput.identityPropertyId);

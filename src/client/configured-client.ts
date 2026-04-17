@@ -4,6 +4,7 @@ import {
   isNetworkLikeError
 } from "../errors/prove-error.js";
 import { GATEWAY_API_ERROR_CODE, SdkError } from "../errors/sdk-error.js";
+import { INTERNAL_BNB_ZKID_CONFIG } from "../config/internal-config.js";
 import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import type { GatewayClient, GatewayConfig } from "../gateway/types.js";
 import type { PrimusTemplateResolver } from "../primus/template-resolver.js";
@@ -17,6 +18,7 @@ import {
   isGatewayStatusTerminalFailure
 } from "../workflow/gateway-error-mapping.js";
 import { normalizeGatewayAttestedStatusOrThrow } from "../workflow/gateway-success-normalizer.js";
+import { createHttpWhitelistChecker, type WhitelistChecker } from "../whitelist/checker.js";
 import type {
   BnbZkIdClientMethods,
   InitInput,
@@ -32,7 +34,13 @@ export interface ConfiguredBnbZkIdClientOptions {
   gatewayClient: GatewayClient;
   primusAdapter: PrimusZkTlsAdapter;
   primusTemplateResolver: PrimusTemplateResolver;
+  whitelistChecker?: WhitelistChecker;
 }
+
+const defaultWhitelistChecker = createHttpWhitelistChecker({
+  baseUrl: INTERNAL_BNB_ZKID_CONFIG.primus.whitelist?.baseUrl ?? "",
+  checkPath: INTERNAL_BNB_ZKID_CONFIG.primus.whitelist?.checkPath ?? "/public/zkid/whitelist/check"
+});
 
 class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
   private initializedAppId: string | undefined;
@@ -116,6 +124,7 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       gatewayClient: this.options.gatewayClient,
       primusAdapter: this.options.primusAdapter,
       primusTemplateResolver: this.options.primusTemplateResolver,
+      whitelistChecker: this.options.whitelistChecker ?? defaultWhitelistChecker,
       proveInput: input,
       ...(options === undefined ? {} : { options })
     });
