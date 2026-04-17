@@ -547,10 +547,6 @@ runButton.addEventListener("click", async () => {
     });
 
     writeLog(`init: ${JSON.stringify(initResult)}`);
-    if (!initResult.success) {
-      harnessSucceeded = false;
-      return;
-    }
 
     const provingParams = resolveBrowserHarnessProvingParams();
     const proveInput: ProveInput = 

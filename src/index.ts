@@ -8,8 +8,6 @@ export type {
   BnbZkIdGatewayConfigProviderWire,
   BusinessParams,
   InitInput,
-  InitFailureResult,
-  InitResult,
   InitSuccessResult,
   ProveInput,
   ProveOptions,

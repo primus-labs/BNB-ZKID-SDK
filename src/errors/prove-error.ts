@@ -1,10 +1,9 @@
 import { SdkError } from "./sdk-error.js";
-import type { BnbZkIdError } from "../types/public.js";
 
 /** `@superorange/zka-js-sdk` / legacy Primus `ZkAttestationError` (not always `instanceof Error`). */
 function isZkAttestationLike(
   err: unknown
-): err is { code: string; message: string; data?: unknown } {
+): err is { code: string; message: string; subCode?: string | number; data?: unknown } {
   if (typeof err !== "object" || err === null) {
     return false;
   }
@@ -21,41 +20,59 @@ export type BnbZkIdProveErrorCode =
   | "00004"
   | "00005"
   | "00006"
-  | "00007"
-  | "10000"
   | "10001"
   | "10002"
-  | "10003";
+  | "10003"
+  | "10004"
+  | "10013"
+  | "20001"
+  | "20002"
+  | "20003"
+  | "20004"
+  | "20005"
+  | "20006"
+  | "20007"
+  | "20008"
+  | "30000"
+  | "30001"
+  | "30002"
+  | "30003"
+  | "30004"
+  | "30005"
+  | "40000";
 
-const PROVE_ERROR_MESSAGES: Record<BnbZkIdProveErrorCode, string> = {
-  "00000": "Not detected the Primus Extension",
-  "00001": "Failed to initialize",
-  "00002": "A verification process is in progress. Please try again later.",
-  "00003": "The user closes or cancels the verification process.",
-  "00004":
-    "Target data missing. Please check whether the data json path in the request URL’s response aligns with your template.",
-  "00005": "Unstable internet connection. Please try again.",
-  "00006": "Failed to generate zkTLS proof",
-  "00007": "Invalid parameters",
-  "10000": "This address has pending proof for identityPropertyId.",
-  "10001": "This address is already bound to another account.",
-  "10002": "Failed to onChain",
-  "10003": "Failed to generate zkVM proof"
+const PROVE_ERROR_MESSAGES_MAP: Record<BnbZkIdProveErrorCode, string> = {
+  "00000":
+    "Primus Extension not detected. Please install or enable the Primus Extension from the Chrome Web Store (https://chromewebstore.google.com/detail/primus/oeiomhmbaapihbilkfkhmlajkeegnjhe), and try again.",
+  "00001": "SDK initialization failed. Please call init() successfully before calling prove().",
+  "00002":
+    "Invalid wallet address. User wallet address must be a valid EVM address (0x followed by 40 hex characters).",
+  "00003": "Invalid appId. [SDK-A00/SDK-A01].",
+  "00004": "Invalid identityPropertyId. [SDK-I00/SDK-I01].",
+  "00005": "clientRequestId is empty.",
+  "00006": "Request denied. Unauthorized address.",
+  "10001": "Failed to initiate the algorithm.",
+  "10002": "Verification timed out. Please try again. [P-00002/P-00014].",
+  "10003": "A verification task is already in progress.",
+  "10004": "Verification cancelled by user.",
+  "10013": "No verifiable data detected. Please confirm login status and account details.",
+  "20001": "Unstable internet connection. Please try again. [P-10001~10004].",
+  "20002":
+    "Internal algorithm error. Please contact support. [P-20001~20005/40001/40002/50000:501/50000:502/50005:505/50000:507/50000:508/50000:510/50011].",
+  "20003": "Data schema mismatch. Please contact support. [P-30001:301/30001:404/30004/30005/30006].",
+  "20004": "Too many attempts. Please try again later. [P-00000/30001:403/30001:429].",
+  "20005": "Response processing error. Please try again. [P-30001/P-30002].",
+  "20006": "Session expired. Please log in to the data source website again. [P-30001:401].",
+  "20007": "Service request error. Please try again. [P-50003/P-50004/P-50006/P-50009/P-99999].",
+  "20008": "Proof generation failure.",
+  "30000": "Duplicate request. Task already in progress.",
+  "30001": "Proof binding error. This data is already bound to another address.",
+  "30002": "Proof generation failure.",
+  "30003": "Prover service internal error.",
+  "30004": "Connection to the prover service unstable.",
+  "30005": "Fetching the proof generation result timed out.",
+  "40000": "On-chain submission failed."
 };
-// const PROVE_ERROR_MESSAGES: Record<BnbZkIdProveErrorCode, string> = {
-//   "00000": 'Not detected the Primus Extension', // (zktlssdk-00006)
-//   "00001": "Failed to initialize",
-//   '00002': 'A verification process is in progress. Please try again later.',// (zktlssdk-00003)
-//   '00003': 'The user closes or cancels the verification process.',// zktlssdk-00004)
-//   '00004': 'Target data missing. Please check whether the data json path in the request URL’s response aligns with your template.',// (zktlssdk-00013)
-//   '00005':'Unstable internet connection. Please try again.',// (zktlssdk-10001,10002,10003,10004)
-//   "00006": "Failed to generate zkTLS proof",
-//   "00007": "Invalid parameters",
-//   '10000': 'This address has pending proof for identityPropertyId.',// (zktlssdk-210001)
-//   "10001": 'This address is already bound to another account.',// (POST /v1/proof-requests response.error.category:binding_conflict)
-//   "10002": 'Failed to onChain',// (GET /v1/proof-requests/{proofRequestId} response.status: submission_failed
-//   "10003": "Failed to generate zkVM proof",
-// };
 
 /** Normalize zktls-js-sdk `code` (string or finite number). */
 export function normalizePrimusSdkWireCode(raw: unknown): string | undefined {
@@ -69,7 +86,12 @@ export function normalizePrimusSdkWireCode(raw: unknown): string | undefined {
   return undefined;
 }
 
-/** Reads `.code` from a thrown object, if present. */
+/**
+ * Reads normalized Primus wire code from thrown object.
+ * - A = `code`
+ * - B = `A` when `subCode` absent
+ * - B = `${A}:${subCode}` when `subCode` present
+ */
 export function extractPrimusWireCodeFromUnknown(err: unknown): string | undefined {
   if (typeof err !== "object" || err === null) {
     return undefined;
@@ -78,51 +100,148 @@ export function extractPrimusWireCodeFromUnknown(err: unknown): string | undefin
   if (!("code" in o)) {
     return undefined;
   }
-  return normalizePrimusSdkWireCode(o.code);
+  const code = normalizePrimusSdkWireCode(o.code);
+  if (code === undefined) {
+    return undefined;
+  }
+  const subCode = normalizePrimusSdkWireCode(o.subCode);
+  return subCode === undefined ? code : `${code}:${subCode}`;
 }
 
 /**
  * Maps a Primus / zktls-js-sdk wire `code` to the SDK outer {@link BnbZkIdProveErrorCode}.
  * Unlisted non-empty codes fall through to `00006` (generic zkTLS failure).
  */
-export function mapPrimusWireCodeToOuterProveCode(wire: string): BnbZkIdProveErrorCode {
-  switch (wire) {
-    case "00006":
-      return "00000";
-    case "00003":
-      return "00002";
-    case "00004":
-      return "00003";
-    case "00013":
-      return "00004";
-    case "10001":
-    case "10002":
-    case "10003":
-    case "10004":
-      return "00005";
-    case "-210001":
-      return "10000";
-    default:
-      return "00006";
-  }
+function primusMessageWithWire(base: string, wire: string): string {
+  return `${base} [P-${wire}].`;
 }
 
-/** Outer code for `prove` zkTLS stage from an unknown thrown value (no wire code → `00006`). */
-export function outerProveCodeForPrimusProveFailure(err: unknown): BnbZkIdProveErrorCode {
+export function resolvePrimusStageErrorFromUnknown(err: unknown): {
+  code: BnbZkIdProveErrorCode;
+  message: string;
+} {
   const wire = extractPrimusWireCodeFromUnknown(err);
   if (wire === undefined) {
-    return "00006";
+    return {
+      code: "20008",
+      message: getDefaultProveErrorMessage("20008")
+    };
   }
-  return mapPrimusWireCodeToOuterProveCode(wire);
-}
-
-/** Outer code for `init` Primus failure (no wire code → `00001`). */
-export function outerProveCodeForPrimusInitFailure(err: unknown): BnbZkIdProveErrorCode {
-  const wire = extractPrimusWireCodeFromUnknown(err);
-  if (wire === undefined) {
-    return "00001";
+  if (wire === "00006") {
+    return {
+      code: "00000",
+      message: getDefaultProveErrorMessage("00000")
+    };
   }
-  return mapPrimusWireCodeToOuterProveCode(wire);
+  if (wire === "00001") {
+    return {
+      code: "10001",
+      message: getDefaultProveErrorMessage("10001")
+    };
+  }
+  if (wire === "00002" || wire === "00014") {
+    return {
+      code: "10002",
+      message: primusMessageWithWire("Verification timed out. Please try again.", wire)
+    };
+  }
+  if (wire === "00003") {
+    return {
+      code: "10003",
+      message: getDefaultProveErrorMessage("10003")
+    };
+  }
+  if (wire === "00004") {
+    return {
+      code: "10004",
+      message: getDefaultProveErrorMessage("10004")
+    };
+  }
+  if (wire === "00013") {
+    return {
+      code: "10013",
+      message: getDefaultProveErrorMessage("10013")
+    };
+  }
+  if (wire === "10001" || wire === "10002" || wire === "10003" || wire === "10004") {
+    return {
+      code: "20001",
+      message: primusMessageWithWire("Unstable internet connection. Please try again.", wire)
+    };
+  }
+  if (
+    wire === "20001" ||
+    wire === "20002" ||
+    wire === "20003" ||
+    wire === "20004" ||
+    wire === "20005" ||
+    wire === "40001" ||
+    wire === "40002" ||
+    wire === "50000:501" ||
+    wire === "50000:502" ||
+    wire === "50005:505" ||
+    wire === "50000:507" ||
+    wire === "50000:508" ||
+    wire === "50000:510" ||
+    wire === "50011"
+  ) {
+    return {
+      code: "20002",
+      message: primusMessageWithWire("Internal algorithm error. Please contact support.", wire)
+    };
+  }
+  if (
+    wire === "30001:301" ||
+    wire === "30001:404" ||
+    wire === "30004" ||
+    wire === "30005" ||
+    wire === "30006"
+  ) {
+    return {
+      code: "20003",
+      message: primusMessageWithWire("Data schema mismatch. Please contact support.", wire)
+    };
+  }
+  if (wire === "00000" || wire === "30001:403" || wire === "30001:429") {
+    return {
+      code: "20004",
+      message: primusMessageWithWire("Too many attempts. Please try again later.", wire)
+    };
+  }
+  if (wire === "30001" || wire === "30002") {
+    return {
+      code: "20005",
+      message: primusMessageWithWire("Response processing error. Please try again.", wire)
+    };
+  }
+  if (wire === "30001:401") {
+    return {
+      code: "20006",
+      message: getDefaultProveErrorMessage("20006")
+    };
+  }
+  if (
+    wire === "50003" ||
+    wire === "50004" ||
+    wire === "50006" ||
+    wire === "50009" ||
+    wire === "99999"
+  ) {
+    return {
+      code: "20007",
+      message: primusMessageWithWire("Service request error. Please try again.", wire)
+    };
+  }
+  if (wire === "-210001") {
+    return {
+      code: "30000",
+      message: getDefaultProveErrorMessage("30000")
+    };
+  }
+  return {
+    code: "20008",
+    message: getDefaultProveErrorMessage("20008")
+  };
 }
 
 /** Thrown when {@link import("../types/public.js").BnbZkIdClientMethods.prove} fails. Success returns `ProveSuccessResult` only. */
@@ -130,28 +249,18 @@ export class BnbZkIdProveError extends Error {
   /** Stable machine-readable code (see {@link BnbZkIdProveErrorCode}). */
   override readonly name = "BnbZkIdProveError";
   readonly proveCode: BnbZkIdProveErrorCode;
-  /**
-   * Stage-specific payloads: `primus` (zkTLS SDK) vs `brevis` (Gateway HTTP / Framework — see
-   * {@link import("../types/framework-error.js").BnbZkIdFrameworkError} for Framework `error` fields).
-   */
-  readonly details: Record<string, unknown>;
   readonly clientRequestId?: string;
-  readonly proofRequestId?: string;
 
   constructor(
     proveCode: BnbZkIdProveErrorCode,
     message: string,
-    details: Record<string, unknown>,
-    context?: { clientRequestId?: string; proofRequestId?: string }
+    _details: Record<string, unknown> | undefined,
+    context?: { clientRequestId?: string }
   ) {
     super(message);
     this.proveCode = proveCode;
-    this.details = details;
     if (context?.clientRequestId !== undefined) {
       this.clientRequestId = context.clientRequestId;
-    }
-    if (context?.proofRequestId !== undefined) {
-      this.proofRequestId = context.proofRequestId;
     }
   }
 
@@ -160,87 +269,54 @@ export class BnbZkIdProveError extends Error {
     return this.proveCode;
   }
 
-  /** Stable `{ code, message, details }` shape for logging / `JSON.stringify`. */
+  /** Stable `{ code, message }` shape for logging / `JSON.stringify`. */
   toJSON(): {
     code: BnbZkIdProveErrorCode;
     message: string;
-    details: Record<string, unknown>;
     clientRequestId?: string;
-    proofRequestId?: string;
   } {
     return {
       code: this.proveCode,
       message: this.message,
-      details: this.details,
-      ...(this.clientRequestId !== undefined ? { clientRequestId: this.clientRequestId } : {}),
-      ...(this.proofRequestId !== undefined ? { proofRequestId: this.proofRequestId } : {})
+      ...(this.clientRequestId !== undefined ? { clientRequestId: this.clientRequestId } : {})
     };
   }
 }
 
 export function getDefaultProveErrorMessage(code: BnbZkIdProveErrorCode): string {
-  return PROVE_ERROR_MESSAGES[code];
+  return PROVE_ERROR_MESSAGES_MAP[code];
 }
 
-/** Shared `details.reason` for `init` / prove-ordering failures (align `InitResult.error` with thrown prove errors). */
+export function getInvalidAppIdMessage(reason: "empty" | "not_enabled"): string {
+  if (reason === "empty") {
+    return "Invalid appId. [SDK-A00].";
+  }
+  return "Invalid appId. [SDK-A01].";
+}
+
+export function getInvalidIdentityPropertyIdMessage(reason: "empty" | "not_supported"): string {
+  if (reason === "empty") {
+    return "Invalid identityPropertyId. [SDK-I00].";
+  }
+  return "Invalid identityPropertyId. [SDK-I01].";
+}
+
+/** Shared reason marker for appId-not-enabled checks. */
 export const INIT_FAILURE_REASON_APP_ID_NOT_ENABLED = "appId_not_enabled" as const;
-export const INIT_FAILURE_REASON_TEMPLATE_RESOLVE = "template_resolve_failed" as const;
-export const INIT_FAILURE_REASON_PRIMUS_INIT = "primus_init_failed" as const;
-export const INIT_FAILURE_REASON_PROVE_BEFORE_INIT = "init_must_succeed_before_prove" as const;
-
-/**
- * Clearer than table `00001` alone: `prove()` ran before a successful `init()`.
- * Prefer over {@link getDefaultProveErrorMessage}(`"00001"`) for this case only.
- */
-export const MESSAGE_PROVE_BEFORE_INIT = "Call init() successfully before prove().";
-
-/**
- * `prove()` before `init`: same outer code as other init failures (`00001`), explicit `details.reason`, and a dedicated message.
- */
-export function createProveBeforeInitError(clientRequestId: string): BnbZkIdProveError {
-  return createBnbZkIdProveError(
-    "00001",
-    {
-      reason: INIT_FAILURE_REASON_PROVE_BEFORE_INIT
-    },
-    { clientRequestId, messageOverride: MESSAGE_PROVE_BEFORE_INIT }
-  );
-}
-
-/**
- * Maps an `init`-time failure from `@primuslabs/zktls-js-sdk` into {@link BnbZkIdError} for
- * `init` failure results (plain objects and non-{@link Error} throws are normalized here).
- * Outer `code` / `message` use the unified table; SDK payload under `details.primus`.
- */
-export function bnbZkIdErrorFromPrimusInitFailure(err: unknown): BnbZkIdError {
-  const primus = serializePrimusStageDetails(err);
-  const outer = outerProveCodeForPrimusInitFailure(err);
-  return {
-    code: outer,
-    message: getDefaultProveErrorMessage(outer),
-    details: {
-      reason: INIT_FAILURE_REASON_PRIMUS_INIT,
-      primus
-    }
-  };
-}
 
 export function createBnbZkIdProveError(
   proveCode: BnbZkIdProveErrorCode,
-  details: Record<string, unknown>,
-  context?: { clientRequestId?: string; proofRequestId?: string; messageOverride?: string }
+  details?: Record<string, unknown>,
+  context?: { clientRequestId?: string; messageOverride?: string }
 ): BnbZkIdProveError {
   const message = context?.messageOverride ?? getDefaultProveErrorMessage(proveCode);
   const errContext =
     context === undefined
       ? undefined
       : {
-          ...(context.clientRequestId !== undefined ? { clientRequestId: context.clientRequestId } : {}),
-          ...(context.proofRequestId !== undefined ? { proofRequestId: context.proofRequestId } : {})
+          ...(context.clientRequestId !== undefined ? { clientRequestId: context.clientRequestId } : {})
         };
-  const passContext =
-    errContext !== undefined &&
-    (errContext.clientRequestId !== undefined || errContext.proofRequestId !== undefined);
+  const passContext = errContext !== undefined && errContext.clientRequestId !== undefined;
   return new BnbZkIdProveError(
     proveCode,
     message,
@@ -272,13 +348,49 @@ export function serializeErrorForProveDetails(err: unknown): Record<string, unkn
   return { value: String(err) };
 }
 
-/** Value for `BnbZkIdProveError.details.primus` (zkTLS SDK attestation errors vs generic causes). */
+/** Shared transport/network detection for mapping to SDK code `30004`. */
+export function isNetworkLikeError(err: unknown): boolean {
+  if (err instanceof SdkError && err.code === "TRANSPORT_ERROR") {
+    return true;
+  }
+  if (typeof err !== "object" || err === null) {
+    return false;
+  }
+  const e = err as Record<string, unknown>;
+  const name = typeof e.name === "string" ? e.name : "";
+  if (name === "AbortError") {
+    return true;
+  }
+  const code = typeof e.code === "string" ? e.code.toUpperCase() : "";
+  if (
+    code === "ECONNRESET" ||
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    code === "ETIMEDOUT" ||
+    code === "EAI_AGAIN" ||
+    code === "UND_ERR_CONNECT_TIMEOUT"
+  ) {
+    return true;
+  }
+  const message = typeof e.message === "string" ? e.message.toLowerCase() : "";
+  return (
+    message.includes("fetch failed") ||
+    message.includes("network") ||
+    message.includes("timeout")
+  );
+}
+
+/** Serialized primus-stage diagnostic payload used before surface shaping. */
 export function serializePrimusStageDetails(err: unknown): Record<string, unknown> {
   if (isZkAttestationLike(err)) {
     const out: Record<string, unknown> = {
       code: err.code,
       message: err.message
     };
+    const subCode = normalizePrimusSdkWireCode(err.subCode);
+    if (subCode !== undefined) {
+      out.subCode = subCode;
+    }
     if (err.data !== undefined) {
       out.data = err.data;
     }
@@ -289,6 +401,10 @@ export function serializePrimusStageDetails(err: unknown): Record<string, unknow
     const code = typeof o.code === "string" ? o.code.trim() : "";
     if (code !== "") {
       const out: Record<string, unknown> = { code };
+      const subCode = normalizePrimusSdkWireCode(o.subCode);
+      if (subCode !== undefined) {
+        out.subCode = subCode;
+      }
       if (typeof o.message === "string" && o.message.trim() !== "") {
         out.message = o.message.trim();
       }

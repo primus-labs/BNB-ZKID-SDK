@@ -12,12 +12,7 @@ export type {
 export interface BnbZkIdError {
   code: string;
   message: string;
-  /**
-   * Optional structured context. For `code` **`00001`** from init or prove-before-init,
-   * `reason` is one of: `appId_not_enabled`, `template_resolve_failed`,
-   * `primus_init_failed`, `init_must_succeed_before_prove`.
-   */
-  details?: Record<string, unknown>;
+  clientRequestId?: string;
 }
 
 /**
@@ -49,13 +44,6 @@ export interface InitSuccessResult {
   /** Mirror of `GET /v1/config` `providers` (Brevis wire / synthesized). */
   providers: BnbZkIdGatewayConfigProviderWire[];
 }
-
-export interface InitFailureResult {
-  success: false;
-  error?: BnbZkIdError;
-}
-
-export type InitResult = InitSuccessResult | InitFailureResult;
 
 export type ProveStatus =
   | "initializing"
@@ -120,10 +108,11 @@ export interface ProveFailureResult {
 export type ProveResult = ProveSuccessResult | ProveFailureResult;
 
 export interface BnbZkIdClientMethods {
-  init(input: InitInput): Promise<InitResult>;
+  /** On success returns provider metadata. On failure throws `BnbZkIdProveError`. */
+  init(input: InitInput): Promise<InitSuccessResult>;
   /**
    * On success returns attested result. On any failure throws {@link import("../errors/prove-error.js").BnbZkIdProveError}
-   * (`code` `00000`–`00007` and `10000`–`10003`, `message`, `details`).
+   * (`code` `00000`–`00006`, `10001`–`10013`, `20001`–`20008`, `30000`–`30005`, `40000`; `message`).
    */
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
 }

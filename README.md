@@ -67,17 +67,11 @@ import { BnbZkIdClient, BnbZkIdProveError } from "@primuslabs/bnb-zkid-sdk";
 
 const client = new BnbZkIdClient();
 
-const initResult = await client.init({
-  appId: "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C" // example test appId; it must be registered in the BNB ZK ID Framework On-chain Identity Registry: https://github.com/brevis-network/brevis-zk-id-contracts
-});
-
-if (!initResult.success) {
-  console.error("SDK init failed", initResult.error);
-}
-
-console.log("Supported providers:", initResult.providers);
-
 try {
+  const initResult = await client.init({
+    appId: "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C" // example test appId; it must be registered in the BNB ZK ID Framework On-chain Identity Registry: https://github.com/brevis-network/brevis-zk-id-contracts
+  });
+  console.log("Supported providers:", initResult.providers);
   const result = await client.prove(
     {
       clientRequestId: "prove-task-001",
@@ -97,9 +91,7 @@ try {
     console.error("Proof failed", {
       code: error.code,
       message: error.message,
-      details: error.details,
-      clientRequestId: error.clientRequestId,
-      proofRequestId: error.proofRequestId
+      clientRequestId: error.clientRequestId
     });
   } else {
     console.error("Unexpected error", error);
@@ -126,7 +118,7 @@ The package root exports:
 
 - `BnbZkIdClient`
 - `BnbZkIdProveError`
-- public contract types such as `InitInput`, `InitResult`, `ProveInput`,
+- public contract types such as `InitInput`, `InitSuccessResult`, `ProveInput`,
   `ProveOptions`, `ProveProgressEvent`, `ProveSuccessResult`, `ProveStatus`,
   `BusinessParams`, and `ProvingParams`
 
@@ -146,7 +138,7 @@ automatically as described above.
 ### Signature
 
 ```ts
-init(input: InitInput): Promise<InitResult>
+init(input: InitInput): Promise<InitSuccessResult>
 ```
 
 ### Input
@@ -186,26 +178,10 @@ interface BnbZkIdGatewayConfigPropertyWire {
 }
 ```
 
-### Failure Result
-
-```ts
-interface InitFailureResult {
-  success: false;
-  error?: {
-    code: string;
-    message: string;
-    details?: Record<string, unknown>;
-  };
-}
-```
-
 ### `init` Behavior Notes
 
 - `init` must succeed before `prove(...)` is called.
-- If `appId` is empty or invalid, `init` throws `BnbZkIdProveError` with code
-  `00007`.
-- If the Gateway rejects the `appId`, or Primus initialization fails, `init`
-  returns `success: false`.
+- On any failure, `init` throws `BnbZkIdProveError`.
 - On success, the client stores the initialized app context for later `prove(...)`
   calls.
 
@@ -320,13 +296,10 @@ interface ProveSuccessResult {
 
 ### Error Model Summary
 
-There are two public failure surfaces:
+Both public methods use one failure style:
 
-1. `init(...)`
-   - invalid input may throw `BnbZkIdProveError`
-   - operational failures return `InitFailureResult`
-2. `prove(...)`
-   - all failures throw `BnbZkIdProveError`
+1. `init(...)` failures throw `BnbZkIdProveError`
+2. `prove(...)` failures throw `BnbZkIdProveError`
 
 ### `BnbZkIdProveError`
 
@@ -334,38 +307,27 @@ There are two public failure surfaces:
 class BnbZkIdProveError extends Error {
   readonly proveCode: BnbZkIdProveErrorCode;
   readonly code: string;
-  readonly details: Record<string, unknown>;
   readonly clientRequestId?: string;
-  readonly proofRequestId?: string;
 }
 ```
 
 Important notes:
 
 - `code` is an alias of `proveCode`.
-- `details.primus` is used for zkTLS and Primus-stage failures.
-- `details.brevis` is used for Gateway and proof-lifecycle failures.
 - `clientRequestId` is included when the failure is associated with a specific
   prove call.
-- `proofRequestId` is included when the Gateway had already created a proof
-  request before the failure occurred.
 
 ### Error Code Table
 
-| Code | Default message | Typical meaning | Retry guidance |
-| --- | --- | --- | --- |
-| `00000` | `Not detected the Primus Extension` | Primus extension or required browser runtime is missing. | Retry only after the required browser environment is installed and available. |
-| `00001` | `Failed to initialize` | SDK initialization failed, including calling `prove` before a successful `init`, unsupported `appId`, or app-level setup failure. | Check app configuration first. Retry only after the root cause is fixed. |
-| `00002` | `A verification process is in progress. Please try again later.` | Primus reported that another verification flow is already active. | Retry later. |
-| `00003` | `The user closes or cancels the verification process.` | The user cancelled or closed the verification flow. | Safe to retry when the user is ready. |
-| `00004` | `Target data missing. Please check whether the data json path in the request URL's response aligns with your template.` | The zkTLS template could not extract the expected data from the target source. | Retry only after fixing the template or data source. |
-| `00005` | `Unstable internet connection. Please try again.` | Network-level failure reported by the zkTLS stage. | Usually safe to retry. |
-| `00006` | `Failed to generate zkTLS proof` | Generic Primus or zkTLS proving failure. | Retry after reviewing `details.primus`. |
-| `00007` | `Invalid parameters` | Public input validation failed. | Do not retry until the request payload is corrected. |
-| `10000` | `This address has pending proof for identityPropertyId.` | The address already has a pending proof for the same property. | Retry later or wait for the existing request to finish. |
-| `10001` | `This address is already bound to another account.` | Gateway reported a binding conflict. | Usually not retryable until the account binding state changes. |
-| `10002` | `Failed to onChain` | Gateway reached an on-chain submission failure. | Review `details.brevis` and retry only if the backend indicates it is safe. |
-| `10003` | `Failed to generate zkVM proof` | Gateway or proof lifecycle failed after proof request creation, or the Gateway returned an invalid terminal payload. | Inspect `details.brevis` before retrying. |
+Error codes/messages are now maintained in one canonical document:
+[`docs/error-codes-references.md`](./docs/error-codes-references.md).
+
+At a glance, code ranges are:
+
+- `00xxx`: SDK core and input validation
+- `10xxx` / `20xxx`: zkTLS stage mapping
+- `30xxx`: zkVM / Gateway stage
+- `40xxx`: on-chain submission stage
 
 ### Common Failure Shapes
 
@@ -382,8 +344,8 @@ try {
   });
 } catch (error) {
   if (error instanceof BnbZkIdProveError) {
-    console.error(error.code); // 00007
-    console.error(error.details);
+    console.error(error.code); // e.g. 00002 / 00004 / 00005
+    console.error(error.message);
   }
 }
 ```
@@ -399,26 +361,16 @@ Typical validation fields include:
 
 #### Gateway Failure
 
-When the Gateway returns a framework or proof-lifecycle failure, the SDK throws a
-`BnbZkIdProveError` with `details.brevis`.
+When the Gateway returns a framework or proof-lifecycle failure, the SDK throws
+`BnbZkIdProveError` with normalized public fields (`code`, `message`,
+`clientRequestId?`).
 
-Typical fields under `details.brevis` include:
-
-- `category`
-- `code`
-- `message`
-- `status`
-- `failure`
-- `phase`
-- `rawDetails`
+For stage-by-stage mapping details, see
+[`docs/error-codes-references.md`](./docs/error-codes-references.md).
 
 #### zkTLS Failure
 
-When the zkTLS stage fails, the SDK throws a `BnbZkIdProveError` with
-`details.primus`.
-
-Typical fields under `details.primus` include:
-
-- `code`
-- `message`
-- `data`
+When the zkTLS stage fails, the SDK throws `BnbZkIdProveError` with normalized
+public fields (`code`, `message`, `clientRequestId?`). The exact wire-code to SDK
+mapping is documented in
+[`docs/error-codes-references.md`](./docs/error-codes-references.md).

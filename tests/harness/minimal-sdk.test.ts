@@ -13,15 +13,13 @@ test("deterministic harness returns a typed happy path", async () => {
 
   const initResult = await client.init({ appId: "listdao" });
   assert.equal(initResult.success, true);
-  if (initResult.success) {
-    assert.deepEqual(initResult.providers[0]?.id, "github");
-    assert.deepEqual(
-      initResult.providers[0]?.properties[0]?.businessParams,
-      {
-        contribution: [21, 51]
-      }
-    );
-  }
+  assert.deepEqual(initResult.providers[0]?.id, "github");
+  assert.deepEqual(
+    initResult.providers[0]?.properties[0]?.businessParams,
+    {
+      contribution: [21, 51]
+    }
+  );
 
   const proveResult = await client.prove(
     {

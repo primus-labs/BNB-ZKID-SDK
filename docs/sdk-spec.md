@@ -53,7 +53,7 @@ The concrete shape should stay close to the following:
 export interface BnbZkIdError {
   code: string;
   message: string;
-  details?: Record<string, unknown>;
+  clientRequestId?: string;
 }
 
 export type BusinessParams = Record<string, unknown>;
@@ -72,13 +72,6 @@ export interface InitSuccessResult {
   /** `GET /v1/config` `providers` (Brevis wire: `id`, `properties[].id`, optional `description` / `businessParams`). */
   providers: BnbZkIdGatewayConfigProviderWire[];
 }
-
-export interface InitFailureResult {
-  success: false;
-  error?: BnbZkIdError;
-}
-
-export type InitResult = InitSuccessResult | InitFailureResult;
 
 export type ProveStatus =
   | "initializing"
@@ -127,7 +120,7 @@ export interface ProveFailureResult {
 export type ProveResult = ProveSuccessResult | ProveFailureResult;
 
 export interface BnbZkIdClientMethods {
-  init(input: InitInput): Promise<InitResult>;
+  init(input: InitInput): Promise<InitSuccessResult>;
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
 }
 
@@ -140,18 +133,31 @@ export declare class BnbZkIdProveError extends Error {
     | "00004"
     | "00005"
     | "00006"
-    | "00007"
-    | "10000"
     | "10001"
     | "10002"
-    | "10003";
+    | "10003"
+    | "10004"
+    | "10013"
+    | "20001"
+    | "20002"
+    | "20003"
+    | "20004"
+    | "20005"
+    | "20006"
+    | "20007"
+    | "20008"
+    | "30000"
+    | "30001"
+    | "30002"
+    | "30003"
+    | "30004"
+    | "30005"
+    | "40000";
   readonly code: string;
-  readonly details: Record<string, unknown>;
   readonly clientRequestId?: string;
-  readonly proofRequestId?: string;
 }
 
-/** Framework `error` on proof-requests (and typing aid for `prove` failure `details.brevis`). */
+/** Framework `error` on proof-requests. */
 export type BnbZkIdFrameworkErrorCategory =
   | "binding_conflict"
   | "internal_error"
@@ -169,7 +175,7 @@ export interface BnbZkIdFrameworkError {
 
 export declare class BnbZkIdClient implements BnbZkIdClientMethods {
   constructor();
-  init(input: InitInput): Promise<InitResult>;
+  init(input: InitInput): Promise<InitSuccessResult>;
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
 }
 ```
@@ -195,7 +201,7 @@ If **`jumpToUrl`** is set to a non-empty string, the SDK sets top-level Primus
   **`provingParams.businessParams`**, the SDK compares it by deep equality with the
   `properties[].businessParams` configured for the current `identityPropertyId` in
   `GET /v1/config`; if they do not match, or the config does not include
-  `businessParams`, `prove` throws `BnbZkIdProveError` (`proveCode` `00007`)
+  `businessParams`, `prove` throws `BnbZkIdProveError` (`proveCode` `30002`)
 
 Example:
 
@@ -318,90 +324,34 @@ so tests and debug flows can change only the fields they need, such as
 
 ## Error Model
 
-For a full breakdown of `details.primus`, `details.brevis`, and `init` vs `prove`
-failure shapes, see [`error-reference.md`](./error-reference.md). For example
-payloads and end-to-end cases, see [`bnbzkidsdk-error.md`](./bnbzkidsdk-error.md).
+For canonical code/message mapping and stage-level guidance, see
+[`error-codes-references.md`](./error-codes-references.md). For error object
+surface details, see [`error-reference.md`](./error-reference.md).
 
-`init` **throws** `BnbZkIdProveError` when `appId` is missing, not a `string`, or
-empty after `trim()` (`proveCode` **`00007`**, `message` **`Invalid parameters`**,
-and `details.message` / `details.field` point to the parameter problem). Other
-configuration failures still return `InitResult` (`success: false` with
-`BnbZkIdError` using the same numeric `code` / table `message` as `prove` failures,
-for example **`00001`** when the appId is not in the Gateway `appIds` list or
-template resolution fails). For those **`00001`** outcomes—and for **`prove`
-before a successful `init`**—`details.reason` discriminates the case:
-**`appId_not_enabled`**, **`template_resolve_failed`**, **`primus_init_failed`**, or
-**`init_must_succeed_before_prove`**. Init failures that carry Primus context keep it
-under **`details.primus`** (`code` mirrors outer `proveCode` when mappable). Calling
-**`prove`** before init still uses **`00001`** but sets **`message`** to the
-prove-before-init string (not the generic table line for **`00001`**).
+Both `init` and `prove` failures now **throw** `BnbZkIdProveError`. Public error
+shape is intentionally narrow:
 
-Any `prove` failure **always throws** `BnbZkIdProveError` (which extends `Error`)
-with these fields:
-
-- `code` / `proveCode`: `00000`–`00007` and `10000`–`10003` (see table)
-- `message`: fixed English explanation corresponding to the `proveCode` (see table
-  below)
-- `details`: parameter errors (including **00007** from both `init` and `prove`)
-  include **`message`** (human-readable description) and **`field`** (the field
-  name, such as `appId`, `userAddress`, `identityPropertyId`,
-  `provingParams.businessParams`); optionally **`value`** (for example an invalid
-  `identityPropertyId`). Other phases use `details.primus` (zkTLS) and
-  `details.brevis` (Gateway)
-- `clientRequestId` / `proofRequestId` if known
+- `code` / `proveCode`
+- `message`
+- optional `clientRequestId`
 
 ### prove Error Codes
 
 | `code` | Meaning |
 |--------|---------|
-| `00000` | `Not detected the Primus Extension` (zkTLS wire `00006` → outer) |
-| `00001` | `Failed to initialize` for init-time Gateway/template/Primus failures; **`prove` before `init`** uses the same code with a dedicated message and **`details.reason`**: **`init_must_succeed_before_prove`** |
-| `00002` | `A verification process is in progress. Please try again later.` (zkTLS wire `00003`) |
-| `00003` | `The user closes or cancels the verification process.` (zkTLS wire `00004`) |
-| `00004` | `Target data missing...` (zkTLS wire `00013`) |
-| `00005` | `Unstable internet connection. Please try again.` (zkTLS wire `10001`–`10004`) |
-| `00006` | `Failed to generate zkTLS proof` (other zkTLS / prove-stage failures) |
-| `00007` | `Invalid parameters` (`appId` in `init`; `prove` input shape, `userAddress`, `identityPropertyId` in config, `provingParams` / `businessParams` alignment) |
-| `10000` | `This address has pending proof for identityPropertyId.` (zkTLS wire `-210001`) |
-| `10001` | `This address is already bound to another account.` (`POST /v1/proof-requests` `error.category` **`binding_conflict`**) |
-| `10002` | `Failed to onChain` (poll terminal **`submission_failed`**) |
-| `10003` | `Failed to generate zkVM proof` (other Gateway create/poll/payload failures, **`TIMEOUT`**, non–`binding_conflict` Framework errors) |
+| `00000` | Primus extension missing (legacy mapping preserved). |
+| `00001` | `prove()` called before successful `init()`. |
+| `00002` | Invalid or missing `userAddress`. |
+| `00003` | Invalid `appId` (`SDK-A00` / `SDK-A01`). |
+| `00004` | Invalid `identityPropertyId` (`SDK-I00` / `SDK-I01`). |
+| `00005` | Missing `clientRequestId`. |
+| `10001`–`10013` | zkTLS stage mapped codes. |
+| `20001`–`20008` | zkTLS and fallback mapped codes. |
+| `30000`–`30005` | zkVM / Gateway stage mapped codes. |
+| `40000` | On-chain submission failed. |
 
-For zkTLS-range codes **`00000`–`00007`** and **`10000`**, `details.primus` carries the
-SDK payload; wire `code` values are a different namespace from Framework **`category`**
-/ **`code`**.
-
-For **`10001`–`10003`**, `details.brevis` carries Gateway / Framework context. **`POST
-/v1/proof-requests`** failures that surface a Framework **`error`** (including HTTP
-4xx/5xx bodies parsed by the client) use **`phase`: `createProofRequest`**, the
-flattened Framework fields, and when applicable **`httpStatus`** / **`pathname`** /
-**`url`** (same shape as GET query failures). Per Gateway semantics, top-level **`error`**
-on a proof-request **GET** is an **API/query failure** (for example unknown id), while
-**`failure`** is **lifecycle terminal failure** on an otherwise successful GET. The SDK
-maps GET **`error`** to **`phase`: `getProofRequestStatus`**, optional wire **`status`**
-when the server included it, and **`httpStatus`** / **`pathname`** / **`url`** when the
-failure came from a non-OK HTTP response with a Framework body. When polling reaches a
-**failed terminal lifecycle** (wire **`status`** such as **`prover_failed`** /
-**`packaging_failed`** / **`submission_failed`** / **`internal_error`**, etc.), **`details.brevis`**
-includes **`phase`: `pollProofRequestTerminal`**, wire **`status`**, normalized **`failure`**
-when present, or `code` / `message` fallback (**`10002`** only when **`status`** is
-**`submission_failed`**; otherwise **`10003`**). The Framework **`error`** object is flattened
-(`category`, `code`, `message`, and related fields aligned with **`BnbZkIdFrameworkError`**);
-lifecycle **`failure`** is normalized to **`failure: { reason, detail }`**. If a terminal
-lifecycle status has no `failure` payload, `code` / `message` fallback values are used.
-When polling exceeds **`PROOF_REQUEST_POLL_MAX_DURATION_MS`** in
-**`src/config/proof-request-polling.ts`** (default 10 minutes),
-`details.brevis` becomes **`code`: `TIMEOUT`**, **`message`: `timeout`**, together with
-`phase: pollProofRequest`, `maxDurationMs`, `elapsedMs`, and related metadata (no duplicate
-`proofRequestId` here — use the error object's top-level **`proofRequestId`** when set). The poll
-interval comes from the same file's **`PROOF_REQUEST_POLL_INTERVAL_MS`** (default 3
-seconds). Transport and other polling failures include `phase`, `cause`, and related metadata;
-**`proofRequestId`** when known remains on **`BnbZkIdProveError.proofRequestId`** / `toJSON()`.
-
-`BnbZkIdFrameworkErrorCategory` enumerates the spec's stable `category` values
-(`policy_rejected`, `zktls_invalid`, `schema_invalid`, `binding_conflict`,
-`internal_error`), while still remaining type-compatible with future server-defined
-categories through `string`.
+`BnbZkIdFrameworkErrorCategory` still enumerates stable Framework `category` values
+and remains string-compatible for forward compatibility.
 
 ## Runtime Support
 
@@ -425,10 +375,6 @@ const client = new BnbZkIdClient();
 const initResult = await client.init({
   appId: "listdao",
 });
-if (!initResult.success) {
-  console.error(initResult.error);
-  process.exit(1);
-}
 
 const providers = initResult.providers;
 const identityPropertyId = providers[0]?.properties[0]?.id;
@@ -453,7 +399,7 @@ try {
   console.log(proveResult.status, proveResult.walletAddress);
 } catch (error) {
   if (error instanceof BnbZkIdProveError) {
-    console.error(error.code, error.message, error.details);
+    console.error(error.code, error.message);
   } else {
     throw error;
   }

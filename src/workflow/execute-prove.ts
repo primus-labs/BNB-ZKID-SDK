@@ -1,7 +1,9 @@
 import {
   BnbZkIdProveError,
   createBnbZkIdProveError,
-  outerProveCodeForPrimusProveFailure,
+  getInvalidIdentityPropertyIdMessage,
+  isNetworkLikeError,
+  resolvePrimusStageErrorFromUnknown,
   serializeErrorForProveDetails,
   serializePrimusStageDetails
 } from "../errors/prove-error.js";
@@ -50,18 +52,17 @@ interface ExecuteProveWorkflowInput {
 
 function proveErrorContext(
   clientRequestId: string,
-  proofRequestId?: string
-): { clientRequestId: string; proofRequestId?: string } {
-  return proofRequestId !== undefined
-    ? { clientRequestId, proofRequestId }
-    : { clientRequestId };
+  _proofRequestId?: string
+): { clientRequestId: string } {
+  void _proofRequestId;
+  return { clientRequestId };
 }
 
 function brevisDetails(inner: Record<string, unknown>): Record<string, unknown> {
   return { brevis: inner };
 }
 
-/** `POST /v1/proof-requests` Framework `error` → `BnbZkIdProveError.details.brevis` (aligned with GET query failures). */
+/** `POST /v1/proof-requests` Framework `error` flatten helper for error-code classification. */
 function brevisDetailsFromCreateProofRequest(
   created: GatewayCreateProofRequestResult
 ): Record<string, unknown> {
@@ -98,12 +99,15 @@ export async function executeProveWorkflow(
     } catch (error) {
       if (error instanceof ConfigurationError) {
         throw createBnbZkIdProveError(
-          "00007",
+          "00004",
           {
             message: "identityPropertyId is not listed in init().providers[].properties[].id.",
             field: "identityPropertyId"
           },
-          { clientRequestId }
+          {
+            clientRequestId,
+            messageOverride: getInvalidIdentityPropertyIdMessage("not_supported")
+          }
         );
       }
       throw error;
@@ -178,11 +182,14 @@ export async function executeProveWorkflow(
       }
     );
   } catch (error) {
-    const outer = outerProveCodeForPrimusProveFailure(error);
+    if (isNetworkLikeError(error)) {
+      throw createBnbZkIdProveError("30004", {}, { clientRequestId });
+    }
+    const primusError = resolvePrimusStageErrorFromUnknown(error);
     throw createBnbZkIdProveError(
-      outer,
+      primusError.code,
       { primus: serializePrimusStageDetails(error) },
-      { clientRequestId }
+      { clientRequestId, messageOverride: primusError.message }
     );
   }
 
@@ -203,7 +210,7 @@ export async function executeProveWorkflow(
     created = await input.gatewayClient.createProofRequest(createdParams);
   } catch (error) {
     throw createBnbZkIdProveError(
-      "10003",
+      classifyGatewayThrownError(error),
       brevisDetails({
         phase: "createProofRequest",
         cause: serializeErrorForProveDetails(error)
@@ -218,7 +225,7 @@ export async function executeProveWorkflow(
   if (created.error != null) {
     const isBindingConflict = created.error.category === "binding_conflict";
     throw createBnbZkIdProveError(
-      isBindingConflict ? "10001" : "10003",
+      isBindingConflict ? "30001" : "30002",
       brevisDetails(brevisDetailsFromCreateProofRequest(created)),
       proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
     );
@@ -237,7 +244,7 @@ export async function executeProveWorkflow(
   } catch (error) {
     if (error instanceof ProofRequestPollTimeoutError) {
       throw createBnbZkIdProveError(
-        "10003",
+        "30005",
         brevisDetails({
           code: error.code,
           message: error.message,
@@ -249,16 +256,17 @@ export async function executeProveWorkflow(
       );
     }
     if (error instanceof SdkError && error.code === GATEWAY_API_ERROR_CODE && error.details !== undefined) {
+      const details = error.details as Record<string, unknown>;
       throw createBnbZkIdProveError(
-        "10003",
+        classifyGatewayApiDetailsError(details),
         brevisDetails({
-          ...error.details
+          ...details
         }),
         proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
       );
     }
     throw createBnbZkIdProveError(
-      "10003",
+      classifyGatewayThrownError(error),
       brevisDetails({
         phase: "pollProofRequest",
         cause: serializeErrorForProveDetails(error)
@@ -268,7 +276,7 @@ export async function executeProveWorkflow(
   }
 
   if (gatewayStatusIsTerminalFailure(status)) {
-    const zkVmCode = status.status === "submission_failed" ? "10002" : "10003";
+    const zkVmCode = classifyGatewayTerminalFailureCode(status);
     throw createBnbZkIdProveError(
       zkVmCode,
       brevisDetails(brevisDetailsFromPollTerminalStatus(status)),
@@ -278,7 +286,7 @@ export async function executeProveWorkflow(
 
   if (!status.walletAddress) {
     throw createBnbZkIdProveError(
-      "10003",
+      "30002",
       brevisDetails({
         phase: "gateway_payload",
         reason: "Gateway success payload is missing walletAddress."
@@ -290,7 +298,7 @@ export async function executeProveWorkflow(
   const identityPropertyId = resolveProofIdentityPropertyId(status);
   if (!identityPropertyId) {
     throw createBnbZkIdProveError(
-      "10003",
+      "30002",
       brevisDetails({
         phase: "gateway_payload",
         reason:
@@ -305,7 +313,7 @@ export async function executeProveWorkflow(
     resolveProviderIdForIdentityPropertyId(input.gatewayConfig, identityPropertyId)?.trim();
   if (!providerId) {
     throw createBnbZkIdProveError(
-      "10003",
+      "30002",
       brevisDetails({
         phase: "gateway_payload",
         reason: "Gateway success payload is missing providerId."
@@ -357,6 +365,35 @@ function resolveProviderMapping(
   throw new ConfigurationError("Gateway config does not support identityPropertyId.", {
     identityPropertyId
   });
+}
+
+function classifyGatewayThrownError(error: unknown): "30004" | "30002" {
+  if (isNetworkLikeError(error)) {
+    return "30004";
+  }
+  return "30002";
+}
+
+function classifyGatewayApiDetailsError(details: Record<string, unknown>): "30001" | "30003" | "30002" {
+  if (details.category === "binding_conflict") {
+    return "30001";
+  }
+  if (details.status === "internal_error") {
+    return "30003";
+  }
+  return "30002";
+}
+
+function classifyGatewayTerminalFailureCode(
+  status: GatewayProofRequestStatusResult
+): "30003" | "40000" | "30002" {
+  if (status.status === "internal_error") {
+    return "30003";
+  }
+  if (status.status === "submission_failed") {
+    return "40000";
+  }
+  return "30002";
 }
 
 /** Primus template HTTP payload may use `primusTemplateResponseKey` (PADO) while Gateway uses on-chain ids. */
@@ -516,8 +553,7 @@ async function emitProgressFailedForProve(
   const clientRequestId = err.clientRequestId ?? fallbackClientRequestId;
   await emitProgress(options, {
     status: "failed",
-    clientRequestId,
-    ...(err.proofRequestId !== undefined ? { proofRequestId: err.proofRequestId } : {})
+    clientRequestId
   });
 }
 

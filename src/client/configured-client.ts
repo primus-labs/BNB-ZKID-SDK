@@ -1,11 +1,7 @@
 import {
-  bnbZkIdErrorFromPrimusInitFailure,
   createBnbZkIdProveError,
-  createProveBeforeInitError,
-  getDefaultProveErrorMessage,
-  INIT_FAILURE_REASON_APP_ID_NOT_ENABLED,
-  INIT_FAILURE_REASON_TEMPLATE_RESOLVE,
-  serializeErrorForProveDetails
+  getInvalidAppIdMessage,
+  isNetworkLikeError
 } from "../errors/prove-error.js";
 import type { BnbZkIdGatewayConfigProviderWire } from "../types/gateway-config-wire.js";
 import type { GatewayClient, GatewayConfig } from "../gateway/types.js";
@@ -16,7 +12,7 @@ import { executeProveWorkflow } from "../workflow/execute-prove.js";
 import type {
   BnbZkIdClientMethods,
   InitInput,
-  InitResult,
+  InitSuccessResult,
   ProveInput,
   ProveOptions,
   ProveSuccessResult
@@ -35,53 +31,43 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
 
   constructor(private readonly options: ConfiguredBnbZkIdClientOptions) {}
 
-  async init(input: InitInput): Promise<InitResult> {
+  async init(input: InitInput): Promise<InitSuccessResult> {
     assertInitInputValidOrThrow(input);
     const appId = input.appId.trim();
-    const [gatewayConfig, providers] = await Promise.all([
-      this.options.gatewayClient.getConfig(),
-      this.options.gatewayClient.getConfigProvidersWire()
-    ]);
+    let gatewayConfig: GatewayConfig;
+    let providers: BnbZkIdGatewayConfigProviderWire[];
+    try {
+      [gatewayConfig, providers] = await Promise.all([
+        this.options.gatewayClient.getConfig(),
+        this.options.gatewayClient.getConfigProvidersWire()
+      ]);
+    } catch (error) {
+      if (isNetworkLikeError(error)) {
+        throw createBnbZkIdProveError("30004", {});
+      }
+      throw error;
+    }
 
     if (gatewayConfig.appIds.length > 0 && !gatewayConfig.appIds.includes(appId)) {
-      return {
-        success: false,
-        error: {
-          code: "00001",
-          message: getDefaultProveErrorMessage("00001"),
-          details: {
-            reason: INIT_FAILURE_REASON_APP_ID_NOT_ENABLED,
-            appId
-          }
+      throw createBnbZkIdProveError(
+        "00003",
+        {},
+        {
+          messageOverride: getInvalidAppIdMessage("not_enabled")
         }
-      };
+      );
     }
 
-    let primusAppConfig;
     try {
-      primusAppConfig = await this.options.primusTemplateResolver.resolveAppConfig({
+      const primusAppConfig = await this.options.primusTemplateResolver.resolveAppConfig({
         appId
       });
-    } catch (err) {
-      return {
-        success: false,
-        error: {
-          code: "00001",
-          message: getDefaultProveErrorMessage("00001"),
-          details: {
-            reason: INIT_FAILURE_REASON_TEMPLATE_RESOLVE,
-            cause: serializeErrorForProveDetails(err)
-          }
-        }
-      };
-    }
-    try {
       await this.options.primusAdapter.init(primusAppConfig.zktlsAppId);
-    } catch (err) {
-      return {
-        success: false,
-        error: bnbZkIdErrorFromPrimusInitFailure(err)
-      };
+    } catch (error) {
+      if (isNetworkLikeError(error)) {
+        throw createBnbZkIdProveError("30004", {});
+      }
+      throw error;
     }
     this.initializedAppId = appId;
     this.gatewayConfig = gatewayConfig;
@@ -94,13 +80,23 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
   }
 
   async prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult> {
-    if (!this.initializedAppId || !this.gatewayConfig || !this.gatewayConfigProvidersWire) {
-      const err = createProveBeforeInitError(input.clientRequestId);
-      await options?.onProgress?.({
-        status: "failed",
-        clientRequestId: err.clientRequestId ?? input.clientRequestId.trim()
-      });
-      throw err;
+    if (
+      this.initializedAppId === undefined ||
+      this.gatewayConfig === undefined ||
+      this.gatewayConfigProvidersWire === undefined
+    ) {
+      throw createBnbZkIdProveError(
+        "00001",
+        {
+          message: "init() must succeed before prove().",
+          field: "init"
+        },
+        {
+          ...(typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
+            ? { clientRequestId: input.clientRequestId.trim() }
+            : {})
+        }
+      );
     }
 
     return executeProveWorkflow({
