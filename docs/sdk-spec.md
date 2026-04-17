@@ -28,6 +28,7 @@ The first version of the SDK should optimize for one real end-to-end main path:
 3. Assemble and submit the `POST /v1/proof-requests` request body.
 4. Poll `GET /v1/proof-requests/{proofRequestId}` until the status reaches
    `on_chain_attested` or `failed`.
+5. Optionally query one existing proof request once via `GET /v1/proof-requests/{proofRequestId}`.
 
 ## Success Criteria
 
@@ -108,6 +109,20 @@ export interface ProveSuccessResult {
   proofRequestId?: string;
 }
 
+export interface QueryProofResultInput {
+  proofRequestId: string;
+  clientRequestId?: string;
+}
+
+export interface QueryProofResultSuccessResult {
+  status: "on_chain_attested";
+  walletAddress: string;
+  providerId: string;
+  identityPropertyId: string;
+  proofRequestId?: string;
+  clientRequestId?: string;
+}
+
 /** @deprecated Failures throw `BnbZkIdProveError`; this shape is no longer returned. */
 export interface ProveFailureResult {
   status: "failed";
@@ -122,6 +137,7 @@ export type ProveResult = ProveSuccessResult | ProveFailureResult;
 export interface BnbZkIdClientMethods {
   init(input: InitInput): Promise<InitSuccessResult>;
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
+  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>;
 }
 
 export declare class BnbZkIdProveError extends Error {
@@ -133,6 +149,7 @@ export declare class BnbZkIdProveError extends Error {
     | "00004"
     | "00005"
     | "00006"
+    | "00007"
     | "10001"
     | "10002"
     | "10003"
@@ -177,6 +194,7 @@ export declare class BnbZkIdClient implements BnbZkIdClientMethods {
   constructor();
   init(input: InitInput): Promise<InitSuccessResult>;
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
+  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>;
 }
 ```
 
@@ -254,6 +272,9 @@ On success, `prove` returns only `ProveSuccessResult`
 **`onchain_attested`** or the legacy **`on_chain_attested`** are both recognized by
 the workflow. On failure, the SDK always throws `BnbZkIdProveError` (see "prove
 error codes").
+
+`queryProofResult` performs a single status query call (no polling) and uses the
+same zkVM/Gateway error mapping for non-success states.
 
 ## API Design Principles
 

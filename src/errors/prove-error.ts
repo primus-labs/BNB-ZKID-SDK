@@ -20,6 +20,7 @@ export type BnbZkIdProveErrorCode =
   | "00004"
   | "00005"
   | "00006"
+  | "00007"
   | "10001"
   | "10002"
   | "10003"
@@ -51,6 +52,7 @@ const PROVE_ERROR_MESSAGES_MAP: Record<BnbZkIdProveErrorCode, string> = {
   "00004": "Invalid identityPropertyId. [SDK-I00/SDK-I01].",
   "00005": "clientRequestId is empty.",
   "00006": "Request denied. Unauthorized address.",
+  "00007": "proofRequestId is empty.",
   "10001": "Failed to initiate the algorithm.",
   "10002": "Verification timed out. Please try again. [P-00002/P-00014].",
   "10003": "A verification task is already in progress.",

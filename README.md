@@ -12,6 +12,7 @@ And two high-level methods:
 
 - `init({ appId })`
 - `prove(input, options?)`
+- `queryProofResult({ proofRequestId, clientRequestId? })`
 
 At a high level, the SDK helps an application:
 
@@ -108,7 +109,8 @@ try {
 4. Call `prove(...)` with a unique `clientRequestId`, the target wallet address,
    and the selected `identityPropertyId`.
 5. Handle `onProgress` for UI status updates.
-6. Handle `BnbZkIdProveError` in `try/catch`.
+6. Use `queryProofResult(...)` for one-shot status/result fetch by `proofRequestId` when needed.
+7. Handle `BnbZkIdProveError` in `try/catch`.
 
 ## API Reference
 
@@ -292,6 +294,43 @@ interface ProveSuccessResult {
   `on_chain_attested` are accepted internally, but the public success result always
   normalizes to `status: "on_chain_attested"`.
 
+## `queryProofResult(input)`
+
+### Signature
+
+```ts
+queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>
+```
+
+### Input
+
+```ts
+interface QueryProofResultInput {
+  proofRequestId: string;
+  clientRequestId?: string;
+}
+```
+
+### Success Result
+
+```ts
+interface QueryProofResultSuccessResult {
+  status: "on_chain_attested";
+  walletAddress: string;
+  providerId: string;
+  identityPropertyId: string;
+  proofRequestId?: string;
+  clientRequestId?: string;
+}
+```
+
+Behavior notes:
+
+- This method performs exactly one `GET /v1/proof-requests/{proofRequestId}` call (no polling).
+- If `clientRequestId` is provided in input, it is echoed in the success result.
+- If `clientRequestId` is omitted, it is omitted from the success result.
+- Non-attested or failed states throw `BnbZkIdProveError` using the same zkVM/Gateway mapping used by `prove(...)`.
+
 ## Error Codes and Exception Handling
 
 ### Error Model Summary
@@ -300,6 +339,7 @@ Both public methods use one failure style:
 
 1. `init(...)` failures throw `BnbZkIdProveError`
 2. `prove(...)` failures throw `BnbZkIdProveError`
+3. `queryProofResult(...)` failures throw `BnbZkIdProveError`
 
 ### `BnbZkIdProveError`
 

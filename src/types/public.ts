@@ -91,6 +91,20 @@ export interface ProveSuccessResult {
   proofRequestId?: string;
 }
 
+export interface QueryProofResultInput {
+  proofRequestId: string;
+  clientRequestId?: string;
+}
+
+export interface QueryProofResultSuccessResult {
+  status: "on_chain_attested";
+  walletAddress: string;
+  providerId: string;
+  identityPropertyId: string;
+  proofRequestId?: string;
+  clientRequestId?: string;
+}
+
 /**
  * @deprecated Prove failures are thrown as {@link import("../errors/prove-error.js").BnbZkIdProveError}; this shape is no longer returned.
  */
@@ -112,7 +126,12 @@ export interface BnbZkIdClientMethods {
   init(input: InitInput): Promise<InitSuccessResult>;
   /**
    * On success returns attested result. On any failure throws {@link import("../errors/prove-error.js").BnbZkIdProveError}
-   * (`code` `00000`–`00006`, `10001`–`10013`, `20001`–`20008`, `30000`–`30005`, `40000`; `message`).
+   * (`code` `00000`–`00007`, `10001`–`10013`, `20001`–`20008`, `30000`–`30005`, `40000`; `message`).
    */
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
+  /**
+   * Query one existing proof request by id (`GET /v1/proof-requests/{proofRequestId}`) without polling.
+   * On success returns attested result; on any failure throws {@link import("../errors/prove-error.js").BnbZkIdProveError}.
+   */
+  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>;
 }

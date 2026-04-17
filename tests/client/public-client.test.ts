@@ -191,5 +191,18 @@ test("public BnbZkIdClient loads config file and executes prove workflow", async
     proofRequestId: "proof-request-001"
   });
 
+  const queryResult = await client.queryProofResult({
+    proofRequestId: "proof-request-001",
+    clientRequestId: "query-task-001"
+  });
+  assert.deepEqual(queryResult, {
+    status: "on_chain_attested",
+    walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    providerId: "github",
+    identityPropertyId: "github_account_age",
+    proofRequestId: "proof-request-001",
+    clientRequestId: "query-task-001"
+  });
+
   delete process.env.BNB_ZKID_CONFIG_PATH;
 });

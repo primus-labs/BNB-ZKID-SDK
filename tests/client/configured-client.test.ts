@@ -4,7 +4,7 @@ import { createConfiguredBnbZkIdClient } from "../../src/client/configured-clien
 import {
   BnbZkIdProveError
 } from "../../src/errors/prove-error.js";
-import { SdkError } from "../../src/errors/sdk-error.js";
+import { GATEWAY_API_ERROR_CODE, SdkError } from "../../src/errors/sdk-error.js";
 import { extractPublicProvidersWireFromConfigRaw } from "../../src/gateway/normalize-config.js";
 import type {
   GatewayClient,
@@ -746,6 +746,173 @@ test("configured client maps primus transport error to 30004", async () => {
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "30004");
       assert.equal(err.message, "Connection to the prover service unstable.");
+      return true;
+    }
+  );
+});
+
+test("configured client queryProofResult returns attested result with clientRequestId when provided", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  const result = await client.queryProofResult({
+    proofRequestId: "proof-request-001",
+    clientRequestId: "query-task-001"
+  });
+
+  assert.deepEqual(result, {
+    status: "on_chain_attested",
+    walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    providerId: "github",
+    identityPropertyId: "github_account_age",
+    proofRequestId: "proof-request-001",
+    clientRequestId: "query-task-001"
+  });
+});
+
+test("configured client queryProofResult omits clientRequestId when not provided", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  const result = await client.queryProofResult({
+    proofRequestId: "proof-request-001"
+  });
+
+  assert.equal("clientRequestId" in result, false);
+});
+
+test("configured client queryProofResult maps pending status to 30002", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  gatewayClient.statusResult = {
+    ...gatewayClient.statusResult,
+    status: "generating"
+  };
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await assert.rejects(
+    async () =>
+      client.queryProofResult({
+        proofRequestId: "proof-request-001",
+        clientRequestId: "query-pending"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "30002");
+      assert.equal(err.clientRequestId, "query-pending");
+      return true;
+    }
+  );
+});
+
+test("configured client queryProofResult maps submission_failed to 40000", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  gatewayClient.statusResult = {
+    ...gatewayClient.statusResult,
+    status: "submission_failed"
+  };
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await assert.rejects(
+    async () =>
+      client.queryProofResult({
+        proofRequestId: "proof-request-001"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "40000");
+      return true;
+    }
+  );
+});
+
+test("configured client queryProofResult maps network-like errors to 30004", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  gatewayClient.getProofRequestStatus = async () => {
+    const e = new Error("fetch failed");
+    (e as Error & { code?: string }).code = "ENOTFOUND";
+    throw e;
+  };
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await assert.rejects(
+    async () =>
+      client.queryProofResult({
+        proofRequestId: "proof-request-001",
+        clientRequestId: "query-network"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "30004");
+      assert.equal(err.clientRequestId, "query-network");
+      return true;
+    }
+  );
+});
+
+test("configured client queryProofResult maps framework binding_conflict to 30001", async () => {
+  const gatewayClient = new FakeGatewayClient();
+  gatewayClient.getProofRequestStatus = async () => {
+    throw new SdkError("Gateway proof request query failed.", GATEWAY_API_ERROR_CODE, {
+      category: "binding_conflict",
+      code: "ALREADY_BOUND",
+      message: "already bound"
+    });
+  };
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient,
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await assert.rejects(
+    async () =>
+      client.queryProofResult({
+        proofRequestId: "proof-request-001"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "30001");
+      return true;
+    }
+  );
+});
+
+test("configured client queryProofResult throws 00007 when proofRequestId is empty", async () => {
+  const client = createConfiguredBnbZkIdClient({
+    gatewayClient: new FakeGatewayClient(),
+    primusAdapter: new FakePrimusAdapter(),
+    primusTemplateResolver: new FakePrimusTemplateResolver()
+  });
+
+  await assert.rejects(
+    async () =>
+      client.queryProofResult({
+        proofRequestId: "   ",
+        clientRequestId: "query-empty-proof-request-id"
+      }),
+    (err: unknown) => {
+      assert.ok(err instanceof BnbZkIdProveError);
+      assert.equal(err.proveCode, "00007");
+      assert.equal(err.message, "proofRequestId is empty.");
+      assert.equal(err.clientRequestId, "query-empty-proof-request-id");
       return true;
     }
   );

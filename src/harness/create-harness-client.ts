@@ -25,7 +25,9 @@ import type {
   ProveInput,
   ProveOptions,
   ProveProgressEvent,
-  ProveSuccessResult
+  ProveSuccessResult,
+  QueryProofResultInput,
+  QueryProofResultSuccessResult
 } from "../types/public.js";
 
 function brevisDetails(inner: Record<string, unknown>): Record<string, unknown> {
@@ -278,6 +280,70 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       providerId,
       identityPropertyId,
       proofRequestId: created.proofRequestId
+    };
+  }
+
+  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult> {
+    const proofRequestId = input.proofRequestId.trim();
+    const clientRequestId =
+      typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
+        ? input.clientRequestId.trim()
+        : undefined;
+    const errorContext = clientRequestId === undefined ? undefined : { clientRequestId };
+
+    if (proofRequestId === "") {
+      throw createBnbZkIdProveError("30002", { field: "proofRequestId" }, errorContext);
+    }
+
+    let status;
+    try {
+      status = await this.transport.getProofRequestStatus(proofRequestId);
+    } catch (error) {
+      if (error instanceof ConfigurationError) {
+        throw createBnbZkIdProveError("30002", {}, errorContext);
+      }
+      throw error;
+    }
+
+    if (
+      status.status === "failed" ||
+      status.status === "prover_failed" ||
+      status.status === "packaging_failed"
+    ) {
+      throw createBnbZkIdProveError("30002", {}, errorContext);
+    }
+    if (status.status === "submission_failed") {
+      throw createBnbZkIdProveError("40000", {}, errorContext);
+    }
+    if (status.status === "internal_error") {
+      throw createBnbZkIdProveError("30003", {}, errorContext);
+    }
+    if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
+      throw createBnbZkIdProveError("30002", {}, errorContext);
+    }
+    if (!status.walletAddress) {
+      throw createBnbZkIdProveError("30002", {}, errorContext);
+    }
+
+    const identityPropertyId =
+      status.identityProperty?.id?.trim() ||
+      status.identityProperty?.identityPropertyId?.trim() ||
+      status.identityPropertyId?.trim();
+    if (!identityPropertyId) {
+      throw createBnbZkIdProveError("30002", {}, errorContext);
+    }
+    const providerId = status.providerId?.trim();
+    if (!providerId) {
+      throw createBnbZkIdProveError("30002", {}, errorContext);
+    }
+
+    return {
+      status: "on_chain_attested",
+      walletAddress: status.walletAddress,
+      providerId,
+      identityPropertyId,
+      ...(status.proofRequestId?.trim() ? { proofRequestId: status.proofRequestId.trim() } : {}),
+      ...(clientRequestId !== undefined ? { clientRequestId } : {})
     };
   }
 
