@@ -1,14 +1,32 @@
 # BNB-ZKID-SDK
 
+## 1. Introduction
+
+The **BNB ZK ID SDK** is a core component of the **BNB ZK ID Framework**, providing a unified integration interface for application frontends.
+
+By integrating this SDK, applications can invoke both the **Primus zkTLS** and **Brevis zkVM** proving capabilities through one consistent flow, while receiving standardized progress updates and final proof results across all proving stages.
+
+### Key Features
+
+* **Unified Orchestration**: Coordinates zkTLS and zkVM proofs in a single flow, abstracting away the complexity of underlying cross-platform interactions.
+* **Multi-Platform Support**: Supports privacy-preserving verification of data from major platforms including Binance, OKX, GitHub, Steam, and Amazon. The supported data scope will continue to expand based on requirements.
+* **Standardized Output**: Offers unified state tracking for the proof lifecycle and consistent result formats.
+
+> [!IMPORTANT]
+> For a comprehensive understanding of the business logic, supported data sources, detailed proof outputs, and full integration specifications, please refer to:
+> **[ZK ID SDK Integration Guide (Google Docs)](https://docs.google.com/document/d/1dPf19pJUi8okP5eifMRgo0WuZNTceEPBdUv9SZQkgiU/edit?usp=sharing)**
+
+---
+
 ## Product and Capability Overview
 
 `@primuslabs/bnb-zkid-sdk` is a TypeScript SDK for application developers who want a single integration surface for the BNB ZK ID flow.
 
-The public SDK is intentionally small. The current public facade exposes only one class:
+The public SDK is intentionally minimal. The current public facade exposes only one class:
 
 - `BnbZkIdClient`
 
-And two high-level methods:
+And three high-level methods:
 
 - `init({ appId })`
 - `prove(input, options?)`
@@ -29,15 +47,9 @@ The following items are part of the current public surface:
 - `BnbZkIdClient`
 - public input and output types from the package root
 - `BnbZkIdProveError`
-- Gateway config wire mirror types:
-  `BnbZkIdGatewayConfigProviderWire` and
-  `BnbZkIdGatewayConfigPropertyWire`
+- Gateway config wire mirror types: `BnbZkIdGatewayConfigProviderWire` and `BnbZkIdGatewayConfigPropertyWire`
 
 ## Quick Start and Integration Example
-
-### Prerequisites
-
-Installing the [Primus extension](https://chromewebstore.google.com/detail/primus/oeiomhmbaapihbilkfkhmlajkeegnjhe) .
 
 ### Install
 
@@ -50,6 +62,8 @@ npm install @primuslabs/bnb-zkid-sdk
 ### Example Link
 
 https://github.com/primus-labs/BNB-ZKID-SDK-Demo
+
+This live demo walks through the complete frontend workflow that end users will experience.
 
 ### Minimal Integration Example
 
@@ -69,7 +83,7 @@ try {
       userAddress: "0x1234567890abcdef1234567890abcdef12345678", // user address
       identityPropertyId: "0xa8b86ba89172f269976e3ef2dafed6de381b92a6d19a2ab848273b6f8db69c7c", // the binance identityPropertyId for test
       // provingParams: {
-      //   jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
+      //   jumpToUrl: "https://www.amazon.com" // For Amazon-related proofs, pass the opened target page URL.
       // },
     },
     {
@@ -97,12 +111,12 @@ try {
 
 1. Create a new `BnbZkIdClient`.
 2. Call `init({ appId })` before any prove request.
-3. Read `initResult.providers` to discover the supported providers and
-   `identityPropertyId` values.
-4. Call `prove(...)` with a unique `clientRequestId`, the target wallet address,
-   and the selected `identityPropertyId`.
+3. Read `initResult.providers` to discover the supported providers and `identityPropertyId` values.
+4. Call `prove(...)` with a unique `clientRequestId`, the target wallet address, and the selected `identityPropertyId`.
 5. Handle `onProgress` for UI status updates.
 6. Handle `BnbZkIdProveError` in `try/catch`.
+
+**Note**: the `init` method automatically checks whether the [Primus Extension](https://chromewebstore.google.com/detail/primus/oeiomhmbaapihbilkfkhmlajkeegnjhe) is installed, and prompts the user to install it if it is missing.
 
 ## API Reference
 
@@ -112,9 +126,7 @@ The package root exports:
 
 - `BnbZkIdClient`
 - `BnbZkIdProveError`
-- public contract types such as `InitInput`, `InitSuccessResult`, `ProveInput`,
-  `ProveOptions`, `ProveProgressEvent`, `ProveSuccessResult`, `ProveStatus`,
-  `BusinessParams`, and `ProvingParams`
+- public contract types such as `InitInput`, `InitSuccessResult`, `ProveInput`, `ProveOptions`, `ProveProgressEvent`, `ProveSuccessResult`, `ProveStatus`, `BusinessParams`, and `ProvingParams`
 
 ## `BnbZkIdClient`
 
@@ -124,8 +136,7 @@ The package root exports:
 new BnbZkIdClient()
 ```
 
-The constructor takes no arguments. Runtime configuration is resolved
-automatically as described above.
+The constructor takes no arguments. Runtime configuration is resolved automatically as described above.
 
 ## `init(input)`
 
@@ -143,9 +154,9 @@ interface InitInput {
 }
 ```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `appId` | `string` | Yes | Application identifier registered for the BNB ZK ID flow. |
+| Field   | Type     | Required | Description                                               |
+| ------- | -------- | -------- | --------------------------------------------------------- |
+| `appId` | `string` | Yes      | Application identifier registered for the BNB ZK ID flow. |
 
 ### Success Result
 
@@ -176,8 +187,7 @@ interface BnbZkIdGatewayConfigPropertyWire {
 
 - `init` must succeed before `prove(...)` is called.
 - On any failure, `init` throws `BnbZkIdProveError`.
-- On success, the client stores the initialized app context for later `prove(...)`
-  calls.
+- On success, the client stores the initialized app context for later `prove(...)` calls.
 
 ## `prove(input, options?)`
 
@@ -198,12 +208,12 @@ interface ProveInput {
 }
 ```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `clientRequestId` | `string` | Yes | Client-defined request identifier used for correlation and logging. |
-| `userAddress` | `string` | Yes | EVM wallet address. Must be `0x` followed by 40 hex characters. |
-| `identityPropertyId` | `string` | Yes | Identity property to prove, such as `github_account_age`. |
-| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`, to prove Amazon, you need to upload the opened website. |
+| Field                | Type            | Required | Description                                                  |
+| -------------------- | --------------- | -------- | ------------------------------------------------------------ |
+| `clientRequestId`    | `string`        | Yes      | Client-defined request identifier used for tracing and logging. |
+| `userAddress`        | `string`        | Yes      | EVM wallet address. Must be `0x` followed by 40 hex characters. |
+| `identityPropertyId` | `string`        | Yes      | A unique identifier for a provider-defined verifiable data scope, such as  `0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff`. |
+| `provingParams`      | `ProvingParams` | No       | `jumpToUrl`: For Amazon-related proofs (which may require different regional service sites), the frontend should pass a specific URL to open and prove. |
 
 
 ### `ProvingParams`
@@ -217,18 +227,17 @@ interface ProvingParams {
   [key: string]: unknown;
 }
 
-// Amazon can pass the opened URL like this:
+// For Amazon-related proofs, pass the URL of the opened target page like this:
 // provingParams: {
-//  jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
+//  jumpToUrl: "https://www.amazon.com"
 // },
 ```
 
 Rules:
 
 - `provingParams` must be a plain object when provided.
-- `businessParams` is validated against `GET /v1/config` when present and is used for
-  the Gateway request body, not for Primus `additionParams`.
-- `jumpToUrl`, when set to a non-empty string, is passed as Primus `additionParams.jumpToUrl`, to prove Amazon, you need to upload the opened website.
+- `businessParams` is validated against `GET /v1/config` when present and is used for the Gateway request body, not for Primus `additionParams`.
+- `jumpToUrl` should be set when a data-source platform has different regional service sites. For example, for Amazon-related proofs, the frontend should pass a specific URL to open and prove.
 
 ### Options
 
@@ -239,10 +248,10 @@ interface ProveOptions {
 }
 ```
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `onProgress` | `(event) => void` | No | Callback invoked when the prove workflow changes status. |
-| `closeDataSourceOnProofComplete` | `boolean` | No | Forwarded to the underlying zkTLS browser flow so the data-source tab may be closed after proof completion. |
+| Field                            | Type              | Required | Description                                                  |
+| -------------------------------- | ----------------- | -------- | ------------------------------------------------------------ |
+| `onProgress`                     | `(event) => void` | No       | Callback invoked when the prove workflow changes status.     |
+| `closeDataSourceOnProofComplete` | `boolean`         | No       | Forwarded to the underlying zkTLS browser flow so the data-source tab may be closed after proof completion. |
 
 ### Progress Event
 
@@ -268,8 +277,7 @@ Typical progress order:
 3. `proof_generating`
 4. `on_chain_attested`
 
-If the Gateway reaches a terminal failure, the callback may emit `failed` before
-the SDK throws an error.
+If the Gateway reaches a terminal failure, the callback may emit `failed` before the SDK throws an error.
 
 ### Success Result
 
@@ -289,15 +297,12 @@ interface ProveSuccessResult {
 - `prove(...)` always requires a previously successful `init(...)`.
 - `prove(...)` never returns a failure result object.
 - On any failure, `prove(...)` throws `BnbZkIdProveError`.
-- Both Gateway success payloads `onchain_attested` and legacy
-  `on_chain_attested` are accepted internally, but the public success result always
-  normalizes to `status: "on_chain_attested"`.
+- Both Gateway success payloads `onchain_attested` and legacy `on_chain_attested` are accepted internally, but the public success result always normalizes to `status: "on_chain_attested"`.
 
 ## `queryProofResult(input)`
 
 `queryProofResult(...)` is a supplemental API for recovery scenarios.
-Most integrations should not call it directly. In the normal flow, prefer
-`prove(...)` and let the SDK handle submission and polling internally.
+Most integrations should not call it directly. In the normal flow, prefer `prove(...)` and let the SDK handle submission and polling internally.
 
 ### Signature
 
@@ -314,9 +319,7 @@ interface QueryProofResultInput {
 }
 ```
 
-Use this method only when the caller already has a known `proofRequestId`, for
-example after application reload, persisted task recovery, or manual status
-reconciliation.
+Use this method only when the caller already has a known `proofRequestId`, for example after application reload, persisted task recovery, or manual status reconciliation.
 
 ### Success Result
 
@@ -342,7 +345,7 @@ Behavior notes:
 
 ### Error Model Summary
 
-Both public methods use one failure style:
+All public methods use one failure style:
 
 1. `init(...)` failures throw `BnbZkIdProveError`
 2. `prove(...)` failures throw `BnbZkIdProveError`
@@ -364,10 +367,17 @@ Important notes:
 - Publicly, the stable error envelope is `code`, `message`,
   `clientRequestId?`, and `proofRequestId?`.
 - Internally, `code` is an alias of `proveCode`.
-- clientRequestId (String, optional): A unique identifier for each proof task.
-- proofRequestId (String, optional): Present only after the SDK has already obtained a non-empty proof request id from Gateway or the deterministic harness.
+- `clientRequestId` (`string`, optional): A unique identifier for each proof task.
+- `proofRequestId` (`string`, optional): Present only after the SDK has already obtained a non-empty proof request id from Gateway or the deterministic harness.
 
-### Error Code Table
+### Error Code Reference and Troubleshooting Guide
 
-Error codes/messages are now maintained in one canonical document:
+Error codes and messages are maintained in this document:
 [`docs/error-codes-references.md`](./docs/error-codes-references.md).
+
+Use this reference as the primary lookup during integration and troubleshooting:
+
+- Search by `code` to identify the exact failure category.
+- Review the corresponding message and recommended handling strategy.
+- Use `clientRequestId` and `proofRequestId` to correlate frontend logs with backend/Gateway records.
+- Keep this README focused on SDK contracts, while the error codes reference document carries continuously updated details.
