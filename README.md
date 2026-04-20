@@ -59,7 +59,7 @@ If this SDK is distributed to your integration as the package `@primuslabs/bnb-z
 npm install @primuslabs/bnb-zkid-sdk
 ```
 
-### Example Link
+### Live Demo
 
 https://github.com/primus-labs/BNB-ZKID-SDK-Demo
 
