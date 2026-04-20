@@ -963,11 +963,7 @@ test("configured client queryProofResult returns terminal submission_failed stat
 
   assert.deepEqual(result, {
     status: "submission_failed",
-    proofRequestId: "proof-request-001",
-    failure: {
-      source: "unknown",
-      message: "Gateway reported an on-chain submission failure."
-    }
+    proofRequestId: "proof-request-001"
   });
 });
 
@@ -1029,7 +1025,7 @@ test("configured client queryProofResult maps framework binding_conflict to 3000
   );
 });
 
-test("configured client queryProofResult returns framework failure details on terminal status", async () => {
+test("configured client queryProofResult returns terminal failed status without failure details", async () => {
   const gatewayClient = new FakeGatewayClient();
   gatewayClient.statusResult = {
     ...gatewayClient.statusResult,
@@ -1056,17 +1052,11 @@ test("configured client queryProofResult returns framework failure details on te
   assert.deepEqual(result, {
     status: "failed",
     proofRequestId: "proof-request-001",
-    clientRequestId: "query-framework-terminal",
-    failure: {
-      source: "framework_error",
-      category: "binding_conflict",
-      code: "ALREADY_BOUND",
-      message: "already bound"
-    }
+    clientRequestId: "query-framework-terminal"
   });
 });
 
-test("configured client queryProofResult returns lifecycle failure details on terminal status", async () => {
+test("configured client queryProofResult returns terminal prover_failed status without failure details", async () => {
   const gatewayClient = new FakeGatewayClient();
   gatewayClient.statusResult = {
     ...gatewayClient.statusResult,
@@ -1090,13 +1080,7 @@ test("configured client queryProofResult returns lifecycle failure details on te
 
   assert.deepEqual(result, {
     status: "prover_failed",
-    proofRequestId: "proof-request-001",
-    failure: {
-      source: "lifecycle_failure",
-      reason: "PROVER_CRASHED",
-      message: "Prover exited with code 1",
-      detail: "Prover exited with code 1"
-    }
+    proofRequestId: "proof-request-001"
   });
 });
 

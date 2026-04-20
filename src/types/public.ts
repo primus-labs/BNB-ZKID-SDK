@@ -108,15 +108,6 @@ export interface QueryProofResultSuccessResult {
   clientRequestId?: string;
 }
 
-export interface QueryProofResultFailure {
-  source: "framework_error" | "lifecycle_failure" | "unknown";
-  category?: string;
-  code?: string;
-  reason?: string;
-  message?: string;
-  detail?: string;
-}
-
 export interface QueryProofResultPendingResult {
   status: "initialized" | "generating" | "submitting";
   proofRequestId: string;
@@ -127,7 +118,6 @@ export interface QueryProofResultTerminalResult {
   status: "prover_failed" | "packaging_failed" | "submission_failed" | "internal_error" | "failed";
   proofRequestId: string;
   clientRequestId?: string;
-  failure?: QueryProofResultFailure;
 }
 
 export type QueryProofResultResult =
