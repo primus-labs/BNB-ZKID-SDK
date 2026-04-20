@@ -1,6 +1,6 @@
 {
   "name": "@primuslabs/bnb-zkid-sdk",
-  "version": "0.1.0-beta.2",
+  "version": "0.1.0",
   "type": "module",
   "description": "TypeScript SDK for BNB ZKID.",
   "main": "./dist/index.js",
