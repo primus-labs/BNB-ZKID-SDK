@@ -169,10 +169,7 @@ test("primus adapter signs, verifies, and collects attestation bundle", async ()
 
   assert.equal(runtime.initCalls.length, 1);
   assert.deepEqual(runtime.initCalls[0], {
-    appId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2",
-    options: {
-      env: "development"
-    }
+    appId: "0x4f6caf43b3a9cf3104d67ddb850bc51a3846a5e2"
   });
   assert.equal(signerCalls.length, 1);
   assert.equal(runtime.startedRequests.length, 1);

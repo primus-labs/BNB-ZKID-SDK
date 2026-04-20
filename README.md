@@ -359,15 +359,6 @@ Use this method only when the caller already has a known `proofRequestId`, for e
 ### Result
 
 ```ts
-interface QueryProofResultFailure {
-  source: "framework_error" | "lifecycle_failure" | "unknown";
-  category?: string;
-  code?: string;
-  reason?: string;
-  message?: string;
-  detail?: string;
-}
-
 type QueryProofResultResult =
   | {
       status: "initialized" | "generating" | "submitting";
@@ -386,7 +377,6 @@ type QueryProofResultResult =
       status: "prover_failed" | "packaging_failed" | "submission_failed" | "internal_error" | "failed";
       proofRequestId: string;
       clientRequestId?: string;
-      failure?: QueryProofResultFailure;
     };
 ```
 
@@ -396,7 +386,7 @@ Behavior notes:
 - If `clientRequestId` is provided in input, it is echoed in the returned status object.
 - If `clientRequestId` is omitted, it is omitted from the returned status object.
 - Pending states (`initialized` / `generating` / `submitting`) are returned directly.
-- Terminal Gateway states are returned directly with an optional normalized `failure` object.
+- Terminal Gateway states are returned directly as terminal statuses without a nested `failure` object.
 - This method throws `BnbZkIdProveError` only for invalid input, transport failures, or malformed/unusable payloads.
 
 

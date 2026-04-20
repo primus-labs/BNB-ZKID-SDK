@@ -16,7 +16,6 @@ export type {
   ProveSuccessResult,
   ProveStatus,
   ProvingParams,
-  QueryProofResultFailure,
   QueryProofResultInput,
   QueryProofResultResult,
   QueryProofResultSuccessResult
