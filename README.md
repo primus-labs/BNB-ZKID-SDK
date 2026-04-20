@@ -37,17 +37,7 @@ The following items are part of the current public surface:
 
 ### Prerequisites
 
-Installing the Primus extension test package is only required during the current testing phase. If you have installed the official version of the Primus extension, you need to stop this process first.
-
-* Download the [Primus extension test package](https://github.com/primus-labs/BNB-ZKID-SDK/blob/main/extension/PRIMUS-0.3.48.zip) and unzip.
-
-* Access `chrome://extensions/`
-
-* Check `Developer mode`
-
-* Click on `Load unpacked extension`
-
-* Select the unzip folder.
+Installing the [Primus extension](https://chromewebstore.google.com/detail/primus/oeiomhmbaapihbilkfkhmlajkeegnjhe) .
 
 ### Install
 
@@ -78,6 +68,10 @@ try {
       clientRequestId: "prove-task-001",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678", // user address
       identityPropertyId: "0xa8b86ba89172f269976e3ef2dafed6de381b92a6d19a2ab848273b6f8db69c7c", // the binance identityPropertyId for test
+      // provingParams: {
+      //   jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
+      // },
+
     },
     {
       onProgress(event) {
@@ -109,8 +103,7 @@ try {
 4. Call `prove(...)` with a unique `clientRequestId`, the target wallet address,
    and the selected `identityPropertyId`.
 5. Handle `onProgress` for UI status updates.
-6. Use `queryProofResult(...)` for one-shot status/result fetch by `proofRequestId` when needed.
-7. Handle `BnbZkIdProveError` in `try/catch`.
+6. Handle `BnbZkIdProveError` in `try/catch`.
 
 ## API Reference
 
@@ -211,7 +204,7 @@ interface ProveInput {
 | `clientRequestId` | `string` | Yes | Client-defined request identifier used for correlation and logging. |
 | `userAddress` | `string` | Yes | EVM wallet address. Must be `0x` followed by 40 hex characters. |
 | `identityPropertyId` | `string` | Yes | Identity property to prove, such as `github_account_age`. |
-| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`. |
+| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`, to prove Amazon, you need to upload the opened website. |
 
 ### `ProvingParams`
 
@@ -230,7 +223,7 @@ Rules:
 - `provingParams` must be a plain object when provided.
 - `businessParams` is validated against `GET /v1/config` when present and is used for
   the Gateway request body, not for Primus `additionParams`.
-- `jumpToUrl`, when set to a non-empty string, is passed as Primus `additionParams.jumpToUrl`.
+- `jumpToUrl`, when set to a non-empty string, is passed as Primus `additionParams.jumpToUrl`, to prove Amazon, you need to upload the opened website.
 
 ### Options
 
@@ -364,57 +357,4 @@ Important notes:
 ### Error Code Table
 
 Error codes/messages are now maintained in one canonical document:
-[`docs/error-codes-references.md`](./docs/error-codes-references.md).
-
-At a glance, code ranges are:
-
-- `00xxx`: SDK core and input validation
-- `10xxx` / `20xxx`: zkTLS stage mapping
-- `30xxx`: zkVM / Gateway stage
-- `40xxx`: on-chain submission stage
-
-### Common Failure Shapes
-
-#### Invalid Parameter Error
-
-Example:
-
-```ts
-try {
-  await client.prove({
-    clientRequestId: "",
-    userAddress: "not-an-address",
-    identityPropertyId: ""
-  });
-} catch (error) {
-  if (error instanceof BnbZkIdProveError) {
-    console.error(error.code); // e.g. 00002 / 00004 / 00005
-    console.error(error.message);
-  }
-}
-```
-
-Typical validation fields include:
-
-- `appId`
-- `clientRequestId`
-- `userAddress`
-- `identityPropertyId`
-- `provingParams`
-- `provingParams.businessParams`
-
-#### Gateway Failure
-
-When the Gateway returns a framework or proof-lifecycle failure, the SDK throws
-`BnbZkIdProveError` with normalized public fields (`code`, `message`,
-`clientRequestId?`).
-
-For stage-by-stage mapping details, see
-[`docs/error-codes-references.md`](./docs/error-codes-references.md).
-
-#### zkTLS Failure
-
-When the zkTLS stage fails, the SDK throws `BnbZkIdProveError` with normalized
-public fields (`code`, `message`, `clientRequestId?`). The exact wire-code to SDK
-mapping is documented in
 [`docs/error-codes-references.md`](./docs/error-codes-references.md).
