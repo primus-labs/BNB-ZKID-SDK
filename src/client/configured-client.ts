@@ -14,10 +14,9 @@ import { executeProveWorkflow } from "../workflow/execute-prove.js";
 import {
   classifyGatewayApiDetailsError,
   classifyGatewayTerminalFailureCode,
-  isGatewayStatusOnChainAttested,
   isGatewayStatusTerminalFailure
 } from "../workflow/gateway-error-mapping.js";
-import { normalizeGatewayAttestedStatusOrThrow } from "../workflow/gateway-success-normalizer.js";
+import { normalizeQueryProofResultOrThrow } from "../workflow/query-proof-result-normalizer.js";
 import { createHttpWhitelistChecker, type WhitelistChecker } from "../whitelist/checker.js";
 import type {
   BnbZkIdClientMethods,
@@ -27,7 +26,7 @@ import type {
   ProveOptions,
   ProveSuccessResult,
   QueryProofResultInput,
-  QueryProofResultSuccessResult
+  QueryProofResultResult
 } from "../types/public.js";
 
 export interface ConfiguredBnbZkIdClientOptions {
@@ -119,7 +118,7 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
     });
   }
 
-  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult> {
+  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultResult> {
     const proofRequestId = input.proofRequestId.trim();
     const clientRequestId =
       typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
@@ -147,34 +146,15 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       }
       throw createBnbZkIdProveError("30002", errorContext);
     }
-
-    if (status.error != null) {
-      const frameworkDetails = { ...status.error } as Record<string, unknown>;
-      throw createBnbZkIdProveError(classifyGatewayApiDetailsError(frameworkDetails), errorContext);
-    }
-
-    if (isGatewayStatusTerminalFailure(status.status)) {
-      throw createBnbZkIdProveError(classifyGatewayTerminalFailureCode(status.status), errorContext);
-    }
-
-    if (!isGatewayStatusOnChainAttested(status.status)) {
-      throw createBnbZkIdProveError("30002", errorContext);
-    }
-    let normalized;
     try {
-      normalized = normalizeGatewayAttestedStatusOrThrow(status);
+      return normalizeQueryProofResultOrThrow({
+        status,
+        requestedProofRequestId: proofRequestId,
+        ...(clientRequestId !== undefined ? { clientRequestId } : {})
+      });
     } catch {
       throw createBnbZkIdProveError("30002", errorContext);
     }
-
-    return {
-      status: "on_chain_attested",
-      walletAddress: normalized.walletAddress,
-      providerId: normalized.providerId,
-      identityPropertyId: normalized.identityPropertyId,
-      ...(normalized.proofRequestId !== undefined ? { proofRequestId: normalized.proofRequestId } : {}),
-      ...(clientRequestId !== undefined ? { clientRequestId } : {})
-    };
   }
 }
 

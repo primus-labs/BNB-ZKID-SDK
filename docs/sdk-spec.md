@@ -90,6 +90,12 @@ export interface ProveInput {
   provingParams?: ProvingParams;
 }
 
+/**
+ * Progress snapshot for `prove(..., { onProgress })`.
+ * `clientRequestId` is always set (from `ProveInput`). `proofRequestId` appears after the Gateway
+ * accepts `POST /v1/proof-requests` with a non-empty id: from `proof_generating` through
+ * `on_chain_attested`; omitted for `initializing` and `data_verifying`.
+ */
 export interface ProveProgressEvent {
   status: ProveStatus;
   clientRequestId: string;
@@ -97,9 +103,8 @@ export interface ProveProgressEvent {
 }
 
 export interface ProveOptions {
-  /** If set, invoked for each progress step; on any `prove` failure the SDK calls this once with `status: "failed"` before throwing. */
+  /** If set, invoked for each progress step; on any `prove` failure the SDK calls this once with `status: "failed"` before throwing `BnbZkIdProveError`. */
   onProgress?: (event: ProveProgressEvent) => void;
-  closeDataSourceOnProofComplete?: boolean;
 }
 
 export interface ProveSuccessResult {
@@ -116,14 +121,41 @@ export interface QueryProofResultInput {
   clientRequestId?: string;
 }
 
+export interface QueryProofResultFailure {
+  source: "framework_error" | "lifecycle_failure" | "unknown";
+  category?: string;
+  code?: string;
+  reason?: string;
+  message?: string;
+  detail?: string;
+}
+
 export interface QueryProofResultSuccessResult {
   status: "on_chain_attested";
   walletAddress: string;
   providerId: string;
   identityPropertyId: string;
-  proofRequestId?: string;
+  proofRequestId: string;
   clientRequestId?: string;
 }
+
+export interface QueryProofResultPendingResult {
+  status: "initialized" | "generating" | "submitting";
+  proofRequestId: string;
+  clientRequestId?: string;
+}
+
+export interface QueryProofResultTerminalResult {
+  status: "prover_failed" | "packaging_failed" | "submission_failed" | "internal_error" | "failed";
+  proofRequestId: string;
+  clientRequestId?: string;
+  failure?: QueryProofResultFailure;
+}
+
+export type QueryProofResultResult =
+  | QueryProofResultPendingResult
+  | QueryProofResultSuccessResult
+  | QueryProofResultTerminalResult;
 
 /** @deprecated Failures throw `BnbZkIdProveError`; this shape is no longer returned. */
 export interface ProveFailureResult {
@@ -139,7 +171,7 @@ export type ProveResult = ProveSuccessResult | ProveFailureResult;
 export interface BnbZkIdClientMethods {
   init(input: InitInput): Promise<InitSuccessResult>;
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
-  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>;
+  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultResult>;
 }
 
 export declare class BnbZkIdProveError extends Error {
@@ -197,7 +229,7 @@ export declare class BnbZkIdClient implements BnbZkIdClientMethods {
   constructor();
   init(input: InitInput): Promise<InitSuccessResult>;
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
-  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>;
+  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultResult>;
 }
 ```
 
@@ -272,9 +304,11 @@ the workflow. On failure, the SDK always throws `BnbZkIdProveError` (see "prove
 error codes").
 
 `queryProofResult` is a supplemental recovery API. It performs a single status
-query call (no polling) for a known `proofRequestId` and uses the same
-zkVM/Gateway error mapping for non-success states. Normal integrations should
-prefer `prove(...)` and let the SDK own submission plus polling.
+query call (no polling) for a known `proofRequestId` and returns the current
+normalized state for pending, attested, and terminal Gateway statuses. It throws
+`BnbZkIdProveError` only for invalid input, transport failures, or malformed /
+unusable payloads. Normal integrations should prefer `prove(...)` and let the
+SDK own submission plus polling.
 
 ## API Design Principles
 
@@ -413,7 +447,7 @@ try {
     },
     {
       onProgress(event) {
-        console.log(event.status, event.proofRequestId);
+        console.log(event.status, event.clientRequestId, event.proofRequestId);
       },
     }
   );

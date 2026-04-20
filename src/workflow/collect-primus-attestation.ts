@@ -40,9 +40,6 @@ export async function collectPrimusAttestationForProveInput(
     ...(input.onBeforeStartAttestation === undefined
       ? {}
       : { onBeforeStartAttestation: input.onBeforeStartAttestation }),
-    ...(input.closeDataSourceOnProofComplete === undefined
-      ? {}
-      : { closeDataSourceOnProofComplete: input.closeDataSourceOnProofComplete }),
     additionParams: {
       clientRequestId: proveInput.clientRequestId,
       identityPropertyId: proveInput.identityPropertyId,

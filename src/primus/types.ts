@@ -44,7 +44,6 @@ export type PrimusAdditionParams = Record<string, PrimusAdditionParamsValue>;
  */
 export interface PrimusGenerateRequestParamsOptions {
   timeout?: number;
-  closeDataSourceOnProofComplete?: boolean;
 }
 
 export interface PrimusAttestationRequest {
@@ -53,7 +52,6 @@ export interface PrimusAttestationRequest {
   setAttMode(attMode: PrimusAttMode): void;
   setAttConditions(attConditions: PrimusAttConditions): void;
   setAllJsonResponseFlag?(flag: string): void;
-  setCloseDataSourceOnProofComplete?(value: boolean): void;
   toJsonString(): string;
 }
 
@@ -101,11 +99,6 @@ export interface CollectPrimusAttestationInput {
   attConditions?: PrimusAttConditions;
   /** When set, must be `"true"` or `"false"` (Primus API). */
   allJsonResponseFlag?: "true" | "false";
-  /**
-   * When true, passed to runtime `generateRequestParams` options (`@primuslabs/zktls-js-sdk`) so the
-   * att request closes the data-source tab after successful proof on PC when supported.
-   */
-  closeDataSourceOnProofComplete?: boolean;
   /** Invoked immediately before `PrimusZkTlsRuntime.startAttestation` (e.g. prove progress). */
   onBeforeStartAttestation?: () => void | Promise<void>;
 }
@@ -152,7 +145,6 @@ export interface CollectPrimusBundleForProveInput {
   attConditions?: PrimusAttConditions;
   additionParams?: PrimusAdditionParams;
   allJsonResponseFlag?: "true" | "false";
-  closeDataSourceOnProofComplete?: boolean;
   /** Defaults from the template resolver (e.g. HTTP `/public/identity/templates`); explicit fields above override when set. */
   resolvedPrimusTemplateOptions?: ResolvedPrimusTemplateOptions;
   /** Forwarded to `collectAttestationBundle` — runs before `startAttestation`. */

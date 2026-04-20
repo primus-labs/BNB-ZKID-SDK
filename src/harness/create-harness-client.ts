@@ -5,6 +5,7 @@ import { createBnbZkIdProveError, getInvalidAppIdMessage } from "../errors/prove
 import { ConfigurationError } from "../errors/sdk-error.js";
 import { resolveProviderIdForIdentityPropertyId } from "../gateway/status-identity.js";
 import { normalizeGatewayAttestedStatusOrThrow } from "../workflow/gateway-success-normalizer.js";
+import { normalizeQueryProofResultOrThrow } from "../workflow/query-proof-result-normalizer.js";
 import type {
   GatewayConfig,
   GatewayCreateProofRequestResult,
@@ -24,7 +25,7 @@ import type {
   ProveProgressEvent,
   ProveSuccessResult,
   QueryProofResultInput,
-  QueryProofResultSuccessResult
+  QueryProofResultResult
 } from "../types/public.js";
 
 interface HarnessGatewayConfig {
@@ -233,7 +234,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     };
   }
 
-  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult> {
+  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultResult> {
     const proofRequestId = input.proofRequestId.trim();
     const clientRequestId =
       typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
@@ -257,38 +258,15 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       }
       throw error;
     }
-
-    if (
-      status.status === "failed" ||
-      status.status === "prover_failed" ||
-      status.status === "packaging_failed"
-    ) {
-      throw createBnbZkIdProveError("30002", errorContext);
-    }
-    if (status.status === "submission_failed") {
-      throw createBnbZkIdProveError("40000", errorContext);
-    }
-    if (status.status === "internal_error") {
-      throw createBnbZkIdProveError("30003", errorContext);
-    }
-    if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
-      throw createBnbZkIdProveError("30002", errorContext);
-    }
-    let normalized;
     try {
-      normalized = normalizeGatewayAttestedStatusOrThrow(status);
+      return normalizeQueryProofResultOrThrow({
+        status,
+        requestedProofRequestId: proofRequestId,
+        ...(clientRequestId !== undefined ? { clientRequestId } : {})
+      });
     } catch {
       throw createBnbZkIdProveError("30002", errorContext);
     }
-
-    return {
-      status: "on_chain_attested",
-      walletAddress: normalized.walletAddress,
-      providerId: normalized.providerId,
-      identityPropertyId: normalized.identityPropertyId,
-      ...(normalized.proofRequestId !== undefined ? { proofRequestId: normalized.proofRequestId } : {}),
-      ...(clientRequestId !== undefined ? { clientRequestId } : {})
-    };
   }
 
   private async emitProgress(options: ProveOptions | undefined, event: ProveProgressEvent): Promise<void> {

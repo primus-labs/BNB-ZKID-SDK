@@ -357,6 +357,11 @@ The diagram above is closer to the product view and shows that:
 - `on_chain_attested`
 - `failed`
 
+`ProveProgressEvent` always includes `clientRequestId` (from `ProveInput`). `proofRequestId` is
+attached once the Gateway returns a non-empty id from `createProofRequest`: it is present on
+`proof_generating` (emitted only after a successful create response without Framework `error`) and
+`on_chain_attested`, and omitted for earlier steps.
+
 Design principles:
 
 - Expose only a small set of business-meaningful states

@@ -44,7 +44,7 @@ try {
   console.log("result", proveResult.status, proveResult.walletAddress);
 } catch (error) {
   if (error instanceof BnbZkIdProveError) {
-    console.error("sdk failed", error.code, error.message);
+    console.error("sdk failed", error.toJSON());
   } else {
     console.error("sdk failed", error);
   }

@@ -42,11 +42,7 @@ try {
   }
 } catch (error) {
   if (error instanceof BnbZkIdProveError) {
-    console.error("sdk failed", {
-      code: error.code,
-      message: error.message,
-      clientRequestId: error.clientRequestId
-    });
+    console.error("sdk failed", error.toJSON());
   } else {
     console.error("sdk failed", error);
   }

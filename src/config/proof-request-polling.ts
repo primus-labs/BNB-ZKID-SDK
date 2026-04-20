@@ -7,4 +7,4 @@
 export const PROOF_REQUEST_POLL_INTERVAL_MS = 3_000;
 
 /** Stop polling and fail prove (`10003`, `details.brevis.code` `TIMEOUT`) after this duration from the first poll. */
-export const PROOF_REQUEST_POLL_MAX_DURATION_MS = 10 * 60 * 1_000;
+export const PROOF_REQUEST_POLL_MAX_DURATION_MS = 20 * 60 * 1_000;

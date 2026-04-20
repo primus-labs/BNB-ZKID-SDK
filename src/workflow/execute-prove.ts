@@ -183,12 +183,7 @@ export async function executeProveWorkflow(
             status: "data_verifying",
             clientRequestId
           });
-        },
-        ...(input.options?.closeDataSourceOnProofComplete === undefined
-          ? {}
-          : {
-              closeDataSourceOnProofComplete: input.options.closeDataSourceOnProofComplete
-            })
+        }
       }
     );
   } catch (error) {
@@ -201,11 +196,6 @@ export async function executeProveWorkflow(
       messageOverride: primusError.message
     });
   }
-
-  await emitProgress(input.options, {
-    status: "proof_generating",
-    clientRequestId
-  });
 
   const createdParams = {
     appId: input.appId,
@@ -231,6 +221,12 @@ export async function executeProveWorkflow(
       proveErrorContext(clientRequestId, proofRequestIdAfterCreate)
     );
   }
+
+  await emitProgress(input.options, {
+    status: "proof_generating",
+    clientRequestId,
+    ...(proofRequestIdAfterCreate !== undefined ? { proofRequestId: proofRequestIdAfterCreate } : {})
+  });
 
   let status: GatewayProofRequestStatusResult;
   try {
