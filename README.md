@@ -12,7 +12,7 @@ By integrating this SDK, applications can invoke both the **Primus zkTLS** and *
 * **Multi-Platform Support**: Supports privacy-preserving verification of data from major platforms including Binance, OKX, GitHub, Steam, and Amazon. The supported data scope will continue to expand based on requirements.
 * **Standardized Output**: Offers unified state tracking for the proof lifecycle and consistent result formats.
 
-> [!IMPORTANT]
+> [!NOTE]
 > For a comprehensive understanding of the business logic, supported data sources, detailed proof outputs, and full integration specifications, please refer to:
 > **[ZK ID SDK Integration Guide](https://docs.google.com/document/d/1dPf19pJUi8okP5eifMRgo0WuZNTceEPBdUv9SZQkgiU/edit?usp=sharing)**
 
