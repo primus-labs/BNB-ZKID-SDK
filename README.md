@@ -1,6 +1,6 @@
 # BNB-ZKID-SDK
 
-## 1. Introduction
+## Introduction
 
 The **BNB ZK ID SDK** is a core component of the **BNB ZK ID Framework**, providing a unified integration interface for application frontends.
 
@@ -16,6 +16,16 @@ By integrating this SDK, applications can invoke both the **Primus zkTLS** and *
 > [!NOTE]
 > For a comprehensive understanding of the business logic, supported data sources, detailed proof outputs, and full integration specifications, please refer to:
 > **[ZK ID SDK Integration Guide](https://docs.google.com/document/d/1dPf19pJUi8okP5eifMRgo0WuZNTceEPBdUv9SZQkgiU/edit?usp=sharing)**
+
+
+
+
+## Live Demo
+
+Use the live demo below to experience the complete end-to-end flow from an end-user perspective:
+
+**[BNB ZK ID Live Demo](http://api-dev.padolabs.org:38113/)**
+
 
 
 
@@ -50,6 +60,8 @@ The following items are part of the current public surface:
 - `BnbZkIdProveError`
 - Gateway config wire mirror types: `BnbZkIdGatewayConfigProviderWire` and `BnbZkIdGatewayConfigPropertyWire`
 
+
+
 ## Quick Start and Integration Example
 
 ### Install
@@ -60,11 +72,12 @@ If this SDK is distributed to your integration as the package `@primuslabs/bnb-z
 npm install @primuslabs/bnb-zkid-sdk
 ```
 
-### Live Demo
+### Frontend Integration Reference
 
 https://github.com/primus-labs/BNB-ZKID-SDK-Demo
 
-This live demo walks through the complete frontend workflow that end users will experience.
+This repository is a developer integration reference that shows how to implement the frontend flow with this SDK.
+
 
 ### Minimal Integration Example
 
@@ -119,6 +132,8 @@ try {
 
 **Note**: the `init` method automatically checks whether the [Primus Extension](https://chromewebstore.google.com/detail/primus/oeiomhmbaapihbilkfkhmlajkeegnjhe) is installed, and prompts the user to install it if it is missing.
 
+
+
 ## API Reference
 
 ### Package Exports
@@ -129,6 +144,8 @@ The package root exports:
 - `BnbZkIdProveError`
 - public contract types such as `InitInput`, `InitSuccessResult`, `ProveInput`, `ProveOptions`, `ProveProgressEvent`, `ProveSuccessResult`, `ProveStatus`, `BusinessParams`, and `ProvingParams`
 
+
+
 ## `BnbZkIdClient`
 
 ### Constructor
@@ -138,6 +155,8 @@ new BnbZkIdClient()
 ```
 
 The constructor takes no arguments. Runtime configuration is resolved automatically as described above.
+
+
 
 ## `init(input)`
 
@@ -189,6 +208,8 @@ interface BnbZkIdGatewayConfigPropertyWire {
 - `init` must succeed before `prove(...)` is called.
 - On any failure, `init` throws `BnbZkIdProveError`.
 - On success, the client stores the initialized app context for later `prove(...)` calls.
+
+
 
 ## `prove(input, options?)`
 
@@ -300,6 +321,8 @@ interface ProveSuccessResult {
 - On any failure, `prove(...)` throws `BnbZkIdProveError`.
 - Both Gateway success payloads `onchain_attested` and legacy `on_chain_attested` are accepted internally, but the public success result always normalizes to `status: "on_chain_attested"`.
 
+
+
 ## `queryProofResult(input)`
 
 `queryProofResult(...)` is a supplemental API for recovery scenarios.
@@ -341,6 +364,8 @@ Behavior notes:
 - If `clientRequestId` is provided in input, it is echoed in the success result.
 - If `clientRequestId` is omitted, it is omitted from the success result.
 - Non-attested or failed states throw `BnbZkIdProveError` using the same zkVM/Gateway mapping used by `prove(...)`.
+
+
 
 ## Error Codes and Exception Handling
 
