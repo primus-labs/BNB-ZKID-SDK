@@ -83,7 +83,7 @@ try {
       userAddress: "0x1234567890abcdef1234567890abcdef12345678", // user address
       identityPropertyId: "0xa8b86ba89172f269976e3ef2dafed6de381b92a6d19a2ab848273b6f8db69c7c", // the binance identityPropertyId for test
       // provingParams: {
-      //   jumpToUrl: "https://www.amazon.com" // For Amazon-related proofs, pass the opened target page URL.
+      //   jumpToUrl: "https://www.amazon.com" // For Amazon-related proofs, pass the target page URL.
       // },
     },
     {
@@ -213,7 +213,7 @@ interface ProveInput {
 | `clientRequestId`    | `string`        | Yes      | Client-defined request identifier used for tracing and logging. |
 | `userAddress`        | `string`        | Yes      | EVM wallet address. Must be `0x` followed by 40 hex characters. |
 | `identityPropertyId` | `string`        | Yes      | A unique identifier for a provider-defined verifiable data scope, such as  `0x0e5adf3535913ff915e7f062801a0f3a165711cb26709ec9574a9c45e091c7ff`. |
-| `provingParams`      | `ProvingParams` | No       | `jumpToUrl`: For Amazon-related proofs (which may require different regional service sites), the frontend should pass a specific URL to open and prove. |
+| `provingParams`      | `ProvingParams` | No       | `jumpToUrl`: For Amazon-related proofs (which may require different regional service sites), pass the target page URL. |
 
 
 ### `ProvingParams`
@@ -227,7 +227,7 @@ interface ProvingParams {
   [key: string]: unknown;
 }
 
-// For Amazon-related proofs, pass the URL of the opened target page like this:
+// For Amazon-related proofs, pass the target page URL, for example:
 // provingParams: {
 //  jumpToUrl: "https://www.amazon.com"
 // },
@@ -237,7 +237,7 @@ Rules:
 
 - `provingParams` must be a plain object when provided.
 - `businessParams` is validated against `GET /v1/config` when present and is used for the Gateway request body, not for Primus `additionParams`.
-- `jumpToUrl` should be set when a data-source platform has different regional service sites. For example, for Amazon-related proofs, the frontend should pass a specific URL to open and prove.
+- `jumpToUrl` should be set when a data-source platform has different regional service sites. For example, for Amazon-related proofs, pass a specific target page URL.
 
 ### Options
 
