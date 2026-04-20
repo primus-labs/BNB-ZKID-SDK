@@ -16,7 +16,6 @@ By integrating this SDK, applications can invoke both the **Primus zkTLS** and *
 > For a comprehensive understanding of the business logic, supported data sources, detailed proof outputs, and full integration specifications, please refer to:
 > **[ZK ID SDK Integration Guide](https://docs.google.com/document/d/1dPf19pJUi8okP5eifMRgo0WuZNTceEPBdUv9SZQkgiU/edit?usp=sharing)**
 
----
 
 ## Product and Capability Overview
 
