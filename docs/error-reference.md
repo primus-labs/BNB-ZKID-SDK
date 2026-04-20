@@ -12,6 +12,7 @@ Publicly, the error envelope is intentionally narrow:
 - `code` (alias of `proveCode`)
 - `message`
 - `clientRequestId?`
+- `proofRequestId?`
 
 `toJSON()` follows the same shape.
 
@@ -30,8 +31,9 @@ This includes:
 
 ## Notes for Integrators
 
-- `prove()` progress callbacks may include `proofRequestId` in progress/success
-  payloads, but `BnbZkIdProveError` does not expose `proofRequestId`.
+- `proofRequestId` is exposed on `BnbZkIdProveError` only after the SDK has
+  already obtained a non-empty proof request id from Gateway or the deterministic
+  harness.
 - Non-normalized internal exceptions (for example some transport/setup failures)
   can still surface as non-`BnbZkIdProveError` and should be handled by a generic
   fallback branch.

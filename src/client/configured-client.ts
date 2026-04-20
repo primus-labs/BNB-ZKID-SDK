@@ -61,19 +61,15 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       ]);
     } catch (error) {
       if (isNetworkLikeError(error)) {
-        throw createBnbZkIdProveError("30004", {});
+        throw createBnbZkIdProveError("30004");
       }
       throw error;
     }
 
     if (gatewayConfig.appIds.length > 0 && !gatewayConfig.appIds.includes(appId)) {
-      throw createBnbZkIdProveError(
-        "00003",
-        {},
-        {
-          messageOverride: getInvalidAppIdMessage("not_enabled")
-        }
-      );
+      throw createBnbZkIdProveError("00003", {
+        messageOverride: getInvalidAppIdMessage("not_enabled")
+      });
     }
 
     try {
@@ -83,7 +79,7 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       await this.options.primusAdapter.init(primusAppConfig.zktlsAppId);
     } catch (error) {
       if (isNetworkLikeError(error)) {
-        throw createBnbZkIdProveError("30004", {});
+        throw createBnbZkIdProveError("30004");
       }
       throw error;
     }
@@ -103,18 +99,11 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       this.gatewayConfig === undefined ||
       this.gatewayConfigProvidersWire === undefined
     ) {
-      throw createBnbZkIdProveError(
-        "00001",
-        {
-          message: "init() must succeed before prove().",
-          field: "init"
-        },
-        {
-          ...(typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
-            ? { clientRequestId: input.clientRequestId.trim() }
-            : {})
-        }
-      );
+      throw createBnbZkIdProveError("00001", {
+        ...(typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
+          ? { clientRequestId: input.clientRequestId.trim() }
+          : {})
+      });
     }
 
     return executeProveWorkflow({
@@ -136,10 +125,13 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
         ? input.clientRequestId.trim()
         : undefined;
-    const errorContext = clientRequestId === undefined ? undefined : { clientRequestId };
+    const errorContext = {
+      ...(clientRequestId === undefined ? {} : { clientRequestId }),
+      ...(proofRequestId === "" ? {} : { proofRequestId })
+    };
 
     if (proofRequestId === "") {
-      throw createBnbZkIdProveError("00007", { field: "proofRequestId" }, errorContext);
+      throw createBnbZkIdProveError("00007", clientRequestId === undefined ? undefined : { clientRequestId });
     }
 
     let status;
@@ -147,47 +139,32 @@ class ConfiguredBnbZkIdClient implements BnbZkIdClientMethods {
       status = await this.options.gatewayClient.getProofRequestStatus(proofRequestId);
     } catch (error) {
       if (isNetworkLikeError(error)) {
-        throw createBnbZkIdProveError("30004", {}, errorContext);
+        throw createBnbZkIdProveError("30004", errorContext);
       }
       if (error instanceof SdkError && error.code === GATEWAY_API_ERROR_CODE && error.details !== undefined) {
         const details = error.details as Record<string, unknown>;
-        throw createBnbZkIdProveError(classifyGatewayApiDetailsError(details), { brevis: details }, errorContext);
+        throw createBnbZkIdProveError(classifyGatewayApiDetailsError(details), errorContext);
       }
-      throw createBnbZkIdProveError("30002", { cause: String(error) }, errorContext);
+      throw createBnbZkIdProveError("30002", errorContext);
     }
 
     if (status.error != null) {
       const frameworkDetails = { ...status.error } as Record<string, unknown>;
-      throw createBnbZkIdProveError(
-        classifyGatewayApiDetailsError(frameworkDetails),
-        { brevis: frameworkDetails },
-        errorContext
-      );
+      throw createBnbZkIdProveError(classifyGatewayApiDetailsError(frameworkDetails), errorContext);
     }
 
     if (isGatewayStatusTerminalFailure(status.status)) {
-      throw createBnbZkIdProveError(classifyGatewayTerminalFailureCode(status.status), {}, errorContext);
+      throw createBnbZkIdProveError(classifyGatewayTerminalFailureCode(status.status), errorContext);
     }
 
     if (!isGatewayStatusOnChainAttested(status.status)) {
-      throw createBnbZkIdProveError("30002", { status: status.status }, errorContext);
+      throw createBnbZkIdProveError("30002", errorContext);
     }
     let normalized;
     try {
       normalized = normalizeGatewayAttestedStatusOrThrow(status);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "UNKNOWN_GATEWAY_PAYLOAD_ERROR";
-      const reason =
-        message === "MISSING_WALLET_ADDRESS"
-          ? "missing walletAddress"
-          : message === "MISSING_IDENTITY_PROPERTY_ID"
-            ? "missing identityPropertyId"
-            : message === "MISSING_PROVIDER_ID"
-              ? "missing providerId"
-              : message === "NOT_ONCHAIN_ATTESTED"
-                ? "not on_chain_attested"
-                : "invalid gateway payload";
-      throw createBnbZkIdProveError("30002", { reason }, errorContext);
+    } catch {
+      throw createBnbZkIdProveError("30002", errorContext);
     }
 
     return {

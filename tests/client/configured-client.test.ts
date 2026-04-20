@@ -485,6 +485,7 @@ test("configured client throws 30002 when gateway poll returns terminal error", 
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "30002");
+      assert.equal(err.proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -524,6 +525,7 @@ test("configured client throws 30002 when gateway poll returns prover_failed wit
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "30002");
+      assert.equal(err.proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -563,6 +565,7 @@ test("configured client throws 30002 when createProofRequest returns gateway err
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "30002");
       assert.equal(err.message, "Proof generation failure.");
+      assert.equal(err.proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -602,6 +605,7 @@ test("configured client throws 30002 with zkVM outer message when create returns
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal((err as BnbZkIdProveError).proveCode, "30002");
       assert.equal((err as BnbZkIdProveError).message, "Proof generation failure.");
+      assert.equal((err as BnbZkIdProveError).proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -644,6 +648,7 @@ test("configured client throws 00001 when prove is called before init", async ()
         "SDK initialization failed. Please call init() successfully before calling prove()."
       );
       assert.equal((err as BnbZkIdProveError).clientRequestId, "prove-before-init");
+      assert.equal((err as BnbZkIdProveError).proofRequestId, undefined);
       return true;
     }
   );
@@ -937,6 +942,7 @@ test("configured client queryProofResult maps pending status to 30002", async ()
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "30002");
       assert.equal(err.clientRequestId, "query-pending");
+      assert.equal(err.proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -962,6 +968,7 @@ test("configured client queryProofResult maps submission_failed to 40000", async
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "40000");
+      assert.equal(err.proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -990,6 +997,7 @@ test("configured client queryProofResult maps network-like errors to 30004", asy
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "30004");
       assert.equal(err.clientRequestId, "query-network");
+      assert.equal(err.proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -1018,6 +1026,7 @@ test("configured client queryProofResult maps framework binding_conflict to 3000
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
       assert.equal(err.proveCode, "30001");
+      assert.equal(err.proofRequestId, "proof-request-001");
       return true;
     }
   );
@@ -1041,6 +1050,7 @@ test("configured client queryProofResult throws 00007 when proofRequestId is emp
       assert.equal(err.proveCode, "00007");
       assert.equal(err.message, "proofRequestId is empty.");
       assert.equal(err.clientRequestId, "query-empty-proof-request-id");
+      assert.equal(err.proofRequestId, undefined);
       return true;
     }
   );

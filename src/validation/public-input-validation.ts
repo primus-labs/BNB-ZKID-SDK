@@ -42,16 +42,9 @@ function proveErrContext(clientRequestId: string | undefined): { clientRequestId
 
 export function assertInitInputValidOrThrow(input: InitInput): void {
   if (typeof input.appId !== "string" || input.appId.trim().length === 0) {
-    throw createBnbZkIdProveError(
-      "00003",
-      {
-      message: "appId must be a non-empty string.",
-      field: "appId"
-      },
-      {
-        messageOverride: getInvalidAppIdMessage("empty")
-      }
-    );
+    throw createBnbZkIdProveError("00003", {
+      messageOverride: getInvalidAppIdMessage("empty")
+    });
   }
 }
 
@@ -60,14 +53,7 @@ export function assertProveInputValidOrThrow(
   configProvidersWire: BnbZkIdGatewayConfigProviderWire[]
 ): asserts proveInput is ProveInput {
   if (!provingParamsRootObject(proveInput)) {
-    throw createBnbZkIdProveError(
-      "30002",
-      {
-        message: "prove input must be a plain object.",
-        field: "proveInput"
-      },
-      proveErrContext(clientRequestIdForContext(proveInput))
-    );
+    throw createBnbZkIdProveError("30002", proveErrContext(clientRequestIdForContext(proveInput)));
   }
 
   const { clientRequestId, userAddress, identityPropertyId, provingParams } = proveInput as Record<
@@ -78,10 +64,6 @@ export function assertProveInputValidOrThrow(
   if (typeof clientRequestId !== "string" || clientRequestId.trim().length === 0) {
     throw createBnbZkIdProveError(
       "00005",
-      {
-        message: "clientRequestId must be a non-empty string.",
-        field: "clientRequestId"
-      },
       proveErrContext(typeof clientRequestId === "string" ? clientRequestId : undefined)
     );
   }
@@ -89,70 +71,32 @@ export function assertProveInputValidOrThrow(
   const trimmedRequestId = clientRequestId.trim();
 
   if (typeof userAddress !== "string" || !isStandardEvmWalletAddress(userAddress)) {
-    throw createBnbZkIdProveError(
-      "00002",
-      {
-        message:
-          "userAddress must be a valid EVM wallet address (0x followed by 40 hexadecimal characters).",
-        field: "userAddress"
-      },
-      proveErrContext(trimmedRequestId)
-    );
+    throw createBnbZkIdProveError("00002", proveErrContext(trimmedRequestId));
   }
 
   if (typeof identityPropertyId !== "string" || identityPropertyId.trim().length === 0) {
-    throw createBnbZkIdProveError(
-      "00004",
-      {
-        message: "identityPropertyId must be a non-empty string.",
-        field: "identityPropertyId"
-      },
-      {
-        ...(proveErrContext(trimmedRequestId) ?? {}),
-        messageOverride: getInvalidIdentityPropertyIdMessage("empty")
-      }
-    );
+    throw createBnbZkIdProveError("00004", {
+      ...(proveErrContext(trimmedRequestId) ?? {}),
+      messageOverride: getInvalidIdentityPropertyIdMessage("empty")
+    });
   }
 
   const idTrim = identityPropertyId.trim();
   if (!isIdentityPropertyIdInProvidersWire(configProvidersWire, idTrim)) {
-    throw createBnbZkIdProveError(
-      "00004",
-      {
-        message:
-          "identityPropertyId is not listed in init().providers[].properties[].id.",
-        field: "identityPropertyId",
-        value: idTrim
-      },
-      {
-        ...(proveErrContext(trimmedRequestId) ?? {}),
-        messageOverride: getInvalidIdentityPropertyIdMessage("not_supported")
-      }
-    );
+    throw createBnbZkIdProveError("00004", {
+      ...(proveErrContext(trimmedRequestId) ?? {}),
+      messageOverride: getInvalidIdentityPropertyIdMessage("not_supported")
+    });
   }
 
   if (provingParams !== undefined && provingParams !== null) {
     if (!provingParamsRootObject(provingParams)) {
-      throw createBnbZkIdProveError(
-        "30002",
-        {
-          message: "provingParams must be a plain object when provided.",
-          field: "provingParams"
-        },
-        proveErrContext(trimmedRequestId)
-      );
+      throw createBnbZkIdProveError("30002", proveErrContext(trimmedRequestId));
     }
     const pp = provingParams as ProvingParams;
     const explicitBusiness = pp.businessParams;
     if (explicitBusiness !== undefined && !isBusinessParamsObject(explicitBusiness)) {
-      throw createBnbZkIdProveError(
-        "30002",
-        {
-          message: "provingParams.businessParams must be a plain object when provided.",
-          field: "provingParams.businessParams"
-        },
-        proveErrContext(trimmedRequestId)
-      );
+      throw createBnbZkIdProveError("30002", proveErrContext(trimmedRequestId));
     }
     if (explicitBusiness !== undefined) {
       const expected = findBusinessParamsForIdentityPropertyIdInProvidersWire(
@@ -160,26 +104,10 @@ export function assertProveInputValidOrThrow(
         idTrim
       );
       if (expected === undefined) {
-        throw createBnbZkIdProveError(
-          "30002",
-          {
-            message:
-              "provingParams.businessParams was provided, but init().providers[].properties[] has no businessParams for this identityPropertyId.",
-            field: "provingParams.businessParams"
-          },
-          proveErrContext(trimmedRequestId)
-        );
+        throw createBnbZkIdProveError("30002", proveErrContext(trimmedRequestId));
       }
       if (!jsonDeepEqual(explicitBusiness, expected)) {
-        throw createBnbZkIdProveError(
-          "30002",
-          {
-            message:
-              "provingParams.businessParams must exactly match init().providers[].properties[].businessParams for this identityPropertyId.",
-            field: "provingParams.businessParams"
-          },
-          proveErrContext(trimmedRequestId)
-        );
+        throw createBnbZkIdProveError("30002", proveErrContext(trimmedRequestId));
       }
     }
   }

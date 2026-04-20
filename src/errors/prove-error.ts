@@ -1,16 +1,5 @@
 import { SdkError } from "./sdk-error.js";
 
-/** `@superorange/zka-js-sdk` / legacy Primus `ZkAttestationError` (not always `instanceof Error`). */
-function isZkAttestationLike(
-  err: unknown
-): err is { code: string; message: string; subCode?: string | number; data?: unknown } {
-  if (typeof err !== "object" || err === null) {
-    return false;
-  }
-  const o = err as Record<string, unknown>;
-  return typeof o.code === "string" && typeof o.message === "string";
-}
-
 /** Top-level `prove` / unified machine codes (`BnbZkIdProveError` / aligned `init` failures). */
 export type BnbZkIdProveErrorCode =
   | "00000"
@@ -252,17 +241,20 @@ export class BnbZkIdProveError extends Error {
   override readonly name = "BnbZkIdProveError";
   readonly proveCode: BnbZkIdProveErrorCode;
   readonly clientRequestId?: string;
+  readonly proofRequestId?: string;
 
   constructor(
     proveCode: BnbZkIdProveErrorCode,
     message: string,
-    _details: Record<string, unknown> | undefined,
-    context?: { clientRequestId?: string }
+    context?: { clientRequestId?: string; proofRequestId?: string }
   ) {
     super(message);
     this.proveCode = proveCode;
     if (context?.clientRequestId !== undefined) {
       this.clientRequestId = context.clientRequestId;
+    }
+    if (context?.proofRequestId !== undefined) {
+      this.proofRequestId = context.proofRequestId;
     }
   }
 
@@ -271,16 +263,18 @@ export class BnbZkIdProveError extends Error {
     return this.proveCode;
   }
 
-  /** Stable `{ code, message }` shape for logging / `JSON.stringify`. */
+  /** Stable `{ code, message, clientRequestId?, proofRequestId? }` shape for logging / `JSON.stringify`. */
   toJSON(): {
     code: BnbZkIdProveErrorCode;
     message: string;
     clientRequestId?: string;
+    proofRequestId?: string;
   } {
     return {
       code: this.proveCode,
       message: this.message,
-      ...(this.clientRequestId !== undefined ? { clientRequestId: this.clientRequestId } : {})
+      ...(this.clientRequestId !== undefined ? { clientRequestId: this.clientRequestId } : {}),
+      ...(this.proofRequestId !== undefined ? { proofRequestId: this.proofRequestId } : {})
     };
   }
 }
@@ -303,51 +297,22 @@ export function getInvalidIdentityPropertyIdMessage(reason: "empty" | "not_suppo
   return "Invalid identityPropertyId. [SDK-I01].";
 }
 
-/** Shared reason marker for appId-not-enabled checks. */
-export const INIT_FAILURE_REASON_APP_ID_NOT_ENABLED = "appId_not_enabled" as const;
-
 export function createBnbZkIdProveError(
   proveCode: BnbZkIdProveErrorCode,
-  details?: Record<string, unknown>,
-  context?: { clientRequestId?: string; messageOverride?: string }
+  context?: { clientRequestId?: string; proofRequestId?: string; messageOverride?: string }
 ): BnbZkIdProveError {
   const message = context?.messageOverride ?? getDefaultProveErrorMessage(proveCode);
   const errContext =
     context === undefined
       ? undefined
       : {
-          ...(context.clientRequestId !== undefined ? { clientRequestId: context.clientRequestId } : {})
+          ...(context.clientRequestId !== undefined ? { clientRequestId: context.clientRequestId } : {}),
+          ...(context.proofRequestId !== undefined ? { proofRequestId: context.proofRequestId } : {})
         };
-  const passContext = errContext !== undefined && errContext.clientRequestId !== undefined;
-  return new BnbZkIdProveError(
-    proveCode,
-    message,
-    details,
-    passContext ? errContext : undefined
-  );
-}
-
-/** Normalizes `unknown` and `SdkError` for nested `cause` / transport metadata. */
-export function serializeErrorForProveDetails(err: unknown): Record<string, unknown> {
-  if (err instanceof SdkError) {
-    return {
-      name: err.name,
-      message: err.message,
-      code: err.code,
-      ...(err.details !== undefined ? { sdkDetails: err.details } : {})
-    };
-  }
-  if (err instanceof Error) {
-    return { name: err.name, message: err.message };
-  }
-  if (typeof err === "object" && err !== null) {
-    try {
-      return { value: err as Record<string, unknown> };
-    } catch {
-      return { value: String(err) };
-    }
-  }
-  return { value: String(err) };
+  const passContext =
+    errContext !== undefined &&
+    (errContext.clientRequestId !== undefined || errContext.proofRequestId !== undefined);
+  return new BnbZkIdProveError(proveCode, message, passContext ? errContext : undefined);
 }
 
 /** Shared transport/network detection for mapping to SDK code `30004`. */
@@ -380,41 +345,4 @@ export function isNetworkLikeError(err: unknown): boolean {
     message.includes("network") ||
     message.includes("timeout")
   );
-}
-
-/** Serialized primus-stage diagnostic payload used before surface shaping. */
-export function serializePrimusStageDetails(err: unknown): Record<string, unknown> {
-  if (isZkAttestationLike(err)) {
-    const out: Record<string, unknown> = {
-      code: err.code,
-      message: err.message
-    };
-    const subCode = normalizePrimusSdkWireCode(err.subCode);
-    if (subCode !== undefined) {
-      out.subCode = subCode;
-    }
-    if (err.data !== undefined) {
-      out.data = err.data;
-    }
-    return out;
-  }
-  if (typeof err === "object" && err !== null && !Array.isArray(err)) {
-    const o = err as Record<string, unknown>;
-    const code = typeof o.code === "string" ? o.code.trim() : "";
-    if (code !== "") {
-      const out: Record<string, unknown> = { code };
-      const subCode = normalizePrimusSdkWireCode(o.subCode);
-      if (subCode !== undefined) {
-        out.subCode = subCode;
-      }
-      if (typeof o.message === "string" && o.message.trim() !== "") {
-        out.message = o.message.trim();
-      }
-      if (o.data !== undefined) {
-        out.data = o.data;
-      }
-      return out;
-    }
-  }
-  return { cause: serializeErrorForProveDetails(err) };
 }

@@ -1,11 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  createBnbZkIdProveError,
-  getInvalidAppIdMessage,
-  serializeErrorForProveDetails
-} from "../errors/prove-error.js";
+import { createBnbZkIdProveError, getInvalidAppIdMessage } from "../errors/prove-error.js";
 import { ConfigurationError } from "../errors/sdk-error.js";
 import { resolveProviderIdForIdentityPropertyId } from "../gateway/status-identity.js";
 import { normalizeGatewayAttestedStatusOrThrow } from "../workflow/gateway-success-normalizer.js";
@@ -30,10 +26,6 @@ import type {
   QueryProofResultInput,
   QueryProofResultSuccessResult
 } from "../types/public.js";
-
-function brevisDetails(inner: Record<string, unknown>): Record<string, unknown> {
-  return { brevis: inner };
-}
 
 interface HarnessGatewayConfig {
   appIds: string[];
@@ -122,13 +114,9 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     const config = await this.transport.getConfig();
 
     if (!config.appIds.includes(appId)) {
-      throw createBnbZkIdProveError(
-        "00003",
-        {},
-        {
-          messageOverride: getInvalidAppIdMessage("not_enabled")
-        }
-      );
+      throw createBnbZkIdProveError("00003", {
+        messageOverride: getInvalidAppIdMessage("not_enabled")
+      });
     }
 
     this.initializedAppId = appId;
@@ -147,11 +135,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       created = await this.transport.createProofRequest(input);
     } catch (error) {
       if (error instanceof ConfigurationError) {
-        throw createBnbZkIdProveError(
-          "30002",
-          { phase: "harness", cause: serializeErrorForProveDetails(error) },
-          { clientRequestId }
-        );
+        throw createBnbZkIdProveError("30002", { clientRequestId });
       }
       throw error;
     }
@@ -176,14 +160,10 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       status = await this.transport.getProofRequestStatus(created.proofRequestId);
     } catch (error) {
       if (error instanceof ConfigurationError) {
-        throw createBnbZkIdProveError(
-          "30002",
-          brevisDetails({
-            phase: "pollProofRequest",
-            cause: serializeErrorForProveDetails(error)
-          }),
-          { clientRequestId }
-        );
+        throw createBnbZkIdProveError("30002", {
+          clientRequestId,
+          proofRequestId: created.proofRequestId
+        });
       }
       throw error;
     }
@@ -203,28 +183,17 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       });
 
       const zkVmCode = status.status === "submission_failed" ? "40000" : "30002";
-      throw createBnbZkIdProveError(
-        zkVmCode,
-        brevisDetails({
-          phase: "pollProofRequestTerminal",
-          code: "HARNESS_PROOF_FAILED",
-          message: "Deterministic harness returned a failed proof request.",
-          status: status.status
-        }),
-        { clientRequestId }
-      );
+      throw createBnbZkIdProveError(zkVmCode, {
+        clientRequestId,
+        proofRequestId: created.proofRequestId
+      });
     }
 
     if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
-      throw createBnbZkIdProveError(
-        "30002",
-        brevisDetails({
-          phase: "gateway_payload",
-          reason: "Harness proof request is not in an on-chain attested state.",
-          status: status.status
-        }),
-        { clientRequestId }
-      );
+      throw createBnbZkIdProveError("30002", {
+        clientRequestId,
+        proofRequestId: created.proofRequestId
+      });
     }
 
     await this.emitProgress(options, {
@@ -236,24 +205,11 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
     let normalized;
     try {
       normalized = normalizeGatewayAttestedStatusOrThrow(status);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "UNKNOWN_GATEWAY_PAYLOAD_ERROR";
-      const reason =
-        message === "MISSING_WALLET_ADDRESS"
-          ? "Harness success payload is missing walletAddress."
-          : message === "MISSING_IDENTITY_PROPERTY_ID"
-            ? "Harness success payload is missing identity property id."
-            : message === "MISSING_PROVIDER_ID"
-              ? "Harness success payload is missing providerId."
-              : "Harness success payload is invalid.";
-      throw createBnbZkIdProveError(
-        "30002",
-        brevisDetails({
-          phase: "gateway_payload",
-          reason
-        }),
-        { clientRequestId }
-      );
+    } catch {
+      throw createBnbZkIdProveError("30002", {
+        clientRequestId,
+        proofRequestId: created.proofRequestId
+      });
     }
 
     const gatewayConfig = (await this.transport.getConfig()) as unknown as GatewayConfig;
@@ -261,14 +217,10 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       normalized.providerId ||
       resolveProviderIdForIdentityPropertyId(gatewayConfig, normalized.identityPropertyId)?.trim();
     if (!providerId) {
-      throw createBnbZkIdProveError(
-        "30002",
-        brevisDetails({
-          phase: "gateway_payload",
-          reason: "Harness success payload is missing providerId."
-        }),
-        { clientRequestId }
-      );
+      throw createBnbZkIdProveError("30002", {
+        clientRequestId,
+        proofRequestId: created.proofRequestId
+      });
     }
 
     return {
@@ -287,10 +239,13 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       typeof input.clientRequestId === "string" && input.clientRequestId.trim() !== ""
         ? input.clientRequestId.trim()
         : undefined;
-    const errorContext = clientRequestId === undefined ? undefined : { clientRequestId };
+    const errorContext = {
+      ...(clientRequestId === undefined ? {} : { clientRequestId }),
+      ...(proofRequestId === "" ? {} : { proofRequestId })
+    };
 
     if (proofRequestId === "") {
-      throw createBnbZkIdProveError("00007", { field: "proofRequestId" }, errorContext);
+      throw createBnbZkIdProveError("00007", clientRequestId === undefined ? undefined : { clientRequestId });
     }
 
     let status;
@@ -298,7 +253,7 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       status = await this.transport.getProofRequestStatus(proofRequestId);
     } catch (error) {
       if (error instanceof ConfigurationError) {
-        throw createBnbZkIdProveError("30002", {}, errorContext);
+        throw createBnbZkIdProveError("30002", errorContext);
       }
       throw error;
     }
@@ -308,22 +263,22 @@ class HarnessBnbZkIdClient implements BnbZkIdClientMethods {
       status.status === "prover_failed" ||
       status.status === "packaging_failed"
     ) {
-      throw createBnbZkIdProveError("30002", {}, errorContext);
+      throw createBnbZkIdProveError("30002", errorContext);
     }
     if (status.status === "submission_failed") {
-      throw createBnbZkIdProveError("40000", {}, errorContext);
+      throw createBnbZkIdProveError("40000", errorContext);
     }
     if (status.status === "internal_error") {
-      throw createBnbZkIdProveError("30003", {}, errorContext);
+      throw createBnbZkIdProveError("30003", errorContext);
     }
     if (status.status !== "onchain_attested" && status.status !== "on_chain_attested") {
-      throw createBnbZkIdProveError("30002", {}, errorContext);
+      throw createBnbZkIdProveError("30002", errorContext);
     }
     let normalized;
     try {
       normalized = normalizeGatewayAttestedStatusOrThrow(status);
     } catch {
-      throw createBnbZkIdProveError("30002", {}, errorContext);
+      throw createBnbZkIdProveError("30002", errorContext);
     }
 
     return {

@@ -13,6 +13,7 @@ export interface BnbZkIdError {
   code: string;
   message: string;
   clientRequestId?: string;
+  proofRequestId?: string;
 }
 
 /**
