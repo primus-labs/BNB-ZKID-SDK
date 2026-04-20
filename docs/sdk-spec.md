@@ -55,12 +55,14 @@ export interface BnbZkIdError {
   code: string;
   message: string;
   clientRequestId?: string;
+  proofRequestId?: string;
 }
 
 export type BusinessParams = Record<string, unknown>;
 
 export interface ProvingParams {
   businessParams?: BusinessParams;
+  jumpToUrl?: string;
   [key: string]: unknown;
 }
 
@@ -172,6 +174,7 @@ export declare class BnbZkIdProveError extends Error {
     | "40000";
   readonly code: string;
   readonly clientRequestId?: string;
+  readonly proofRequestId?: string;
 }
 
 /** Framework `error` on proof-requests. */
@@ -228,11 +231,6 @@ const input: ProveInput = {
   clientRequestId: "prove-task-001",
   userAddress: "0x1234567890abcdef1234567890abcdef12345678",
   identityPropertyId: "github_account_age",
-  provingParams: {
-    businessParams: {
-      contribution: [21, 51]
-    }
-  }
 };
 ```
 
@@ -345,9 +343,8 @@ so tests and debug flows can change only the fields they need, such as
 
 ## Error Model
 
-For canonical code/message mapping and stage-level guidance, see
-[`error-codes-references.md`](./error-codes-references.md). For error object
-surface details, see [`error-reference.md`](./error-reference.md).
+For canonical code/message mapping, public error shape, and stage-level guidance,
+see [`error-codes-references.md`](./error-codes-references.md).
 
 Both `init` and `prove` failures now **throw** `BnbZkIdProveError`. Public error
 shape is intentionally narrow:
@@ -355,6 +352,7 @@ shape is intentionally narrow:
 - `code` / `proveCode`
 - `message`
 - optional `clientRequestId`
+- optional `proofRequestId` (only after the SDK has obtained a non-empty request id)
 
 ### prove Error Codes
 

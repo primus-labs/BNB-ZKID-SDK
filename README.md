@@ -220,6 +220,7 @@ type BusinessParams = Record<string, unknown>;
 
 interface ProvingParams {
   businessParams?: BusinessParams;
+  jumpToUrl?: string;
   [key: string]: unknown;
 }
 ```
