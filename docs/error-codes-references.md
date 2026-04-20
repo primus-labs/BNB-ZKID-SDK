@@ -11,6 +11,7 @@ Each error returned by the SDK is a narrow JSON object:
 - **`clientRequestId` (String, optional):** A unique identifier for each proof task.
 - **`proofRequestId` (String, optional):** Present only after the SDK has already obtained a non-empty proof request id from Gateway or the deterministic harness.
 
+
 Example:
 
 ```json
@@ -162,7 +163,6 @@ Errors occurring during the zkTLS and data attestation process.
   - **Message:** `"Proof generation failure."`
 
     Note: Fallback error when the zkTLS stage returns an unclassified or unmapped code. Please contact support if the issue persists.
-
   
 
 ## 4. zkVM Proving Stage (30xxx)

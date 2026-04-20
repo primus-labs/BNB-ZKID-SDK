@@ -71,7 +71,6 @@ try {
       // provingParams: {
       //   jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
       // },
-
     },
     {
       onProgress(event) {
@@ -206,6 +205,7 @@ interface ProveInput {
 | `identityPropertyId` | `string` | Yes | Identity property to prove, such as `github_account_age`. |
 | `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`, to prove Amazon, you need to upload the opened website. |
 
+
 ### `ProvingParams`
 
 ```ts
@@ -216,6 +216,11 @@ interface ProvingParams {
   jumpToUrl?: string;
   [key: string]: unknown;
 }
+
+// Amazon can pass the opened URL like this:
+// provingParams: {
+//  jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
+// },
 ```
 
 Rules:
