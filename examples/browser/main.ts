@@ -79,6 +79,7 @@ interface BrowserHarnessConfigOverrideFile {
 
 const runButton = document.querySelector<HTMLButtonElement>("#run-harness");
 const clearButton = document.querySelector<HTMLButtonElement>("#clear-log");
+const queryProofButton = document.querySelector<HTMLButtonElement>("#query-proof-result");
 const logNode = document.querySelector<HTMLElement>("#log");
 const jsonDetailModal = document.querySelector<HTMLDivElement>("#json-detail-modal");
 const jsonDetailTitle = document.querySelector<HTMLElement>("#json-detail-title");
@@ -91,6 +92,7 @@ const primusSdkFields = document.querySelector<HTMLElement>("#primus-sdk-fields"
 if (
   !runButton ||
   !clearButton ||
+  !queryProofButton ||
   !logNode ||
   !modeSelect ||
   !brevisProviderSelect ||
@@ -112,7 +114,21 @@ const modeSelectElement = modeSelect;
 const brevisProviderSelectElement = brevisProviderSelect;
 const primusSdkFieldsElement = primusSdkFields;
 const logElement = logNode;
+const queryProofButtonElement = queryProofButton;
 let currentBlobUrl: string | undefined;
+
+let lastQueryHarness:
+  | {
+      client: BnbZkIdClient;
+      proofRequestId: string;
+      clientRequestId: string;
+    }
+  | undefined;
+
+function resetQueryProofUi(): void {
+  lastQueryHarness = undefined;
+  queryProofButtonElement.disabled = true;
+}
 
 function rebuildBrevisProviderSelect(): void {
   brevisProviderSelectElement.replaceChildren();
@@ -509,8 +525,11 @@ modeSelectElement.addEventListener("change", () => {
 
 void refreshBrevisHarnessCatalog();
 
+resetQueryProofUi();
+
 runButton.addEventListener("click", async () => {
   logElement.replaceChildren();
+  resetQueryProofUi();
   runButton.disabled = true;
   modeSelectElement.disabled = true;
   brevisProviderSelectElement.disabled = true;
@@ -549,11 +568,10 @@ runButton.addEventListener("click", async () => {
     writeLog(`init: ${JSON.stringify(initResult)}`);
 
     const provingParams = resolveBrowserHarnessProvingParams();
-    const proveInput: ProveInput = 
-    {
+    const proveInput: ProveInput = {
       clientRequestId: new Date().getTime().toString(),
       // userAddress: "0xA91ba9Eb139d90C55a8F04a31d894De0aBbf5a51", // steam
-      userAddress: "0xB12a1f7035FdCBB4cC5Fa102C01346BD45439Adf",// binance  okx github
+      userAddress: "0xB12a1f7035FdCBB4cC5Fa102C01346BD45439Adf", // binance  okx github
       // userAddress: "0x8F0D4188307496926d785fB00E08Ed772f3be890",// amazon
       identityPropertyId: resolveBrowserHarnessIdentityPropertyId(),
       ...(provingParams === undefined ? {} : { provingParams })
@@ -563,13 +581,27 @@ runButton.addEventListener("click", async () => {
       proveInput,
       {
         onProgress(event) {
-          writeLog(`progress: ${event.status} ${event.proofRequestId ?? ""}`.trim());
+          writeLog(
+            `progress: ${JSON.stringify({
+              status: event.status,
+              clientRequestId: event.clientRequestId,
+              proofRequestId: event.proofRequestId
+            })}`
+          );
         }
       }
     );
     console.log("proveResult==:", proveResult);
 
     writeLog(`prove: ${JSON.stringify(proveResult, null, 2)}`);
+    if (proveResult.proofRequestId) {
+      lastQueryHarness = {
+        client,
+        proofRequestId: proveResult.proofRequestId,
+        clientRequestId: proveInput.clientRequestId
+      };
+      queryProofButtonElement.disabled = false;
+    }
     harnessSucceeded = true;
   } catch (error) {
     harnessSucceeded = false;
@@ -591,4 +623,25 @@ runButton.addEventListener("click", async () => {
 
 clearButton.addEventListener("click", () => {
   logElement.replaceChildren();
+});
+
+queryProofButtonElement.addEventListener("click", async () => {
+  if (!lastQueryHarness) {
+    writeLog("queryProofResult: run harness to completion first (no cached proofRequestId).");
+    return;
+  }
+  try {
+    const { client, proofRequestId, clientRequestId } = lastQueryHarness;
+    writeLog(
+      `queryProofResult input: ${JSON.stringify({ proofRequestId, clientRequestId }, null, 2)}`
+    );
+    const result = await client.queryProofResult({ proofRequestId, clientRequestId });
+    writeLog(`queryProofResult: ${JSON.stringify(result, null, 2)}`);
+  } catch (error) {
+    if (error instanceof BnbZkIdProveError) {
+      writeLog(`queryProofResult error: ${JSON.stringify(error.toJSON(), null, 2)}`);
+    } else {
+      writeLog(`queryProofResult error: ${describeError(error)}`);
+    }
+  }
 });

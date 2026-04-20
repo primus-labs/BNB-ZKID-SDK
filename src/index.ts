@@ -16,7 +16,9 @@ export type {
   ProveSuccessResult,
   ProveStatus,
   ProvingParams,
+  QueryProofResultFailure,
   QueryProofResultInput,
+  QueryProofResultResult,
   QueryProofResultSuccessResult
 } from "./types/public.js";
 export { BnbZkIdProveError } from "./errors/prove-error.js";

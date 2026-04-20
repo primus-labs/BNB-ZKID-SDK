@@ -61,15 +61,7 @@ class DefaultPrimusZkTlsAdapter implements PrimusZkTlsAdapter {
     }
 
     const runtime = await this.getRuntime();
-    const genOptions =
-      input.timeoutMs === undefined && input.closeDataSourceOnProofComplete !== true
-        ? undefined
-        : {
-            ...(input.timeoutMs === undefined ? {} : { timeout: input.timeoutMs }),
-            ...(input.closeDataSourceOnProofComplete === true
-              ? { closeDataSourceOnProofComplete: true as const }
-              : {})
-          };
+    const genOptions = input.timeoutMs === undefined ? undefined : { timeout: input.timeoutMs };
     const request = runtime.generateRequestParams(
       input.templateId,
       input.userAddress,

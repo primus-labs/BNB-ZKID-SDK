@@ -128,15 +128,21 @@ Request a proof.
 
     `options.onProgress` callback states:
 
-    - `initializing`: the proof request for the data item was created successfully
-    - `data_verifying`: the data-source page is open and zkTLS proving is running
-    - `proof_generating`: zkTLS proving finished and zkVM proving is in progress
-    - `on_chain_attested`: proof succeeded and has been attested on-chain
+    - `initializing`: the proof request for the data item 
+    was created successfully
+    - `data_verifying`: the data-source page is open and 
+    zkTLS proving is running
+    - `proof_generating`: zkTLS proving finished and zkVM 
+    proving is in progress
+    - `on_chain_attested`: proof succeeded and has been 
+    attested on-chain
     - `failed`: proof failed
 
 - Success result: `status = on_chain_attested`, plus `clientRequestId`,
-  `walletAddress`, `providerId`, `identityPropertyId`, and `proofRequestId`
-- Failure result: `status = failed`, plus `clientRequestId`, optional
+  `walletAddress`, `providerId`, `identityPropertyId`, and 
+  `proofRequestId`
+- Failure result: `status = failed`, plus 
+`clientRequestId`, optional
   `proofRequestId`, and error information
 
 ## Handling Data Source Changes
@@ -153,8 +159,3 @@ Request a proof.
 - Business-flow and architecture security: human review + AI
 
 ## Performance
-
-## Stability
-
-- Automated script testing for `zktls-core-sdk`
-- Automated script testing with the plugin included

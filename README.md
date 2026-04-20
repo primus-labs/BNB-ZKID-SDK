@@ -74,7 +74,14 @@ try {
     },
     {
       onProgress(event) {
-        console.log("progress", event.status, event.proofRequestId ?? "pending");
+        console.log(
+          "progress",
+          JSON.stringify({
+            status: event.status,
+            clientRequestId: event.clientRequestId,
+            proofRequestId: event.proofRequestId
+          })
+        );
       }
     }
   );
@@ -235,14 +242,12 @@ Rules:
 ```ts
 interface ProveOptions {
   onProgress?: (event: ProveProgressEvent) => void;
-  closeDataSourceOnProofComplete?: boolean;
 }
 ```
 
 | Field | Type | Required | Description |
 | --- | --- | --- | --- |
 | `onProgress` | `(event) => void` | No | Callback invoked when the prove workflow changes status. |
-| `closeDataSourceOnProofComplete` | `boolean` | No | Forwarded to the underlying zkTLS browser flow so the data-source tab may be closed after proof completion. |
 
 ### Progress Event
 
@@ -261,15 +266,20 @@ interface ProveProgressEvent {
 }
 ```
 
+| Field | Description |
+| --- | --- |
+| `status` | Current coarse-grained prove step (see `ProveStatus`). |
+| `clientRequestId` | Always present; matches `ProveInput.clientRequestId`. |
+| `proofRequestId` | Present once the Gateway returns a non-empty id from `createProofRequest`: from **`proof_generating`** through **`on_chain_attested`**. Omitted for `initializing` and `data_verifying`. |
+
 Typical progress order:
 
-1. `initializing`
-2. `data_verifying`
-3. `proof_generating`
-4. `on_chain_attested`
+1. `initializing` — workflow starting (Primus attestation not yet collected).
+2. `data_verifying` — zkTLS / data-source verification in progress.
+3. `proof_generating` — Gateway accepted the proof request; **`proofRequestId`** is set when the server returns it; SDK then polls until the request settles.
+4. `on_chain_attested` — success; **`proofRequestId`** included when available (same id as step 3 when present).
 
-If the Gateway reaches a terminal failure, the callback may emit `failed` before
-the SDK throws an error.
+On failure, `onProgress` runs once with `status: "failed"` (then `prove` throws `BnbZkIdProveError`). Use `catch` for `code` / `message` / optional `proofRequestId` on the error object.
 
 ### Success Result
 
@@ -302,7 +312,7 @@ Most integrations should not call it directly. In the normal flow, prefer
 ### Signature
 
 ```ts
-queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>
+queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultResult>
 ```
 
 ### Input
@@ -318,35 +328,59 @@ Use this method only when the caller already has a known `proofRequestId`, for
 example after application reload, persisted task recovery, or manual status
 reconciliation.
 
-### Success Result
+### Result
 
 ```ts
-interface QueryProofResultSuccessResult {
-  status: "on_chain_attested";
-  walletAddress: string;
-  providerId: string;
-  identityPropertyId: string;
-  proofRequestId?: string;
-  clientRequestId?: string;
+interface QueryProofResultFailure {
+  source: "framework_error" | "lifecycle_failure" | "unknown";
+  category?: string;
+  code?: string;
+  reason?: string;
+  message?: string;
+  detail?: string;
 }
+
+type QueryProofResultResult =
+  | {
+      status: "initialized" | "generating" | "submitting";
+      proofRequestId: string;
+      clientRequestId?: string;
+    }
+  | {
+      status: "on_chain_attested";
+      walletAddress: string;
+      providerId: string;
+      identityPropertyId: string;
+      proofRequestId: string;
+      clientRequestId?: string;
+    }
+  | {
+      status: "prover_failed" | "packaging_failed" | "submission_failed" | "internal_error" | "failed";
+      proofRequestId: string;
+      clientRequestId?: string;
+      failure?: QueryProofResultFailure;
+    };
 ```
 
 Behavior notes:
 
 - This method performs exactly one `GET /v1/proof-requests/{proofRequestId}` call (no polling).
-- If `clientRequestId` is provided in input, it is echoed in the success result.
-- If `clientRequestId` is omitted, it is omitted from the success result.
-- Non-attested or failed states throw `BnbZkIdProveError` using the same zkVM/Gateway mapping used by `prove(...)`.
+- If `clientRequestId` is provided in input, it is echoed in the returned status object.
+- If `clientRequestId` is omitted, it is omitted from the returned status object.
+- Pending states (`initialized` / `generating` / `submitting`) are returned directly.
+- Terminal Gateway states are returned directly with an optional normalized `failure` object.
+- This method throws `BnbZkIdProveError` only for invalid input, transport failures, or malformed/unusable payloads.
 
 ## Error Codes and Exception Handling
 
 ### Error Model Summary
 
-Both public methods use one failure style:
+The public methods now use two patterns:
 
 1. `init(...)` failures throw `BnbZkIdProveError`
 2. `prove(...)` failures throw `BnbZkIdProveError`
-3. `queryProofResult(...)` failures throw `BnbZkIdProveError`
+3. `queryProofResult(...)` returns current status for pending, attested, and terminal proof-request states
+4. `queryProofResult(...)` throws `BnbZkIdProveError` only for invalid input, transport failures, or malformed/unusable payloads
 
 ### `BnbZkIdProveError`
 

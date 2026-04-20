@@ -65,6 +65,13 @@ export interface ProveInput {
   provingParams?: ProvingParams;
 }
 
+/**
+ * Snapshot emitted by `prove(..., { onProgress })` for UI updates.
+ * **`clientRequestId`** is always the request id from {@link ProveInput}.
+ * **`proofRequestId`** is set after the Gateway accepts `POST /v1/proof-requests` (non-empty id in the
+ * response): from **`proof_generating`** through **`on_chain_attested`**. Earlier steps
+ * (`initializing`, `data_verifying`) omit it; **`failed`** may omit it depending on how far the flow progressed.
+ */
 export interface ProveProgressEvent {
   status: ProveStatus;
   clientRequestId: string;
@@ -76,11 +83,6 @@ export interface ProveOptions {
    * Progress callbacks; on any `prove` failure the SDK invokes this once with `status: "failed"` before throwing.
    */
   onProgress?: (event: ProveProgressEvent) => void;
-  /**
-   * When true, forwarded to `@primuslabs/zktls-js-sdk` `generateRequestParams` options so the extension
-   * may close the data-source tab after successful proof on PC.
-   */
-  closeDataSourceOnProofComplete?: boolean;
 }
 
 export interface ProveSuccessResult {
@@ -102,9 +104,36 @@ export interface QueryProofResultSuccessResult {
   walletAddress: string;
   providerId: string;
   identityPropertyId: string;
-  proofRequestId?: string;
+  proofRequestId: string;
   clientRequestId?: string;
 }
+
+export interface QueryProofResultFailure {
+  source: "framework_error" | "lifecycle_failure" | "unknown";
+  category?: string;
+  code?: string;
+  reason?: string;
+  message?: string;
+  detail?: string;
+}
+
+export interface QueryProofResultPendingResult {
+  status: "initialized" | "generating" | "submitting";
+  proofRequestId: string;
+  clientRequestId?: string;
+}
+
+export interface QueryProofResultTerminalResult {
+  status: "prover_failed" | "packaging_failed" | "submission_failed" | "internal_error" | "failed";
+  proofRequestId: string;
+  clientRequestId?: string;
+  failure?: QueryProofResultFailure;
+}
+
+export type QueryProofResultResult =
+  | QueryProofResultPendingResult
+  | QueryProofResultSuccessResult
+  | QueryProofResultTerminalResult;
 
 /**
  * @deprecated Prove failures are thrown as {@link import("../errors/prove-error.js").BnbZkIdProveError}; this shape is no longer returned.
@@ -134,7 +163,8 @@ export interface BnbZkIdClientMethods {
    * Query one existing proof request by id (`GET /v1/proof-requests/{proofRequestId}`) without polling.
    * Most developers do not need to call this directly; prefer `prove(...)` for the normal flow.
    * Intended for recovery or manual status reconciliation with a known `proofRequestId`.
-   * On success returns attested result; on any failure throws {@link import("../errors/prove-error.js").BnbZkIdProveError}.
+   * Returns the current normalized proof-request status. Throws only for invalid input, transport failures,
+   * or malformed/unusable response payloads.
    */
-  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>;
+  queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultResult>;
 }

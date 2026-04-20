@@ -7,7 +7,7 @@ import type {
   ProveOptions,
   ProveSuccessResult,
   QueryProofResultInput,
-  QueryProofResultSuccessResult
+  QueryProofResultResult
 } from "../types/public.js";
 
 export class BnbZkIdClient implements BnbZkIdClientMethods {
@@ -25,7 +25,7 @@ export class BnbZkIdClient implements BnbZkIdClientMethods {
     return runtimeClient.prove(input, options);
   }
 
-  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult> {
+  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultResult> {
     const runtimeClient = await this.getRuntimeClient();
     return runtimeClient.queryProofResult(input);
   }
