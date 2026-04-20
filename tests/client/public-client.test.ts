@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { BnbZkIdClient } from "../../src/client/client.js";
+import { INTERNAL_PADOLABS_BASE_URL } from "../../src/config/internal-config.js";
 import type { PrimusAttestationBundle } from "../../src/primus/types.js";
 
 const originalFetch = globalThis.fetch;
@@ -18,7 +19,7 @@ test.beforeEach(() => {
           : input.url;
     const url = new URL(rawUrl);
     if (
-      url.origin === "https://api-dev.padolabs.org" &&
+      url.origin === new URL(INTERNAL_PADOLABS_BASE_URL).origin &&
       url.pathname === "/public/zkid/whitelist/check"
     ) {
       void init;

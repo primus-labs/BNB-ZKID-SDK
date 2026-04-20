@@ -77,7 +77,7 @@ export interface ProveOptions {
    */
   onProgress?: (event: ProveProgressEvent) => void;
   /**
-   * When true, forwarded to `@superorange/zka-js-sdk` `generateRequestParams` options so the extension
+   * When true, forwarded to `@primuslabs/zktls-js-sdk` `generateRequestParams` options so the extension
    * may close the data-source tab after successful proof on PC.
    */
   closeDataSourceOnProofComplete?: boolean;

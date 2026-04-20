@@ -25,6 +25,7 @@ import type {
   PrimusAttestationBundle,
   PrimusZkTlsAdapter
 } from "../../src/primus/types.js";
+import { INTERNAL_PADOLABS_BASE_URL } from "../../src/config/internal-config.js";
 
 const originalFetch = globalThis.fetch;
 let whitelistFetchHandler: (url: URL) => unknown | Promise<unknown> = () => ({
@@ -50,7 +51,7 @@ test.beforeEach(() => {
           : input.url;
     const url = new URL(rawUrl);
     if (
-      url.origin === "https://api-dev.padolabs.org" &&
+      url.origin === new URL(INTERNAL_PADOLABS_BASE_URL).origin &&
       url.pathname === "/public/zkid/whitelist/check"
     ) {
       void init;
