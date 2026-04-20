@@ -13,7 +13,7 @@ By integrating this SDK, applications can invoke both the **Primus zkTLS** and *
 * **Standardized Output**: Offers unified state tracking for the proof lifecycle and consistent result formats.
 * 
 
-> [!REFERENCE]
+> [!INFO]
 > For a comprehensive understanding of the business logic, supported data sources, detailed proof outputs, and full integration specifications, please refer to:
 > **[ZK ID SDK Integration Guide](https://docs.google.com/document/d/1dPf19pJUi8okP5eifMRgo0WuZNTceEPBdUv9SZQkgiU/edit?usp=sharing)**
 
