@@ -132,6 +132,8 @@ export interface BnbZkIdClientMethods {
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
   /**
    * Query one existing proof request by id (`GET /v1/proof-requests/{proofRequestId}`) without polling.
+   * Most developers do not need to call this directly; prefer `prove(...)` for the normal flow.
+   * Intended for recovery or manual status reconciliation with a known `proofRequestId`.
    * On success returns attested result; on any failure throws {@link import("../errors/prove-error.js").BnbZkIdProveError}.
    */
   queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>;

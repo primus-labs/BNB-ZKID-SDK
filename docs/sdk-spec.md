@@ -271,8 +271,10 @@ On success, `prove` returns only `ProveSuccessResult`
 the workflow. On failure, the SDK always throws `BnbZkIdProveError` (see "prove
 error codes").
 
-`queryProofResult` performs a single status query call (no polling) and uses the
-same zkVM/Gateway error mapping for non-success states.
+`queryProofResult` is a supplemental recovery API. It performs a single status
+query call (no polling) for a known `proofRequestId` and uses the same
+zkVM/Gateway error mapping for non-success states. Normal integrations should
+prefer `prove(...)` and let the SDK own submission plus polling.
 
 ## API Design Principles
 

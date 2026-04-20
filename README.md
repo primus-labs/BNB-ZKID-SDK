@@ -295,6 +295,10 @@ interface ProveSuccessResult {
 
 ## `queryProofResult(input)`
 
+`queryProofResult(...)` is a supplemental API for recovery scenarios.
+Most integrations should not call it directly. In the normal flow, prefer
+`prove(...)` and let the SDK handle submission and polling internally.
+
 ### Signature
 
 ```ts
@@ -309,6 +313,10 @@ interface QueryProofResultInput {
   clientRequestId?: string;
 }
 ```
+
+Use this method only when the caller already has a known `proofRequestId`, for
+example after application reload, persisted task recovery, or manual status
+reconciliation.
 
 ### Success Result
 
