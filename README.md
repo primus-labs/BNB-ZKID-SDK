@@ -12,6 +12,7 @@ And two high-level methods:
 
 - `init({ appId })`
 - `prove(input, options?)`
+- `queryProofResult({ proofRequestId, clientRequestId? })`
 
 At a high level, the SDK helps an application:
 
@@ -36,17 +37,7 @@ The following items are part of the current public surface:
 
 ### Prerequisites
 
-Installing the Primus extension test package is only required during the current testing phase. If you have installed the official version of the Primus extension, you need to stop this process first.
-
-* Download the [Primus extension test package](https://github.com/primus-labs/BNB-ZKID-SDK/blob/main/extension/PRIMUS-0.3.48.zip) and unzip.
-
-* Access `chrome://extensions/`
-
-* Check `Developer mode`
-
-* Click on `Load unpacked extension`
-
-* Select the unzip folder.
+Installing the [Primus extension](https://chromewebstore.google.com/detail/primus/oeiomhmbaapihbilkfkhmlajkeegnjhe) .
 
 ### Install
 
@@ -67,24 +58,18 @@ import { BnbZkIdClient, BnbZkIdProveError } from "@primuslabs/bnb-zkid-sdk";
 
 const client = new BnbZkIdClient();
 
-const initResult = await client.init({
-  appId: "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C" // example test appId; it must be registered in the BNB ZK ID Framework On-chain Identity Registry: https://github.com/brevis-network/brevis-zk-id-contracts
-});
-
-if (!initResult.success) {
-  console.error("SDK init failed", initResult.error);
-}
-
-console.log("Supported providers:", initResult.providers);
-
 try {
+  const initResult = await client.init({
+    appId: "0x36013DD48B0C1FBFE8906C0AF0CE521DDA69186AB6E6B5017DBF9691F9CF8E5C" // example test appId; it must be registered in the BNB ZK ID Framework On-chain Identity Registry: https://github.com/brevis-network/brevis-zk-id-contracts
+  });
+  console.log("Supported providers:", initResult.providers);
   const result = await client.prove(
     {
       clientRequestId: "prove-task-001",
       userAddress: "0x1234567890abcdef1234567890abcdef12345678", // user address
       identityPropertyId: "0xa8b86ba89172f269976e3ef2dafed6de381b92a6d19a2ab848273b6f8db69c7c", // the binance identityPropertyId for test
       // provingParams: {
-      //  jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
+      //   jumpToUrl: "https://www.amazon.com" // To prove Amazon, you need to pass the opened website.
       // },
     },
     {
@@ -100,9 +85,7 @@ try {
     console.error("Proof failed", {
       code: error.code,
       message: error.message,
-      details: error.details,
-      clientRequestId: error.clientRequestId,
-      proofRequestId: error.proofRequestId
+      clientRequestId: error.clientRequestId
     });
   } else {
     console.error("Unexpected error", error);
@@ -129,7 +112,7 @@ The package root exports:
 
 - `BnbZkIdClient`
 - `BnbZkIdProveError`
-- public contract types such as `InitInput`, `InitResult`, `ProveInput`,
+- public contract types such as `InitInput`, `InitSuccessResult`, `ProveInput`,
   `ProveOptions`, `ProveProgressEvent`, `ProveSuccessResult`, `ProveStatus`,
   `BusinessParams`, and `ProvingParams`
 
@@ -149,7 +132,7 @@ automatically as described above.
 ### Signature
 
 ```ts
-init(input: InitInput): Promise<InitResult>
+init(input: InitInput): Promise<InitSuccessResult>
 ```
 
 ### Input
@@ -189,26 +172,10 @@ interface BnbZkIdGatewayConfigPropertyWire {
 }
 ```
 
-### Failure Result
-
-```ts
-interface InitFailureResult {
-  success: false;
-  error?: {
-    code: string;
-    message: string;
-    details?: Record<string, unknown>;
-  };
-}
-```
-
 ### `init` Behavior Notes
 
 - `init` must succeed before `prove(...)` is called.
-- If `appId` is empty or invalid, `init` throws `BnbZkIdProveError` with code
-  `00007`.
-- If the Gateway rejects the `appId`, or Primus initialization fails, `init`
-  returns `success: false`.
+- On any failure, `init` throws `BnbZkIdProveError`.
 - On success, the client stores the initialized app context for later `prove(...)`
   calls.
 
@@ -236,7 +203,8 @@ interface ProveInput {
 | `clientRequestId` | `string` | Yes | Client-defined request identifier used for correlation and logging. |
 | `userAddress` | `string` | Yes | EVM wallet address. Must be `0x` followed by 40 hex characters. |
 | `identityPropertyId` | `string` | Yes | Identity property to prove, such as `github_account_age`. |
-| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`. To prove Amazon, you need to upload the opened website. |
+| `provingParams` | `ProvingParams` | No | Optional thresholds / options: `businessParams` for Gateway only; `jumpToUrl` maps to Primus `additionParams.jumpToUrl`, to prove Amazon, you need to upload the opened website. |
+
 
 ### `ProvingParams`
 
@@ -245,6 +213,7 @@ type BusinessParams = Record<string, unknown>;
 
 interface ProvingParams {
   businessParams?: BusinessParams;
+  jumpToUrl?: string;
   [key: string]: unknown;
 }
 
@@ -259,7 +228,7 @@ Rules:
 - `provingParams` must be a plain object when provided.
 - `businessParams` is validated against `GET /v1/config` when present and is used for
   the Gateway request body, not for Primus `additionParams`.
-- `jumpToUrl`, when set to a non-empty string, is passed as Primus `additionParams.jumpToUrl`.
+- `jumpToUrl`, when set to a non-empty string, is passed as Primus `additionParams.jumpToUrl`, to prove Amazon, you need to upload the opened website.
 
 ### Options
 
@@ -324,25 +293,59 @@ interface ProveSuccessResult {
   `on_chain_attested` are accepted internally, but the public success result always
   normalizes to `status: "on_chain_attested"`.
 
+## `queryProofResult(input)`
+
+### Signature
+
+```ts
+queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult>
+```
+
+### Input
+
+```ts
+interface QueryProofResultInput {
+  proofRequestId: string;
+  clientRequestId?: string;
+}
+```
+
+### Success Result
+
+```ts
+interface QueryProofResultSuccessResult {
+  status: "on_chain_attested";
+  walletAddress: string;
+  providerId: string;
+  identityPropertyId: string;
+  proofRequestId?: string;
+  clientRequestId?: string;
+}
+```
+
+Behavior notes:
+
+- This method performs exactly one `GET /v1/proof-requests/{proofRequestId}` call (no polling).
+- If `clientRequestId` is provided in input, it is echoed in the success result.
+- If `clientRequestId` is omitted, it is omitted from the success result.
+- Non-attested or failed states throw `BnbZkIdProveError` using the same zkVM/Gateway mapping used by `prove(...)`.
+
 ## Error Codes and Exception Handling
 
 ### Error Model Summary
 
-There are two public failure surfaces:
+Both public methods use one failure style:
 
-1. `init(...)`
-   - invalid input may throw `BnbZkIdProveError`
-   - operational failures return `InitFailureResult`
-2. `prove(...)`
-   - all failures throw `BnbZkIdProveError`
+1. `init(...)` failures throw `BnbZkIdProveError`
+2. `prove(...)` failures throw `BnbZkIdProveError`
+3. `queryProofResult(...)` failures throw `BnbZkIdProveError`
 
 ### `BnbZkIdProveError`
 
 ```ts
 class BnbZkIdProveError extends Error {
-  readonly proveCode: BnbZkIdProveErrorCode;
   readonly code: string;
-  readonly details: Record<string, unknown>;
+  readonly message: string;
   readonly clientRequestId?: string;
   readonly proofRequestId?: string;
 }
@@ -350,83 +353,13 @@ class BnbZkIdProveError extends Error {
 
 Important notes:
 
-- `code` is an alias of `proveCode`.
-- `details.primus` is used for zkTLS and Primus-stage failures.
-- `details.brevis` is used for Gateway and proof-lifecycle failures.
-- `clientRequestId` is included when the failure is associated with a specific
-  prove call.
-- `proofRequestId` is included when the Gateway had already created a proof
-  request before the failure occurred.
+- Publicly, the stable error envelope is `code`, `message`,
+  `clientRequestId?`, and `proofRequestId?`.
+- Internally, `code` is an alias of `proveCode`.
+- clientRequestId (String, optional): A unique identifier for each proof task.
+- proofRequestId (String, optional): Present only after the SDK has already obtained a non-empty proof request id from Gateway or the deterministic harness.
 
 ### Error Code Table
 
-| Code | Default message | Typical meaning | Retry guidance |
-| --- | --- | --- | --- |
-| `00000` | `Not detected the Primus Extension` | Primus extension or required browser runtime is missing. | Retry only after the required browser environment is installed and available. |
-| `00001` | `Failed to initialize` | SDK initialization failed, including calling `prove` before a successful `init`, unsupported `appId`, or app-level setup failure. | Check app configuration first. Retry only after the root cause is fixed. |
-| `00002` | `A verification process is in progress. Please try again later.` | Primus reported that another verification flow is already active. | Retry later. |
-| `00003` | `The user closes or cancels the verification process.` | The user cancelled or closed the verification flow. | Safe to retry when the user is ready. |
-| `00004` | `Target data missing. Please check whether the data json path in the request URL's response aligns with your template.` | The zkTLS template could not extract the expected data from the target source. | Retry only after fixing the template or data source. |
-| `00005` | `Unstable internet connection. Please try again.` | Network-level failure reported by the zkTLS stage. | Usually safe to retry. |
-| `00006` | `Failed to generate zkTLS proof` | Generic Primus or zkTLS proving failure. | Retry after reviewing `details.primus`. |
-| `00007` | `Invalid parameters` | Public input validation failed. | Do not retry until the request payload is corrected. |
-| `10000` | `This address has pending proof for identityPropertyId.` | The address already has a pending proof for the same property. | Retry later or wait for the existing request to finish. |
-| `10001` | `This address is already bound to another account.` | Gateway reported a binding conflict. | Usually not retryable until the account binding state changes. |
-| `10002` | `Failed to onChain` | Gateway reached an on-chain submission failure. | Review `details.brevis` and retry only if the backend indicates it is safe. |
-| `10003` | `Failed to generate zkVM proof` | Gateway or proof lifecycle failed after proof request creation, or the Gateway returned an invalid terminal payload. | Inspect `details.brevis` before retrying. |
-
-### Common Failure Shapes
-
-#### Invalid Parameter Error
-
-Example:
-
-```ts
-try {
-  await client.prove({
-    clientRequestId: "",
-    userAddress: "not-an-address",
-    identityPropertyId: ""
-  });
-} catch (error) {
-  if (error instanceof BnbZkIdProveError) {
-    console.error(error.code); // 00007
-    console.error(error.details);
-  }
-}
-```
-
-Typical validation fields include:
-
-- `appId`
-- `clientRequestId`
-- `userAddress`
-- `identityPropertyId`
-- `provingParams`
-- `provingParams.businessParams`
-
-#### Gateway Failure
-
-When the Gateway returns a framework or proof-lifecycle failure, the SDK throws a
-`BnbZkIdProveError` with `details.brevis`.
-
-Typical fields under `details.brevis` include:
-
-- `category`
-- `code`
-- `message`
-- `status`
-- `failure`
-- `phase`
-- `rawDetails`
-
-#### zkTLS Failure
-
-When the zkTLS stage fails, the SDK throws a `BnbZkIdProveError` with
-`details.primus`.
-
-Typical fields under `details.primus` include:
-
-- `code`
-- `message`
-- `data`
+Error codes/messages are now maintained in one canonical document:
+[`docs/error-codes-references.md`](./docs/error-codes-references.md).

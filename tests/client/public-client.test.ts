@@ -4,7 +4,46 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { BnbZkIdClient } from "../../src/client/client.js";
+import { INTERNAL_PADOLABS_BASE_URL } from "../../src/config/internal-config.js";
 import type { PrimusAttestationBundle } from "../../src/primus/types.js";
+
+const originalFetch = globalThis.fetch;
+
+test.beforeEach(() => {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const rawUrl =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    const url = new URL(rawUrl);
+    if (
+      url.origin === new URL(INTERNAL_PADOLABS_BASE_URL).origin &&
+      url.pathname === "/public/zkid/whitelist/check"
+    ) {
+      void init;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          rc: 0,
+          mc: "SUCCESS",
+          msg: "",
+          result: true
+        })
+      } as Response;
+    }
+    if (originalFetch === undefined) {
+      throw new Error(`Unexpected fetch call in test: ${rawUrl}`);
+    }
+    return originalFetch(input as RequestInfo, init);
+  }) as typeof fetch;
+});
+
+test.after(() => {
+  globalThis.fetch = originalFetch;
+});
 
 async function createTempConfig(): Promise<string> {
   const dir = await mkdtemp(path.join(os.tmpdir(), "bnb-zkid-public-client-"));
@@ -189,6 +228,19 @@ test("public BnbZkIdClient loads config file and executes prove workflow", async
     providerId: "github",
     identityPropertyId: "github_account_age",
     proofRequestId: "proof-request-001"
+  });
+
+  const queryResult = await client.queryProofResult({
+    proofRequestId: "proof-request-001",
+    clientRequestId: "query-task-001"
+  });
+  assert.deepEqual(queryResult, {
+    status: "on_chain_attested",
+    walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    providerId: "github",
+    identityPropertyId: "github_account_age",
+    proofRequestId: "proof-request-001",
+    clientRequestId: "query-task-001"
   });
 
   delete process.env.BNB_ZKID_CONFIG_PATH;

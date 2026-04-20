@@ -1,12 +1,13 @@
-import { createProveBeforeInitError } from "../errors/prove-error.js";
 import { createRuntimeConfiguredClient } from "./runtime-client.js";
 import type {
   BnbZkIdClientMethods,
   InitInput,
-  InitResult,
+  InitSuccessResult,
   ProveInput,
   ProveOptions,
-  ProveSuccessResult
+  ProveSuccessResult,
+  QueryProofResultInput,
+  QueryProofResultSuccessResult
 } from "../types/public.js";
 
 export class BnbZkIdClient implements BnbZkIdClientMethods {
@@ -14,23 +15,19 @@ export class BnbZkIdClient implements BnbZkIdClientMethods {
 
   constructor() {}
 
-  async init(input: InitInput): Promise<InitResult> {
+  async init(input: InitInput): Promise<InitSuccessResult> {
     const runtimeClient = await this.getRuntimeClient();
     return runtimeClient.init(input);
   }
 
   async prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult> {
-    if (!this.runtimeClientPromise) {
-      const err = createProveBeforeInitError(input.clientRequestId);
-      await options?.onProgress?.({
-        status: "failed",
-        clientRequestId: err.clientRequestId ?? input.clientRequestId.trim()
-      });
-      throw err;
-    }
-
-    const runtimeClient = await this.runtimeClientPromise;
+    const runtimeClient = await this.getRuntimeClient();
     return runtimeClient.prove(input, options);
+  }
+
+  async queryProofResult(input: QueryProofResultInput): Promise<QueryProofResultSuccessResult> {
+    const runtimeClient = await this.getRuntimeClient();
+    return runtimeClient.queryProofResult(input);
   }
 
   private async getRuntimeClient(): Promise<BnbZkIdClientMethods> {

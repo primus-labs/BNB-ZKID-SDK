@@ -8,6 +8,7 @@ import {
   createHttpPrimusTemplateResolver,
   createStaticPrimusTemplateResolver
 } from "../primus/template-resolver.js";
+import { createHttpWhitelistChecker } from "../whitelist/checker.js";
 import { isNodeRuntime } from "../runtime/environment.js";
 import type { BnbZkIdClientMethods } from "../types/public.js";
 import type { GatewayClient } from "../gateway/types.js";
@@ -44,7 +45,15 @@ export async function createRuntimeConfiguredClient(): Promise<BnbZkIdClientMeth
   const client = createConfiguredBnbZkIdClient({
     gatewayClient,
     primusAdapter,
-    primusTemplateResolver
+    primusTemplateResolver,
+    ...(file.primus.whitelist === undefined
+      ? {}
+      : {
+          whitelistChecker: createHttpWhitelistChecker({
+            baseUrl: file.primus.whitelist.baseUrl,
+            checkPath: file.primus.whitelist.checkPath
+          })
+        })
   });
 
   return client;

@@ -39,7 +39,7 @@ export type PrimusAdditionParamsValue =
 export type PrimusAdditionParams = Record<string, PrimusAdditionParamsValue>;
 
 /**
- * Third argument to {@link PrimusZkTlsRuntime.generateRequestParams} (`@superorange/zka-js-sdk`).
+ * Third argument to {@link PrimusZkTlsRuntime.generateRequestParams} (`@primuslabs/zktls-js-sdk`).
  * Legacy callers may only set {@link CollectPrimusAttestationInput.timeoutMs} which maps to `timeout`.
  */
 export interface PrimusGenerateRequestParamsOptions {
@@ -102,7 +102,7 @@ export interface CollectPrimusAttestationInput {
   /** When set, must be `"true"` or `"false"` (Primus API). */
   allJsonResponseFlag?: "true" | "false";
   /**
-   * When true, passed to runtime `generateRequestParams` options (`@superorange/zka-js-sdk`) so the
+   * When true, passed to runtime `generateRequestParams` options (`@primuslabs/zktls-js-sdk`) so the
    * att request closes the data-source tab after successful proof on PC when supported.
    */
   closeDataSourceOnProofComplete?: boolean;

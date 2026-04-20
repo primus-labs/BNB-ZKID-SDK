@@ -4,11 +4,13 @@
 
 The **BNB ZK ID SDK** provides a unified error handling system that covers the entire lifecycle of a proof: from **zkTLS** data verification and **zkVM** proof generation to **On-chain** submission. This guide helps developers identify and resolve issues at each stage of the workflow.
 
-Each error returned by the SDK is a JSON object:
+Each error returned by the SDK is a narrow JSON object:
 
 - **`code` (String):** A 5-digit unique identifier. The first two digits indicate the Category, while the remaining digits specify the unique error within that domain.
 - **`message` (String):** A readable explanation of the error. Many messages include an **Internal Reference ID** in brackets (e.g., `[P-301]`) to help the support team locate the exact point of failure.
-- **`clientRequestId` (String):** A unique identifier for each proof task.
+- **`clientRequestId` (String, optional):** A unique identifier for each proof task.
+- **`proofRequestId` (String, optional):** Present only after the SDK has already obtained a non-empty proof request id from Gateway or the deterministic harness.
+
 
 Example:
 
@@ -16,7 +18,8 @@ Example:
 {
   "code": "10002",
   "message": "Verification timed out. Please try again. [P-00002].",
-  "clientRequestId": "1775799705267"
+  "clientRequestId": "1775799705267",
+  "proofRequestId": "proof-request-001"
 }
 ```
 
@@ -155,6 +158,11 @@ Errors occurring during the zkTLS and data attestation process.
 
     Note: Occurs when the algorithm service fails to start or encounters an unexpected state. Retry usually resolves this.
 
+- **Code: `20008`**
+
+  - **Message:** `"Proof generation failure."`
+
+    Note: Fallback error when the zkTLS stage returns an unclassified or unmapped code. Please contact support if the issue persists.
   
 
 ## 4. zkVM Proving Stage (30xxx)

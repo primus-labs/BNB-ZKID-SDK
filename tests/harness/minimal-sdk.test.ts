@@ -13,15 +13,13 @@ test("deterministic harness returns a typed happy path", async () => {
 
   const initResult = await client.init({ appId: "listdao" });
   assert.equal(initResult.success, true);
-  if (initResult.success) {
-    assert.deepEqual(initResult.providers[0]?.id, "github");
-    assert.deepEqual(
-      initResult.providers[0]?.properties[0]?.businessParams,
-      {
-        contribution: [21, 51]
-      }
-    );
-  }
+  assert.deepEqual(initResult.providers[0]?.id, "github");
+  assert.deepEqual(
+    initResult.providers[0]?.properties[0]?.businessParams,
+    {
+      contribution: [21, 51]
+    }
+  );
 
   const proveResult = await client.prove(
     {
@@ -59,6 +57,17 @@ test("deterministic harness returns a typed happy path", async () => {
     proveResult.walletAddress,
     "0x1234567890abcdef1234567890abcdef12345678"
   );
+
+  const queryResult = await client.queryProofResult({
+    proofRequestId: "proof-request-001"
+  });
+  assert.deepEqual(queryResult, {
+    status: "on_chain_attested",
+    walletAddress: "0x1234567890abcdef1234567890abcdef12345678",
+    providerId: "github",
+    identityPropertyId: "github_account_age",
+    proofRequestId: "proof-request-001"
+  });
 });
 
 test("minimal example executes successfully after build", async () => {

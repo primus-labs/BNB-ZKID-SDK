@@ -35,17 +35,24 @@ export interface BnbZkIdPrimusServerSignerConfig {
   apiKey?: string;
 }
 
+export interface BnbZkIdWhitelistConfig {
+  baseUrl: string;
+  checkPath: string;
+}
+
 export interface BnbZkIdPrimusSdkConfig {
   mode: "sdk";
   appSecret?: string;
   templateResolver: BnbZkIdPrimusStaticTemplateResolverConfig | BnbZkIdPrimusServerTemplateResolverConfig;
   signer?: BnbZkIdPrimusServerSignerConfig;
+  whitelist?: BnbZkIdWhitelistConfig;
 }
 
 export interface BnbZkIdPrimusFixtureConfig {
   mode: "fixture";
   bundlePath: string;
   templateResolver: BnbZkIdPrimusStaticTemplateResolverConfig | BnbZkIdPrimusServerTemplateResolverConfig;
+  whitelist?: BnbZkIdWhitelistConfig;
 }
 
 export type BnbZkIdPrimusRuntimeConfig = BnbZkIdPrimusSdkConfig | BnbZkIdPrimusFixtureConfig;
