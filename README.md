@@ -346,17 +346,20 @@ Both public methods use one failure style:
 
 ```ts
 class BnbZkIdProveError extends Error {
-  readonly proveCode: BnbZkIdProveErrorCode;
   readonly code: string;
+  readonly message: string;
   readonly clientRequestId?: string;
+  readonly proofRequestId?: string;
 }
 ```
 
 Important notes:
 
-- `code` is an alias of `proveCode`.
-- `clientRequestId` is included when the failure is associated with a specific
-  prove call.
+- Publicly, the stable error envelope is `code`, `message`,
+  `clientRequestId?`, and `proofRequestId?`.
+- Internally, `code` is an alias of `proveCode`.
+- clientRequestId (String, optional): A unique identifier for each proof task.
+- proofRequestId (String, optional): Present only after the SDK has already obtained a non-empty proof request id from Gateway or the deterministic harness.
 
 ### Error Code Table
 
