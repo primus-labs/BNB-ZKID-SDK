@@ -80,7 +80,12 @@ Errors related to the integration of the SDK and local environment.
 
     Note: Returned if the user's address is not on the allowed whitelist.
 
-    
+**Code: `00007`**
+
+  - **Message:** `"Undefined SDK processing error."`
+
+    Note: Fallback error for undefined failures. The process stops before entering the zkTLS attestation stage. Please initialize the SDK again, then try again.
+  
 
 ## 3. zkTLS Attestation Stage (10xxx & 20xxx)
 
@@ -142,7 +147,7 @@ Errors occurring during the zkTLS and data attestation process.
 
 - **Code: `20005`**
 
-  - **Message:** `"Response processing error. Please try again. [P-30001/P-30002]."`
+  - **Message:** `"Response processing error. Please try again. [P-30001/30001:302/30002/30003]."`
 
     Note: A rare issue where the response data could not be parsed correctly. Retry usually resolves this.
 
@@ -158,11 +163,6 @@ Errors occurring during the zkTLS and data attestation process.
 
     Note: Occurs when the algorithm service fails to start or encounters an unexpected state. Retry usually resolves this.
 
-- **Code: `20008`**
-
-  - **Message:** `"Proof generation failure."`
-
-    Note: Fallback error when the zkTLS stage returns an unclassified or unmapped code. Please contact support if the issue persists.
   
 
 ## 4. zkVM Proving Stage (30xxx)
