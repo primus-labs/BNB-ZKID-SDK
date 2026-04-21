@@ -186,7 +186,6 @@ export declare class BnbZkIdProveError extends Error {
     | "20005"
     | "20006"
     | "20007"
-    | "20008"
     | "30000"
     | "30001"
     | "30002"
@@ -391,7 +390,7 @@ shape is intentionally narrow:
 | `00004` | Invalid `identityPropertyId` (`SDK-I00` / `SDK-I01`). |
 | `00005` | Missing `clientRequestId`. |
 | `10001`–`10013` | zkTLS stage mapped codes. |
-| `20001`–`20008` | zkTLS and fallback mapped codes. |
+| `20001`–`20007` | zkTLS mapped codes. Unmapped Primus wires use `00007` (see `Undefined SDK processing error.`). |
 | `30000`–`30005` | zkVM / Gateway stage mapped codes. |
 | `40000` | On-chain submission failed. |
 

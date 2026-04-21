@@ -146,7 +146,7 @@ export interface BnbZkIdClientMethods {
   init(input: InitInput): Promise<InitSuccessResult>;
   /**
    * On success returns attested result. On any failure throws {@link import("../errors/prove-error.js").BnbZkIdProveError}
-   * (`code` `00000`–`00007`, `10001`–`10013`, `20001`–`20008`, `30000`–`30005`, `40000`; `message`).
+   * (`code` `00000`–`00007`, `10001`–`10013`, `20001`–`20007`, `30000`–`30005`, `40000`; `message`).
    */
   prove(input: ProveInput, options?: ProveOptions): Promise<ProveSuccessResult>;
   /**
