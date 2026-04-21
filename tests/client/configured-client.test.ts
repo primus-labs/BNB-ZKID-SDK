@@ -691,7 +691,7 @@ test("configured client maps primus code + subCode (50000 + 508) to 20002", asyn
   );
 });
 
-test("configured client maps unknown primus code to 20008 fallback", async () => {
+test("configured client maps unknown primus code to 00007 with SDK wire suffix", async () => {
   const gatewayClient = new FakeGatewayClient();
   const primusAdapter = new FakePrimusAdapter();
   primusAdapter.collectAttestationBundle = async () => {
@@ -716,8 +716,8 @@ test("configured client maps unknown primus code to 20008 fallback", async () =>
       }),
     (err: unknown) => {
       assert.ok(err instanceof BnbZkIdProveError);
-      assert.equal(err.proveCode, "20008");
-      assert.equal(err.message, "Proof generation failure.");
+      assert.equal(err.proveCode, "00007");
+      assert.equal(err.message, "Undefined SDK processing error. [SDK-77777]");
       return true;
     }
   );

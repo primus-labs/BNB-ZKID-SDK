@@ -22,7 +22,6 @@ export type BnbZkIdProveErrorCode =
   | "20005"
   | "20006"
   | "20007"
-  | "20008"
   | "30000"
   | "30001"
   | "30002"
@@ -49,13 +48,13 @@ const PROVE_ERROR_MESSAGES_MAP: Record<BnbZkIdProveErrorCode, string> = {
   "10013": "No verifiable data detected. Please confirm login status and account details.",
   "20001": "Unstable internet connection. Please try again. [P-10001~10004].",
   "20002":
-    "Internal algorithm error. Please contact support. [P-20001~20005/40001/40002/50000:501/50000:502/50005:505/50000:507/50000:508/50000:510/50011].",
+    "Internal algorithm error. Please contact support. [P-20001~20005/40001/40002/50000:501/50000:502/50000:505/50000:507/50000:508/50000:510/50011].",
   "20003": "Data schema mismatch. Please contact support. [P-30001:301/30001:404/30004/30005/30006].",
   "20004": "Too many attempts. Please try again later. [P-00000/30001:403/30001:429].",
-  "20005": "Response processing error. Please try again. [P-30001/P-30002].",
+  "20005":
+    "Response processing error. Please try again. [P-30001/P-30002/P-30001:302/P-30003].",
   "20006": "Session expired. Please log in to the data source website again. [P-30001:401].",
   "20007": "Service request error. Please try again. [P-50003/P-50004/P-50006/P-50009/P-99999].",
-  "20008": "Proof generation failure.",
   "30000": "Duplicate request. Task already in progress.",
   "30001": "Proof binding error. This data is already bound to another address.",
   "30002": "Proof generation failure.",
@@ -101,10 +100,23 @@ export function extractPrimusWireCodeFromUnknown(err: unknown): string | undefin
 
 /**
  * Maps a Primus / zktls-js-sdk wire `code` to the SDK outer {@link BnbZkIdProveErrorCode}.
- * Unlisted non-empty codes fall through to `00006` (generic zkTLS failure).
+ * Unlisted non-empty codes fall through to `00007` with {@link undefinedSdkProcessingErrorMessage}.
  */
 function primusMessageWithWire(base: string, wire: string): string {
   return `${base} [P-${wire}].`;
+}
+
+/**
+ * Primus stage fallback (unmapped wire or error shape without extractable `code`).
+ * Uses `00007` with a distinct message from `proofRequestId is empty.` (same code, overridden message).
+ */
+export function undefinedSdkProcessingErrorMessage(wire: string | undefined): string {
+  const base = "Undefined SDK processing error.";
+  const w = typeof wire === "string" ? wire.trim() : "";
+  if (w === "") {
+    return base;
+  }
+  return `${base} [SDK-${w}]`;
 }
 
 export function resolvePrimusStageErrorFromUnknown(err: unknown): {
@@ -114,8 +126,8 @@ export function resolvePrimusStageErrorFromUnknown(err: unknown): {
   const wire = extractPrimusWireCodeFromUnknown(err);
   if (wire === undefined) {
     return {
-      code: "20008",
-      message: getDefaultProveErrorMessage("20008")
+      code: "00007",
+      message: undefinedSdkProcessingErrorMessage(undefined)
     };
   }
   if (wire === "00006") {
@@ -170,7 +182,7 @@ export function resolvePrimusStageErrorFromUnknown(err: unknown): {
     wire === "40002" ||
     wire === "50000:501" ||
     wire === "50000:502" ||
-    wire === "50005:505" ||
+    wire === "50000:505" ||
     wire === "50000:507" ||
     wire === "50000:508" ||
     wire === "50000:510" ||
@@ -199,7 +211,13 @@ export function resolvePrimusStageErrorFromUnknown(err: unknown): {
       message: primusMessageWithWire("Too many attempts. Please try again later.", wire)
     };
   }
-  if (wire === "30001" || wire === "30002") {
+  // `wire` is normalized by `extractPrimusWireCodeFromUnknown` (e.g. code 30001 + subCode 302 → "30001:302").
+  if (
+    wire === "30001" ||
+    wire === "30002" ||
+    wire === "30001:302" ||
+    wire === "30003"
+  ) {
     return {
       code: "20005",
       message: primusMessageWithWire("Response processing error. Please try again.", wire)
@@ -230,8 +248,8 @@ export function resolvePrimusStageErrorFromUnknown(err: unknown): {
     };
   }
   return {
-    code: "20008",
-    message: getDefaultProveErrorMessage("20008")
+    code: "00007",
+    message: undefinedSdkProcessingErrorMessage(wire)
   };
 }
 
