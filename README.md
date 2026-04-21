@@ -24,7 +24,7 @@ By integrating this SDK, applications can invoke both the **Primus zkTLS** and *
 
 Use the live demo below to experience the complete end-to-end flow from an end-user perspective:
 
-**[BNB ZK ID Live Demo](http://api-dev.padolabs.org:38113/)**
+**[ZK ID Live Demo](http://api-dev.padolabs.org:38113/)**
 
 
 
