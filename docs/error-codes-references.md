@@ -80,7 +80,7 @@ Errors related to the integration of the SDK and local environment.
 
     Note: Returned if the user's address is not on the allowed whitelist.
 
-**Code: `00007`**
+- **Code: `00007`**
 
   - **Message:** `"Undefined SDK processing error."`
 
