@@ -129,7 +129,7 @@ Errors occurring during the zkTLS and data attestation process.
 
 - **Code: `20002`**
 
-  - **Message:** `"Internal algorithm error. Please contact support. [P-20001~20005/40001/40002/50000:501/50000:502/50005:505/50000:507/50000:508/50000:510/50011]."`
+  - **Message:** `"Internal algorithm error. Please contact support. [P-20001~20005/40001/40002/50000:501/50000:502/50000:505/50000:507/50000:508/50000:510/50011]."`
 
     Note: An unexpected runtime error occurred. Please contact support and provide the internal reference ID.
 
